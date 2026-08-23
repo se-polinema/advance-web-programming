@@ -1,0 +1,30 @@
+name: Build Book PDFs
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: [self-hosted, se-runner]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build book PDFs
+        working-directory: book
+        run: make both
+
+      - name: Check for LaTeX errors
+        working-directory: book
+        run: |
+          if grep -l "LaTeX Error\|Undefined control sequence" book-id.log book-en.log; then
+            echo "LaTeX errors found in build log"
+            exit 1
+          fi
+
+      - name: Upload PDFs to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" book/book-id.pdf book/book-en.pdf --clobber
