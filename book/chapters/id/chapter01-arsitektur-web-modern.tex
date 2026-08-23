@@ -36,7 +36,7 @@ fitur yang dipakai kasir setiap hari.
 \begin{enumerate}
   \item membandingkan arsitektur monolith, microservices, dan serverless untuk menjelaskan alasan Laravel dipilih sebagai kerangka kerja monolith bagi Simple POS;
   \item menyiapkan proyek Laravel 13 baru dengan SQLite sebagai basis data zero-setup, lengkap dengan \artisan{migrate:fresh --seed} dan \artisan{serve};
-  \item menjelaskan konvensi commit \cmd{increment N} pada repositori Simple POS dan bagaimana urutan increment memetakan pertumbuhan aplikasi bab demi bab.
+  \item mengenali struktur folder proyek Laravel (\file{routes/}, \file{app/Http/Controllers/}, \file{database/migrations/}) sebagai perwujudan pola MVC, lalu menginisialisasi repositori Git dengan commit \cmd{increment 1} pertama.
 \end{enumerate}
 
 \section{Monolith, Microservices, dan Mengapa Laravel}
@@ -184,10 +184,23 @@ cp .env.example .env
 php artisan key:generate
 \end{lstlisting}
 
-Tiga perintah terakhir menyiapkan berkas konfigurasi \file{.env} (tempat
-kredensial dan pengaturan lingkungan disimpan, terpisah dari kode sumber
-supaya tidak pernah ikut ter-commit ke Git) dan menghasilkan kunci enkripsi
-aplikasi yang dipakai Laravel untuk mengamankan sesi dan cookie.
+\textbf{Yang diharapkan}: \cmd{composer create-project} mencetak daftar
+paket yang diunduh satu per satu, diakhiri baris seperti
+\texttt{Application ready in simple-pos. You can now start using
+Composer!}; \artisan{key:generate} mencetak
+\texttt{INFO Application key set successfully.} Tiga perintah terakhir
+menyiapkan berkas konfigurasi \file{.env} (tempat kredensial dan
+pengaturan lingkungan disimpan, terpisah dari kode sumber supaya tidak
+pernah ikut ter-commit ke Git) dan menghasilkan kunci enkripsi aplikasi
+yang dipakai Laravel untuk mengamankan sesi dan cookie.
+
+\begin{tipbox}
+\textbf{Kalau \cmd{composer create-project} gagal} dengan pesan yang
+menyinggung versi PHP (mis. \texttt{requires php \textasciicircum{}8.2}),
+jalankan
+\cmd{php -v} untuk memastikan versi PHP yang terpasang 8.2 ke atas;
+Laravel 13 tidak bisa dipasang di versi PHP yang lebih lama.
+\end{tipbox}
 
 Selain dependensi PHP yang baru saja diinstal \cmd{composer}, proyek Laravel
 terbaru juga menyertakan \file{package.json}: daftar dependensi JavaScript
@@ -200,24 +213,30 @@ terdaftar ke folder \file{node\_modules/}:
 npm install
 \end{lstlisting}
 
-Langkah ini belum wajib untuk menjalankan Simple POS hari ini; halaman
-bawaan Laravel masih tampil dengan gaya cadangan meski \file{node\_modules/}
-belum ada. Menjalankannya sekarang menghindari jeda instalasi mendadak
-begitu Bab~3 mulai memakai Tailwind dan Alpine.js lewat Vite. Langkah
-berikutnya mengarahkan koneksi basis data ke sebuah berkas SQLite:
+\textbf{Yang diharapkan}: \cmd{npm install} mencetak jumlah paket yang
+terpasang, diakhiri baris seperti \texttt{added N packages in Ns}, tanpa
+baris \texttt{npm error} di antaranya. Langkah ini belum wajib untuk
+menjalankan Simple POS hari ini; halaman bawaan Laravel masih tampil
+dengan gaya cadangan meski \file{node\_modules/} belum ada.
+Menjalankannya sekarang menghindari jeda instalasi mendadak begitu Bab~3
+mulai memakai Tailwind dan Alpine.js lewat Vite. Langkah berikutnya
+mengarahkan koneksi basis data ke sebuah berkas SQLite:
 
 \begin{lstlisting}[language=bash]
 touch database/database.sqlite
 php artisan migrate:fresh --seed
 \end{lstlisting}
 
-\artisan{migrate:fresh} menjalankan seluruh berkas migrasi dari awal
-(menghapus tabel lama jika ada, lalu membangunnya kembali dari definisi
-skema terbaru), sedangkan opsi \cmd{--seed} langsung mengisi tabel yang baru
-dibuat dengan data contoh lewat berkas seeder. Untuk Simple POS, seeder ini
-mengisi ratusan produk dan ribuan transaksi sekaligus, sesuatu yang akan
-dibahas lebih dalam pada Bab~4 ketika alasan mengisi data dalam skala nyata,
-bukan sekadar beberapa baris, mulai terlihat manfaatnya.
+\textbf{Yang diharapkan}: daftar migrasi tercetak satu per satu, masing-masing
+diakhiri kata \texttt{DONE}, tanpa satu pun baris error di antaranya,
+diikuti pesan bahwa seeder selesai berjalan. \artisan{migrate:fresh}
+menjalankan seluruh berkas migrasi dari awal (menghapus tabel lama jika
+ada, lalu membangunnya kembali dari definisi skema terbaru), sedangkan
+opsi \cmd{--seed} langsung mengisi tabel yang baru dibuat dengan data
+contoh lewat berkas seeder. Untuk Simple POS, seeder ini mengisi ratusan
+produk dan ribuan transaksi sekaligus, sesuatu yang akan dibahas lebih
+dalam pada Bab~4 ketika alasan mengisi data dalam skala nyata, bukan
+sekadar beberapa baris, mulai terlihat manfaatnya.
 
 \begin{warningbox}
 Berkas \file{.env} menyimpan informasi yang sensitif (kunci aplikasi,
@@ -234,10 +253,15 @@ dijalankan tanpa konfigurasi web server terpisah seperti Apache atau Nginx:
 php artisan serve
 \end{lstlisting}
 
-Perintah ini menjalankan aplikasi pada \route{http://127.0.0.1:8000} memakai
-server PHP bawaan, cukup untuk seluruh pengembangan lokal di buku ini.
-Server produksi sungguhan (dibahas pada Bab~11) memakai konfigurasi
-berbeda, tetapi struktur aplikasi yang dipelajari di sini tetap sama persis.
+\textbf{Yang diharapkan}: baris \texttt{INFO Server running on
+[http://127.0.0.1:8000]}, lalu terminal tetap terbuka menunggu request
+(tekan \texttt{Ctrl+C} untuk menghentikannya). Buka alamat itu di
+browser; halaman selamat datang Laravel, bukan pesan error, adalah
+tanda seluruh langkah di bagian ini berhasil. Perintah ini menjalankan
+aplikasi pada \route{http://127.0.0.1:8000} memakai server PHP bawaan,
+cukup untuk seluruh pengembangan lokal di buku ini. Server produksi
+sungguhan (dibahas pada Bab~11) memakai konfigurasi berbeda, tetapi
+struktur aplikasi yang dipelajari di sini tetap sama persis.
 
 \section{Praktik: Inisialisasi Simple POS dan Alur Git}
 \label{sec:arsitektur-web-modern-3}
@@ -279,7 +303,46 @@ kosong hasil \cmd{composer create-project}, persis seperti hasil Praktik
 controller produk, lalu tampilan Blade, lalu skema basis data, mengikuti
 urutan yang sama dengan urutan bab pada buku ini. Membaca riwayat commit
 Simple POS secara berurutan sama seperti membaca buku ini bab demi bab,
-hanya dalam bentuk kode sungguhan alih-alih prosa.
+hanya dalam bentuk kode sungguhan alih-alih prosa. Langkah-langkah berikut
+membuat commit \cmd{increment 1} milikmu sendiri, supaya konvensi ini
+terasa nyata, bukan cuma dibaca.
+
+\begin{enumerate}
+  \item \cmd{composer create-project} tidak otomatis menyiapkan repositori
+    Git (berbeda dari installer \cmd{laravel new} yang melakukannya
+    otomatis), jadi langkah ini sengaja dilakukan manual dari dalam folder
+    \file{simple-pos/}:
+    \begin{lstlisting}[language=bash]
+git init
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: pesan \texttt{Initialized empty Git
+    repository in .../simple-pos/.git/}.
+  \item Tambahkan seluruh berkas proyek ke area staging, lalu buat commit
+    pertama dengan pesan yang mengikuti konvensi \cmd{increment N}:
+    \begin{lstlisting}[language=bash]
+git add .
+git commit -m "increment 1: proyek Laravel kosong"
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: ringkasan jumlah berkas yang di-commit,
+    diakhiri baris seperti \texttt{N files changed, M insertions(+)}.
+    Perhatikan bahwa \file{vendor/}, \file{node\_modules/}, dan
+    \file{.env} tidak ikut disebutkan; \file{.gitignore} bawaan Laravel
+    sudah mengecualikan ketiganya, persis seperti peringatan pada bagian
+    sebelumnya.
+  \item Verifikasi commit itu benar-benar tersimpan:
+    \begin{lstlisting}[language=bash]
+git log --oneline
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: satu baris berisi hash pendek diikuti pesan
+    \texttt{increment 1: proyek Laravel kosong} persis seperti yang baru
+    saja ditulis.
+  \item \textbf{Kalau \cmd{git commit} gagal} dengan pesan yang meminta
+    \texttt{user.name}/\texttt{user.email}, ini komputer yang belum
+    pernah dipakai Git sebelumnya; atur sekali saja dengan
+    \cmd{git config --global user.name "Nama Kamu"} dan
+    \cmd{git config --global user.email "email@kamu.com"}, lalu ulangi
+    langkah 2.
+\end{enumerate}
 
 \begin{tipbox}
 Kode lengkap setiap bab tersedia dalam dua bentuk. Repositori
@@ -310,17 +373,23 @@ kedua repositori itu.
   \item Proyek Laravel 13 disiapkan dengan \cmd{composer create-project},
     dihubungkan ke SQLite sebagai basis data zero-setup, lalu dijalankan
     dengan \artisan{migrate:fresh --seed} dan \artisan{serve}.
-  \item Konvensi commit \cmd{increment N} pada repositori Simple POS
-    memetakan pertumbuhan aplikasi bab demi bab, dengan kode lengkap tiap
-    bab tersedia sebagai branch tersendiri di GitHub.
+  \item Struktur folder Laravel (\file{routes/}, \file{app/Http/Controllers/},
+    \file{database/migrations/}) mewujudkan pola MVC; commit
+    \cmd{increment N} pertama menandai repositori Git terinisialisasi,
+    dengan konvensi yang sama memetakan pertumbuhan aplikasi bab demi bab
+    dan kode lengkap tiap bab tersedia sebagai branch tersendiri di
+    GitHub.
 \end{itemize}
 
 \section{Latihan}
 
 \begin{enumerate}
-  \item Jalankan ketiga perintah pada Praktik 1.1 di komputermu sendiri,
-    lalu verifikasi bahwa \cmd{php artisan serve} menampilkan halaman
-    selamat datang Laravel di \route{http://127.0.0.1:8000}.
+  \item Jalankan seluruh perintah setup pada Bagian 2 (\cmd{composer
+    create-project} sampai \artisan{serve}) di komputermu sendiri, lalu
+    verifikasi bahwa \cmd{php artisan serve} menampilkan halaman selamat
+    datang Laravel di \route{http://127.0.0.1:8000}; lanjutkan dengan
+    ketiga perintah Git pada Praktik 1.2 dan pastikan \cmd{git log
+    --oneline} menampilkan commit \texttt{increment 1} milikmu.
   \item Buka \file{database/migrations/} pada proyek yang baru dibuat, lalu
     identifikasi berapa banyak berkas migrasi yang sudah ada secara bawaan
     (tanpa menulis kode apa pun) dan tabel apa saja yang dibuatnya.
