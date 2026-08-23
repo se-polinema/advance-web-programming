@@ -44,8 +44,8 @@ fitur yang dipakai kasir setiap hari.
 
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[Monolith] Aplikasi yang seluruh lapisannya, antarmuka, logika bisnis, dan akses data, berjalan dalam satu basis kode dan satu proses deploy.
-  \item[Microservices] Arsitektur yang memecah aplikasi menjadi layanan-layanan independen, masing-masing berjalan dan di-deploy sendiri, saling berkomunikasi lewat jaringan.
+  \item[Monolith] Aplikasi yang seluruh lapisannya, antarmuka, logika bisnis, dan akses data, berjalan dalam satu basis kode dan satu proses deploy. Sering disalahpahami sebagai ``kode berantakan''; monolith yang terstruktur (mis. dengan MVC) tetap rapi, lawan katanya bukan ``modular'', melainkan ``terdistribusi''.
+  \item[Microservices] Arsitektur yang memecah aplikasi menjadi layanan-layanan independen, masing-masing berjalan dan di-deploy sendiri, saling berkomunikasi lewat jaringan. Aturan praktis: baru sepadan ketika organisasi punya banyak tim yang masing-masing bisa memiliki dan mengoperasikan layanannya sendiri; satu tim kecil yang memecah aplikasinya hanya menambah ongkos operasional.
 \end{description}
 \end{istilahpenting}
 
@@ -112,7 +112,7 @@ microservices (layanan independen yang saling memanggil lewat jaringan)}
 
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[Serverless] Model eksekusi kode sebagai fungsi-fungsi kecil yang hanya berjalan saat dipicu peristiwa, tanpa proses server yang menyala terus-menerus; penyedia cloud yang mengurus infrastrukturnya.
+  \item[Serverless] Model eksekusi kode sebagai fungsi-fungsi kecil yang hanya berjalan saat dipicu peristiwa, tanpa proses server yang menyala terus-menerus; penyedia cloud yang mengurus infrastrukturnya. Namanya menyesatkan: server tetap ada, hanya bukan tanggung jawabmu. Karena proses tidak hidup terus-menerus, ada jeda \textit{cold start} saat fungsi lama tidak dipanggil, dan biaya dihitung per eksekusi, bukan per jam server menyala.
 \end{description}
 \end{istilahpenting}
 
@@ -126,7 +126,7 @@ basis data yang konsisten sepanjang jam operasional warung.
 
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[MVC] Pola \textit{Model-View-Controller}: Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
+  \item[MVC] Pola \textit{Model-View-Controller}: Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya. Aturan praktis menaruh kode: menyentuh data ke Model, mengatur alur permintaan ke Controller, menampilkan ke View. Framework tidak memaksa ini, query di dalam view tetap bisa jalan, pola ini adalah disiplin yang dijaga penulis kodenya sendiri.
 \end{description}
 \end{istilahpenting}
 
@@ -188,8 +188,8 @@ SQLite bahkan untuk demonstrasi kelas, bukan cuma untuk latihan buku ini.
 
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate.
-  \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun.
+  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate. Daftar lengkap perintahnya bisa dilihat kapan saja dengan menjalankan \artisan{php artisan list}; Artisan hanya alat bantu pengembangan, tidak ikut berjalan saat aplikasi melayani pengguna.
+  \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun. Perlakukan seperti version control untuk skema: perubahan baru berarti berkas migrasi baru, bukan mengedit migrasi lama yang sudah pernah dijalankan di komputer lain.
 \end{description}
 \end{istilahpenting}
 
