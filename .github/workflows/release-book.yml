@@ -13,7 +13,13 @@ jobs:
 
       - name: Build book PDFs
         working-directory: book
-        run: make both
+        run: |
+          # On a fresh checkout (no cached .bbl), latexmk's first pass hits
+          # undefined-references noise before biber resolves the bibliography;
+          # $force_mode papers over it but still exits non-zero. The PDF from
+          # that first pass is already fine — this just gets a clean exit code.
+          make both || true
+          make both
 
       - name: Check for LaTeX errors
         working-directory: book
