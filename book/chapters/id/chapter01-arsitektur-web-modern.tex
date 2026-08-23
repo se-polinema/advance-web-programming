@@ -46,9 +46,6 @@ fitur yang dipakai kasir setiap hari.
 \begin{description}[leftmargin=0pt,style=nextline]
   \item[Monolith] Aplikasi yang seluruh lapisannya, antarmuka, logika bisnis, dan akses data, berjalan dalam satu basis kode dan satu proses deploy.
   \item[Microservices] Arsitektur yang memecah aplikasi menjadi layanan-layanan independen, masing-masing berjalan dan di-deploy sendiri, saling berkomunikasi lewat jaringan.
-  \item[MVC] Pola \textit{Model-View-Controller}: Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
-  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate.
-  \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun.
 \end{description}
 \end{istilahpenting}
 
@@ -113,6 +110,12 @@ microservices (layanan independen yang saling memanggil lewat jaringan)}
 \label{fig:monolith-microservices}
 \end{figure}
 
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Serverless] Model eksekusi kode sebagai fungsi-fungsi kecil yang hanya berjalan saat dipicu peristiwa, tanpa proses server yang menyala terus-menerus; penyedia cloud yang mengurus infrastrukturnya.
+\end{description}
+\end{istilahpenting}
+
 \term{Serverless} menempuh jalan ketiga: kode ditulis sebagai fungsi-fungsi
 kecil yang hanya berjalan ketika ada peristiwa yang memicunya (permintaan
 HTTP, jadwal cron, pesan baru di antrean), dan penyedia layanan cloud yang
@@ -121,11 +124,17 @@ misalnya pemrosesan gambar yang hanya dipicu saat pengguna mengunggah foto,
 tetapi kurang cocok untuk aplikasi seperti Simple POS yang butuh koneksi
 basis data yang konsisten sepanjang jam operasional warung.
 
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[MVC] Pola \textit{Model-View-Controller}: Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
+\end{description}
+\end{istilahpenting}
+
 Laravel dipilih sebagai kerangka kerja buku ini karena memetakan tepat ke
 kebutuhan monolith: satu proyek PHP yang sudah menyediakan routing,
 autentikasi, ORM, dan sistem template tanpa perlu merakit potongan pustaka
 dari sumber berbeda. Dibandingkan menulis PHP polos dari nol, Laravel
-memberi struktur MVC yang konsisten sejak baris kode pertama; dibandingkan
+memberi struktur \term{MVC} yang konsisten sejak baris kode pertama; dibandingkan
 kerangka kerja microservices-first yang lebih rumit, Laravel tetap
 produktif untuk tim satu atau dua orang yang mengejar tenggat.
 
@@ -176,6 +185,13 @@ sebelum baris kode pertama dijalankan. Pembaca yang baru menginstal PHP
 bisa langsung menjalankan migrasi pada menit pertama, bukan menghabiskan
 setengah jam mengatur akun MySQL. Simple POS sendiri berjalan di atas
 SQLite bahkan untuk demonstrasi kelas, bukan cuma untuk latihan buku ini.
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate.
+  \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun.
+\end{description}
+\end{istilahpenting}
 
 \begin{lstlisting}[language=bash]
 composer create-project laravel/laravel simple-pos
