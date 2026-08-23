@@ -4,41 +4,95 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: write
-
 jobs:
-  build:
+  build-full:
+    name: Build Full Book (${{ matrix.lang }})
     runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [id, en]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build book PDFs
+      - name: Build full book
         working-directory: book
         run: |
-          # On a fresh checkout (no cached .bbl), each language's first
-          # latexmk pass hits undefined-references noise before biber
-          # resolves the bibliography; $force_mode papers over it but still
-          # exits non-zero. `make both` stops at the first failing target,
-          # so id and en each need their own two-pass treatment rather than
-          # running `make both` twice as a whole (which only warms id before
-          # en hits the same fresh-checkout issue for the first time).
-          make id || true
-          make id
-          make en || true
-          make en
+          # On a fresh checkout (no cached .bbl), latexmk's first pass hits
+          # undefined-references noise before biber resolves the
+          # bibliography; $force_mode papers over it but still exits
+          # non-zero. The PDF from that first pass is already fine — this
+          # just gets a clean exit code on the second pass.
+          make ${{ matrix.lang }} || true
+          make ${{ matrix.lang }}
 
       - name: Check for LaTeX errors
         working-directory: book
         run: |
-          if grep -l "LaTeX Error\|Undefined control sequence" book-id.log book-en.log; then
+          if grep -l "LaTeX Error\|Undefined control sequence" book-${{ matrix.lang }}.log; then
             echo "LaTeX errors found in build log"
             exit 1
           fi
 
-      - name: Upload PDFs to release
+      - name: Rename PDF with release tag
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          cp "book/book-${{ matrix.lang }}.pdf" "book-${{ matrix.lang }}-${VERSION}.pdf"
+
+      - name: Upload full book to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" book/book-id.pdf book/book-en.pdf --clobber
+          VERSION="${{ github.event.release.tag_name }}"
+          gh release upload "$VERSION" "book-${{ matrix.lang }}-${VERSION}.pdf" --clobber
+
+  build-chapters:
+    name: Build Chapter (${{ matrix.lang }}, ${{ matrix.chapter }})
+    runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [id, en]
+        chapter:
+          - chapter01-arsitektur-web-modern
+          - chapter02-http-dan-mvc
+          - chapter03-blade-dan-tailwind
+          - chapter04-desain-basis-data
+          - chapter05-eloquent-dan-relasi
+          - chapter06-validasi-input
+          - chapter07-autentikasi-dan-otorisasi
+          - chapter08-pengolahan-data
+          - chapter09-membangun-rest-api
+          - chapter10-pengujian-aplikasi
+          - chapter11-optimasi-dan-deployment
+          - chapter12-studi-kasus-menyeluruh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build chapter
+        working-directory: book
+        run: |
+          # Same fresh-checkout $force_mode quirk as the full book build —
+          # build-chapter.sh also runs latexmk -bibtex under the hood.
+          ./scripts/build-chapter.sh ${{ matrix.lang }} ${{ matrix.chapter }} || true
+          ./scripts/build-chapter.sh ${{ matrix.lang }} ${{ matrix.chapter }}
+
+      - name: Rename chapter PDF with release tag
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          SRC="book/output/chapters/chapter-${{ matrix.lang }}-${{ matrix.chapter }}.pdf"
+          DEST="chapter-${{ matrix.lang }}-${{ matrix.chapter }}-${VERSION}.pdf"
+          cp "$SRC" "$DEST"
+
+      - name: Upload chapter to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          gh release upload "$VERSION" "chapter-${{ matrix.lang }}-${{ matrix.chapter }}-${VERSION}.pdf" --clobber
