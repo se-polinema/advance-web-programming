@@ -79,9 +79,30 @@ jobs:
         working-directory: book
         run: |
           # Same fresh-checkout $force_mode quirk as the full book build —
-          # build-chapter.sh also runs latexmk -bibtex under the hood.
+          # build-chapter.sh also runs latexmk -bibtex under the hood. For
+          # some chapters (confirmed with chapter04-desain-basis-data)
+          # latexmk's own exit code stays non-zero even after several
+          # reruns despite producing a fully correct PDF and log with no
+          # real errors — running the script twice doesn't fix it (the
+          # second invocation just replays the first's cached error via
+          # "Nothing to do"). So don't trust the script's exit code at all;
+          # `|| true` here and let the next step verify the actual PDF and
+          # log content instead.
           ./scripts/build-chapter.sh ${{ matrix.lang }} ${{ matrix.chapter }} || true
-          ./scripts/build-chapter.sh ${{ matrix.lang }} ${{ matrix.chapter }}
+
+      - name: Check for LaTeX errors and confirm PDF exists
+        working-directory: book
+        run: |
+          PDF="output/chapters/chapter-${{ matrix.lang }}-${{ matrix.chapter }}.pdf"
+          LOG="output/chapters/chapter-${{ matrix.lang }}-${{ matrix.chapter }}.log"
+          if [ ! -f "$PDF" ]; then
+            echo "PDF was not generated: $PDF"
+            exit 1
+          fi
+          if grep -l "LaTeX Error\|Undefined control sequence" "$LOG"; then
+            echo "LaTeX errors found in build log"
+            exit 1
+          fi
 
       - name: Rename chapter PDF with release tag
         run: |
