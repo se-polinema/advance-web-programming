@@ -1,0 +1,386 @@
+%% ========================================================================
+%% Bab 3: Antarmuka dengan Blade, Tailwind, dan Alpine
+%% ========================================================================
+
+\chapter{Antarmuka dengan Blade, Tailwind, dan Alpine}
+\label{ch:blade-dan-tailwind}
+
+\chapterhero{blue}{Bangun tampilan kasir Simple POS dengan Blade dan Tailwind, lalu hidupkan keranjang belanjanya dengan Alpine.js tanpa reload halaman.}{\faIcon{layer-group}\quad MPA vs SPA}{\faIcon{palette}\quad Blade \& Tailwind}{\faIcon{bolt}\quad Alpine.js}
+
+Etalase toko kelontong yang hanya memajang barang di balik kaca tidak pernah
+berubah sampai pemiliknya sendiri turun tangan menata ulang. Pembeli yang
+ingin tahu berapa stok yang tersisa, atau ingin membatalkan barang yang
+sudah diambil dari rak, harus memanggil pramuniaga dan menunggu jawaban.
+Pramuniaga yang sigap bekerja dengan cara berbeda: begitu pembeli mengambil
+satu barang dan meletakkannya ke keranjang, ia langsung tahu, menghitung
+ulang totalnya di tempat, dan siap membatalkan pilihan itu tanpa pembeli
+perlu mengulang dari awal. Halaman kasir Simple POS yang dibangun murni
+dengan Blade, tanpa sentuhan JavaScript sama sekali, berperilaku persis
+seperti etalase kaca itu: setiap kali kasir menambah satu produk ke
+keranjang, seluruh halaman harus dimuat ulang dari server. Kios dengan
+volume transaksi tinggi tidak punya waktu untuk reload halaman puluhan
+kali dalam satu shift; kasir yang menunggu tiap klik selesai memuat ulang
+melayani pembeli lebih lambat, dan antrean di depan kasir ikut merasakan
+akibatnya.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item membandingkan pola multi-page application (MPA) dan single-page application (SPA), serta menjelaskan posisi Blade dan Alpine.js sebagai pendekatan hibrida;
+  \item menyusun layout Blade dan halaman kasir (\route{/pos}) Simple POS dengan Tailwind CSS lewat Vite, memakai \cmd{npm run dev} untuk hot reload selama pengembangan;
+  \item mengimplementasikan keranjang belanja dinamis pada halaman kasir memakai Alpine.js, diinstal lewat npm dan dibundel bersama aset lain oleh Vite, untuk interaktivitas sisi klien tanpa reload halaman.
+\end{enumerate}
+
+\section{MPA vs SPA dan Peran Blade}
+\label{sec:blade-dan-tailwind-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Blade] Mesin templating bawaan Laravel yang merender HTML di server, memakai sintaks direktif seperti \cmd{@if} dan \cmd{@foreach} langsung di dalam berkas \texttt{.blade.php}.
+  \item[Directive] Instruksi Blade yang diawali \texttt{@}, misalnya \cmd{@extends}, \cmd{@section}, dan \cmd{@yield}, yang dikompilasi Laravel menjadi PHP biasa sebelum dijalankan.
+  \item[Component] Potongan Blade yang bisa dipakai ulang lintas halaman, misalnya kartu produk atau tombol, didaftarkan sebagai berkas terpisah dan dipanggil lewat tag \texttt{<x-nama-component>}.
+  \item[Alpine.js] Pustaka JavaScript ringan yang menambahkan state dan interaktivitas langsung lewat atribut HTML (\cmd{x-data}, \cmd{x-model}, \cmd{@click}), diinstal lewat npm seperti dependensi JavaScript lain.
+  \item[Vite] Build tool frontend yang dipakai Laravel secara bawaan: menjalankan dev server dengan hot reload lewat \cmd{npm run dev} selama pengembangan, dan membundel/meminifikasi seluruh CSS \& JavaScript jadi berkas produksi lewat \cmd{npm run build}.
+\end{description}
+\end{istilahpenting}
+
+Sebuah \term{multi-page application} (MPA) memuat ulang seluruh halaman dari
+server setiap kali pengguna berpindah tautan atau mengirim form: browser
+membuang HTML lama, meminta yang baru, dan merender dari nol. Pendekatan ini
+sederhana untuk dipahami dan gampang di-debug karena setiap request punya
+jawaban HTML yang lengkap, tapi terasa lambat untuk interaksi kecil yang
+sering berulang, seperti menambah satu produk ke keranjang belanja.
+\term{Single-page application} (SPA) mengambil jalan berlawanan: satu
+halaman HTML dimuat sekali di awal, lalu seluruh perubahan berikutnya
+ditangani JavaScript di browser, yang mengambil data lewat request
+tersembunyi dan memperbarui sebagian DOM saja tanpa reload. React, Vue, dan
+Angular adalah contoh pustaka yang dibangun khusus untuk pola SPA.
+
+\begin{table}[htbp]
+\centering
+\caption{MPA, SPA, dan pendekatan hibrida Blade + Alpine.js}
+\label{tab:mpa-spa}
+\begin{tblr}{
+  colspec = {X[0.7,l] X[1.3,l] X[1.3,l]},
+  hline{1,2,Z} = {solid},
+}
+Pola & Sumber render & Cocok untuk \\
+MPA murni & Server, HTML penuh tiap navigasi & Halaman dengan interaksi jarang, SEO penting \\
+SPA murni & Klien, JavaScript merender DOM & Aplikasi dengan interaksi sangat sering, state kompleks \\
+Blade + Alpine.js & Server untuk struktur, klien untuk interaksi lokal & Aplikasi seperti Simple POS: halaman umumnya statis, sebagian kecil butuh reaktif \\
+\end{tblr}
+\end{table}
+
+Simple POS tidak memerlukan SPA penuh. Halaman kategori, daftar transaksi,
+dan laporan penjualan jarang berubah dalam satu sesi kerja, jadi render
+server biasa lewat Blade sudah cukup cepat dan jauh lebih sederhana untuk
+dirawat. Satu-satunya bagian yang benar-benar butuh interaktivitas tanpa
+reload adalah keranjang belanja di halaman kasir: kasir menambah dan
+mengurangi item berkali-kali dalam satu transaksi, dan menunggu reload
+setiap klik akan terasa mengganggu. Alpine.js mengisi celah itu tanpa
+memaksa seluruh aplikasi pindah ke arsitektur SPA; ia hanya menambahkan
+state dan reaktivitas pada elemen HTML yang memang membutuhkannya, sementara
+sisa halaman tetap dirender Blade seperti biasa.
+
+\begin{notebox}
+Pendekatan ini kadang disebut hibrida atau, dalam ekosistem Laravel, dekat
+dengan pola yang dipopulerkan Livewire dan Hotwire: server tetap jadi
+sumber kebenaran, JavaScript hanya bertugas mempercepat bagian yang terasa
+lambat kalau harus reload penuh.
+\end{notebox}
+
+\section{Layout dan Halaman Kasir dengan Tailwind}
+\label{sec:blade-dan-tailwind-2}
+
+Hampir setiap halaman Simple POS berbagi kerangka yang sama: judul tab
+browser, menu navigasi di sisi kiri, dan area konten yang berubah-ubah
+tergantung halaman mana yang dibuka. Blade menghindari pengulangan kerangka
+itu di setiap berkas lewat direktif \cmd{@extends}, \cmd{@section}, dan
+\cmd{@yield}: satu berkas layout mendefinisikan kerangka lengkap dengan
+lubang bernama tempat konten halaman akan disisipkan, dan setiap halaman
+individual cukup mengisi lubang itu tanpa menulis ulang \texttt{<html>},
+\texttt{<head>}, atau menu navigasi.
+
+\begin{lstlisting}[language=php, title=\lstfile{resources/views/layouts/app.blade.php}]
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <title>@yield('title', 'Simple POS')</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body>
+    <x-nav />
+    <main>@yield('content')</main>
+</body>
+</html>
+\end{lstlisting}
+
+Direktif \cmd{@vite([...])} menggantikan tag \texttt{<script>}/\texttt{<link>}
+manual: ia menyuntikkan tag CSS dan JavaScript yang tepat secara otomatis,
+berbeda tergantung mode. Tiga berkas bekerja sama di baliknya, dan ketiganya
+sudah tersedia sejak \cmd{npm install} di Bab~1:
+
+\begin{enumerate}
+  \item \texttt{resources/css/app.css} memuat Tailwind lewat satu baris
+    \texttt{@import 'tailwindcss';} di baris pertama, bukan berkas
+    konfigurasi \texttt{tailwind.config.js} terpisah seperti versi Tailwind
+    yang lebih lama.
+  \item \texttt{vite.config.js} mendaftarkan dua plugin:
+    \texttt{laravel()} (menghubungkan Vite ke direktif \cmd{@vite} dan
+    mendeteksi berkas yang berubah) dan \texttt{tailwindcss()} (memproses
+    class utility jadi CSS asli).
+  \item \texttt{package.json} mendaftarkan kedua paket itu sebagai
+    \texttt{devDependencies}, sudah terunduh ke \texttt{node\_modules/}
+    sejak \cmd{npm install} dijalankan.
+\end{enumerate}
+
+Selama pengembangan, Vite berjalan sebagai dev server terpisah dari
+\cmd{php artisan serve}, dijalankan di terminal kedua:
+
+\begin{lstlisting}[language=bash]
+npm run dev
+\end{lstlisting}
+
+\textbf{Yang diharapkan}: baris \texttt{VITE vX.X.X ready in N ms} diikuti
+alamat lokal seperti \texttt{Local: http://localhost:5173/}. Selama
+perintah ini berjalan, direktif \cmd{@vite} di halaman yang dibuka lewat
+\cmd{php artisan serve} otomatis memuat aset dari dev server itu, dan
+menyunting \texttt{app.css} atau berkas Blade langsung terlihat di browser
+tanpa refresh manual (\textit{hot reload}), sesuatu yang tidak dimiliki
+CDN. Tailwind sendiri tetap bekerja lewat class utility yang ditempel
+langsung pada elemen HTML, misalnya \texttt{class="bg-slate-900 text-white
+rounded-md px-4 py-2"} untuk sebuah tombol gelap dengan sudut membulat dan
+padding, alih-alih menulis aturan CSS terpisah di berkas lain; hanya
+sumber Tailwind-nya yang berubah dari CDN menjadi Vite.
+
+\begin{warningbox}
+\cmd{npm run dev} harus tetap berjalan di terminal terpisah selama
+pengembangan. Kalau dihentikan, direktif \cmd{@vite} pada halaman yang
+dimuat ulang akan gagal menemukan dev server dan melempar
+\texttt{ViteManifestNotFoundException}, kecuali sebuah build produksi
+(\cmd{npm run build}, dibahas penuh di Bab~11) sudah pernah dijalankan
+sebelumnya.
+\end{warningbox}
+
+\begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
+@extends('layouts.app')
+
+@section('title', 'Kasir')
+
+@section('content')
+    <h1 class="text-lg font-semibold mb-4">Transaksi Kasir</h1>
+    <div class="grid grid-cols-3 gap-4">
+        @foreach ($products as $product)
+            <div class="border rounded-md p-3">
+                <p class="font-medium">{{ $product->name }}</p>
+                <p class="text-sm text-slate-500">Rp {{ number_format($product->price) }}</p>
+            </div>
+        @endforeach
+    </div>
+@endsection
+\end{lstlisting}
+
+Halaman \route{/pos} memanggil \cmd{@extends('layouts.app')} untuk
+mewarisi kerangka layout, lalu mengisi lubang \cmd{@section('content')}
+dengan grid produk. Perhatikan \cmd{\{\{ \$product->name \}\}}: kurung
+kurawal ganda itu adalah sintaks output Blade, otomatis melakukan escaping
+HTML supaya nama produk yang mengandung karakter seperti \texttt{<} tidak
+bisa disalahgunakan untuk menyuntikkan markup asing ke halaman.
+
+\begin{warningbox}
+Data yang berasal dari input pengguna, termasuk nama produk yang diketik
+admin lewat form, selalu wajib ditampilkan lewat \cmd{\{\{ \}\}}, bukan
+\cmd{\{!! !!\}}. Sintaks kedua melewati proses escaping sama sekali dan
+membuka celah \textit{cross-site scripting} kalau isinya pernah datang dari
+input yang tidak dipercaya.
+\end{warningbox}
+
+\section{Praktik: Keranjang Belanja Dinamis dengan Alpine.js}
+\label{sec:blade-dan-tailwind-3}
+
+Menambahkan Alpine.js ke sebuah elemen dimulai dari atribut \cmd{x-data},
+yang mendeklarasikan state lokal dalam bentuk objek JavaScript langsung di
+markup HTML. Elemen apa pun di dalam \cmd{x-data} itu, termasuk
+elemen-elemen anaknya, bisa membaca dan mengubah state tersebut lewat
+atribut Alpine lain seperti \cmd{@click} untuk event dan \cmd{x-text} untuk
+menampilkan nilai reaktif.
+
+\begin{lstlisting}[language=html]
+<div x-data="{ cart: [] }">
+  <button @click="cart.push({ id: 1, price: 15000 })">
+    Tambah
+  </button>
+  <span x-text="cart.length"></span> item di keranjang
+</div>
+\end{lstlisting}
+
+Potongan di atas cukup untuk menunjukkan mekanismenya: \cmd{cart} dimulai
+sebagai array kosong, tombol \textit{Tambah} mendorong satu objek baru ke
+dalamnya setiap kali diklik, dan \cmd{x-text="cart.length"} otomatis
+memperbarui angka yang ditampilkan tanpa satu baris pun kode yang secara
+eksplisit memerintahkan DOM untuk di-refresh. Alpine mengamati perubahan
+pada \cmd{cart} dan menyinkronkan tampilan sendiri. Langkah-langkah
+berikut memasang pola yang sama, pada skala sebenarnya, ke grid produk
+\route{/pos} yang sudah dibuat di bagian sebelumnya.
+
+\begin{enumerate}
+  \item Instal Alpine.js sebagai dependensi npm, bukan lewat CDN:
+    \begin{lstlisting}[language=bash]
+npm install alpinejs
+    \end{lstlisting}
+    Buka \texttt{resources/js/app.js}, lalu impor dan jalankan Alpine di
+    sana:
+    \begin{lstlisting}[language={}, title=\lstfile{resources/js/app.js}]
+import Alpine from 'alpinejs';
+
+window.Alpine = Alpine;
+Alpine.start();
+\end{lstlisting}
+    Karena \texttt{app.js} sudah dimuat lewat direktif \cmd{@vite} di
+    \texttt{layouts/app.blade.php} (bagian sebelumnya), tidak ada tag
+    \texttt{<script>} baru yang perlu ditambahkan; Vite membundel Alpine
+    bersama kode aplikasi lainnya. Urutan pemuatan lewat bundler ini
+    otomatis menghindari masalah yang biasanya diatasi atribut
+    \texttt{defer} pada tag CDN: \texttt{Alpine.start()} baru terpanggil
+    setelah seluruh modul termuat.
+  \item Buka \texttt{resources/views/pos/create.blade.php} (berkas yang
+    sudah dibuat di bagian sebelumnya). Bungkus seluruh grid produk dengan
+    satu \cmd{x-data} yang mendefinisikan \cmd{cart} sebagai array kosong
+    beserta dua method, \cmd{addToCart} dan \cmd{subtotal}:
+    \begin{lstlisting}[language=html, title=\lstfile{resources/views/pos/create.blade.php}]
+<div x-data="{
+    cart: [],
+    addToCart(id, name, price) {
+        this.cart.push({ id, name, price });
+    },
+    subtotal() {
+        return this.cart.reduce((sum, item) => sum + item.price, 0);
+    }
+}">
+    \end{lstlisting}
+  \item Pada tiap kartu produk di dalam \cmd{@foreach}, tambahkan
+    \cmd{@click} yang memanggil \cmd{addToCart} dengan data produk baris
+    itu:
+    \begin{lstlisting}[language=html, title=\lstfile{resources/views/pos/create.blade.php}]
+<div class="border rounded-md p-3 cursor-pointer"
+     @click="addToCart({{ $product->id }}, '{{ $product->name }}', {{ $product->price }})">
+    <p class="font-medium">{{ $product->name }}</p>
+    <p class="text-sm text-slate-500">Rp {{ number_format($product->price) }}</p>
+</div>
+    \end{lstlisting}
+  \item Tambahkan area ringkasan keranjang di bawah grid, memakai
+    \cmd{x-for} untuk menampilkan tiap item dan \cmd{x-text} untuk
+    subtotal berjalan:
+    \begin{lstlisting}[language=html, title=\lstfile{resources/views/pos/create.blade.php}]
+<div class="mt-4 border-t pt-3">
+    <template x-for="item in cart" :key="item.id">
+        <p x-text="item.name + ' - Rp ' + item.price"></p>
+    </template>
+    <p class="font-semibold mt-2">Subtotal: Rp <span x-text="subtotal()"></span></p>
+</div>
+    \end{lstlisting}
+  \item Pastikan dua server berjalan bersamaan, di dua terminal terpisah:
+    \artisan{php artisan serve} dan \cmd{npm run dev}. Lalu buka
+    \texttt{http://127.0.0.1:8000/pos} di browser.
+  \item Klik salah satu kartu produk. \textbf{Yang diharapkan}: nama dan
+    harga produk itu langsung muncul di area ringkasan di bawah grid, dan
+    angka subtotal bertambah, tanpa halaman ikut memuat ulang (perhatikan
+    address bar dan favicon tab; keduanya tidak berkedip seperti saat
+    reload).
+  \item \textbf{Kalau klik tidak menghasilkan apa pun}, periksa tiga hal
+    paling umum: (a) buka console browser (F12), error
+    \texttt{Alpine is not defined} berarti \cmd{npm run dev} tidak sedang
+    berjalan, atau langkah 1 belum menyimpan perubahan pada
+    \texttt{app.js}; (b) error \texttt{ViteManifestNotFoundException} di
+    halaman itu sendiri berarti \cmd{npm run dev} belum dijalankan sama
+    sekali; (c) pastikan seluruh grid produk, termasuk area ringkasan di
+    langkah 4, benar-benar berada \textit{di dalam} elemen yang membawa
+    \cmd{x-data} dari langkah 2, bukan jadi elemen bertetangga di luarnya.
+\end{enumerate}
+
+Objek \cmd{x-data} inline di atas cukup untuk memahami mekanismenya, tapi
+versi Simple POS yang sebenarnya mendaftarkan keranjang sebagai satu
+komponen Alpine bernama lewat \cmd{Alpine.data('posCart', ...)} di dalam
+\texttt{app.js}, lengkap dengan pemindaian SKU, diskon, dan penyimpanan
+sementara ke \texttt{sessionStorage} supaya keranjang bertahan saat
+berpindah halaman. Itu versi dewasa dari objek \cmd{x-data} yang baru saja
+dibangun di sini, bukan konsep berbeda; tautan repositori di akhir bab ini
+menunjukkan kode lengkapnya.
+
+Subtotal yang dihitung Alpine di sisi klien murni untuk keperluan tampilan;
+kasir perlu melihat angka berjalan sebelum transaksi disimpan. Angka itu
+bukan sumber kebenaran. Setiap kali form kasir benar-benar dikirim ke
+server, Simple POS menghitung ulang totalnya dari data produk dan jumlah
+yang tersimpan di basis data, bukan dari angka yang sempat ditampilkan
+Alpine di browser. Bab~6 akan menjelaskan alasannya lebih rinci: apa pun
+yang berasal dari browser, termasuk hasil hitungan JavaScript yang terlihat
+benar, tetap bisa dimanipulasi sebelum sampai ke server, dan tidak pernah
+boleh dipercaya begitu saja untuk angka yang menyangkut uang.
+
+\begin{tipbox}
+Aturan praktis yang berguna: logika yang murni kosmetik, seperti
+menampilkan subtotal berjalan atau menyorot item yang baru ditambahkan,
+aman ditaruh di Alpine.js. Logika yang menentukan keputusan bisnis, seperti
+angka final yang tersimpan sebagai total transaksi atau apakah stok cukup
+untuk memenuhi pesanan, wajib dihitung ulang di server, tidak peduli seberapa
+meyakinkan angka yang sudah dihitung di klien.
+\end{tipbox}
+
+\begin{challengebox}
+Tambahkan tombol \textit{Hapus} pada tiap baris item di keranjang, yang
+memanggil sebuah method Alpine baru untuk mengeluarkan item itu dari array
+\cmd{cart} berdasarkan \cmd{id}-nya. Setelah tombol berfungsi, jelaskan
+dengan kata-katamu sendiri: kenapa menghapus item lewat Alpine saja, tanpa
+mengirim apa pun ke server, sudah cukup aman di titik ini, padahal
+angkanya tetap akan dihitung ulang saat form disimpan?
+\end{challengebox}
+
+\branchref{chapter-03}
+
+\section{Rangkuman}
+\label{sec:blade-dan-tailwind-rangkuman}
+
+\begin{itemize}
+  \item MPA memuat ulang seluruh halaman dari server tiap navigasi, SPA
+    merender semuanya di klien lewat JavaScript, dan Blade dipadukan dengan
+    Alpine.js mengambil jalan tengah: server tetap merender struktur
+    halaman, Alpine hanya menambahkan reaktivitas pada bagian yang memang
+    membutuhkannya, seperti keranjang belanja kasir.
+  \item Layout Blade lewat \cmd{@extends}/\cmd{@section}/\cmd{@yield}
+    menghindari pengulangan kerangka HTML, dan direktif \cmd{@vite} memuat
+    Tailwind CSS serta JavaScript lewat Vite, dengan \cmd{npm run dev}
+    memberi hot reload selama pengembangan.
+  \item Alpine.js diinstal lewat \cmd{npm install alpinejs} dan dibundel
+    Vite bersama kode aplikasi lain; atribut \cmd{x-data} mendeklarasikan
+    state Alpine langsung di markup, \cmd{@click} dan \cmd{x-text} membaca
+    serta mengubahnya secara reaktif, dan subtotal yang dihitung di klien
+    tetap wajib diverifikasi ulang di server sebelum dipercaya sebagai
+    angka final.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Buat satu berkas layout Blade baru dengan \cmd{@extends} dan
+    \cmd{@yield('content')}, lalu buktikan satu halaman bisa mewarisinya
+    tanpa menulis ulang tag \texttt{<html>} atau \texttt{<head>}.
+  \item Pada grid produk halaman \route{/pos}, tambahkan badge kecil yang
+    menampilkan teks ``Stok Menipis'' memakai class Tailwind
+    \texttt{bg-amber-100 text-amber-700}, muncul hanya ketika stok produk
+    di bawah 10.
+  \item Jelaskan dengan kata-katamu sendiri: kenapa \cmd{\{\{ \}\}} lebih
+    aman dipakai untuk menampilkan nama produk dibanding \cmd{\{!! !!\}}.
+  \item \textbf{Evaluasi mandiri:} tanpa membuka kembali isi bab ini, coba
+    jelaskan dengan kata-katamu sendiri: (a) perbedaan MPA dan SPA, (b)
+    kenapa Simple POS memilih Blade + Alpine.js dibanding SPA penuh, dan
+    (c) kenapa subtotal keranjang yang dihitung Alpine.js tidak boleh
+    langsung dipercaya di server. Periksa kembali jawabanmu dengan isi bab
+    ini.
+\end{enumerate}
+
+\section{Referensi}
+
+Pembahasan pada bab ini merujuk pada dokumentasi resmi Laravel
+\cite{laraveldocs} untuk konvensi Blade, serta dokumentasi Tailwind CSS
+\cite{tailwinddocs} untuk sistem class utility yang dipakai sepanjang
+Simple POS.

@@ -1,0 +1,261 @@
+%% ========================================================================
+%% Bab 6: Validasi dan Keamanan Input
+%% ========================================================================
+
+\chapter{Validasi dan Keamanan Input}
+\label{ch:validasi-input}
+
+\chapterhero{teal}{Tolak input yang salah bentuk sebelum menyentuh basis data, lalu hitung ulang total transaksi di server, jangan pernah percaya angka dari klien begitu saja.}{\faIcon{shield-alt}\quad FormRequest}{\faIcon{check-double}\quad total di server}{\faIcon{exclamation-triangle}\quad pesan error}
+
+Satpam di pintu gerbang gudang tidak sekadar membuka portal untuk siapa
+saja yang mengaku kurir. Ia memeriksa surat jalan, mencocokkan nomor
+kendaraan, dan menahan siapa pun yang datanya tidak lengkap di luar
+gerbang, sebelum barang apa pun sempat masuk ke area penyimpanan. Kasir
+di kasir tunai punya kebiasaan serupa yang lebih halus: begitu pembeli
+menyodorkan uang, kasir yang baik tidak langsung percaya angka yang
+disebut pembeli, ia menghitung ulang totalnya sendiri dari struk yang
+tercetak. Simple POS menjalankan dua kebiasaan itu sekaligus. FormRequest
+berperan sebagai satpam gerbang, menahan data yang cacat sebelum
+menyentuh controller. Perhitungan total di server berperan sebagai kasir
+yang menghitung ulang, tidak pernah menerima begitu saja angka total
+yang dikirim dari form atau JavaScript di sisi klien.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item menulis \phpclass{FormRequest} untuk memvalidasi input produk dan transaksi Simple POS, termasuk aturan validasi kustom;
+  \item menjelaskan mengapa total transaksi dan subtotal detail transaksi wajib dihitung di sisi server, bukan diterima langsung dari input klien;
+  \item menangani pesan error validasi dan flash message pada form Blade Simple POS agar pengguna mendapat umpan balik yang jelas saat input ditolak.
+\end{enumerate}
+
+\section{FormRequest dan Aturan Validasi}
+\label{sec:validasi-input-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[FormRequest] Kelas Laravel yang membungkus logika validasi dan otorisasi satu request, dipisahkan dari controller, sehingga controller hanya menangani data yang sudah dinyatakan valid.
+  \item[Validasi] Proses memeriksa apakah data input memenuhi aturan yang ditentukan (tipe, format, batas nilai) sebelum data itu dipakai lebih jauh.
+  \item[Sanitasi] Proses membersihkan atau menormalkan data input, seperti memangkas spasi berlebih atau mengubah tipe, biasanya dijalankan setelah validasi lolos.
+  \item[Flash Message] Pesan singkat yang disimpan di session hanya untuk satu request berikutnya, dipakai menampilkan notifikasi sukses atau gagal setelah redirect.
+\end{description}
+\end{istilahpenting}
+
+Menaruh aturan validasi langsung di dalam metode controller bekerja
+untuk form yang sangat sederhana, tapi begitu satu form punya lebih dari
+beberapa aturan, controller cepat penuh dengan kode pemeriksaan yang
+sebenarnya bukan urusan controller. \phpclass{FormRequest} memindahkan
+tanggung jawab itu ke kelasnya sendiri: metode \phpclass{rules()}
+mendeklarasikan aturan tiap field, dan Laravel menjalankan validasi itu
+otomatis sebelum metode controller sempat dieksekusi sama sekali.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Requests/StoreProductRequest.php}]
+class StoreProductRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'price' => ['required', 'integer', 'min:0'],
+            'stock' => ['required', 'integer', 'min:0'],
+        ];
+    }
+}
+\end{lstlisting}
+
+Aturan \phpclass{exists:categories,id} adalah contoh aturan bawaan
+Laravel yang melakukan query ke basis data sebagai bagian dari
+validasi: ia menolak request kalau \texttt{category\_id} yang dikirim
+tidak cocok dengan baris \texttt{id} mana pun di tabel
+\texttt{categories}. Begitu \phpclass{StoreProductRequest} dipakai
+sebagai type-hint parameter controller, menggantikan \phpclass{Request}
+biasa, Laravel otomatis menjalankan \phpclass{rules()} lebih dulu; kalau
+ada yang gagal, request langsung dikembalikan ke form asal beserta pesan
+error, dan baris kode di dalam controller sama sekali tidak sempat
+dieksekusi.
+
+\section{Mengapa Total Dihitung di Server}
+\label{sec:validasi-input-2}
+
+Bab~3 sudah menyinggung ini sekilas: keranjang Alpine.js pada halaman
+kasir menghitung subtotal secara langsung di browser, murni untuk
+tampilan. Kalau form transaksi dikirim beserta field \texttt{total}
+hasil hitungan Alpine itu, dan server memercayainya begitu saja tanpa
+verifikasi, siapa pun yang mengubah nilai pada request (lewat DevTools
+browser, atau lewat klien HTTP seperti curl yang sama sekali tidak
+melewati JavaScript apa pun) bisa mengirim total berapa pun yang
+diinginkan, termasuk total yang jauh lebih kecil dari harga produk yang
+sebenarnya dibeli.
+
+\begin{warningbox}
+Nilai apa pun yang berasal dari sisi klien, sekalipun perhitungannya
+terlihat benar di layar, bisa diubah sebelum sampai ke server. Field
+\texttt{total} yang dikirim lewat form HTML bukan pengecualian; ia
+hanyalah string di dalam body request seperti field lainnya, dan tidak
+ada yang mencegah seseorang mengubahnya jadi nilai lain sebelum request
+itu benar-benar terkirim.
+\end{warningbox}
+
+Simple POS menghindari risiko itu dengan tidak pernah membaca
+\texttt{total} dari input sama sekali. Controller hanya menerima daftar
+\texttt{product\_id} dan \texttt{qty}, lalu mengambil harga produk yang
+sebenarnya dari basis data, mengalikannya dengan qty untuk tiap baris
+detail, dan menjumlahkan seluruh subtotal itu sendiri.
+
+\begin{lstlisting}[language=php]
+$total = 0;
+foreach ($validated['items'] as $item) {
+    $product = Product::findOrFail($item['product_id']);
+    $subtotal = $product->price * $item['qty'];
+    $total += $subtotal;
+    // simpan TransactionDetail dengan $subtotal di sini
+}
+$transaction->update(['total' => $total]);
+\end{lstlisting}
+
+Dengan pola ini, seberapa pun nilai yang seseorang coba selipkan lewat
+field \texttt{total} pada request, nilai itu tidak pernah dibaca; server
+selalu menghitung ulang dari sumber yang bisa dipercaya, yaitu harga
+produk yang sedang tersimpan di basis data saat itu.
+
+\section{Praktik: Validasi Form Produk dan Transaksi}
+\label{sec:validasi-input-3}
+
+\phpclass{StoreTransactionRequest} memvalidasi struktur array item
+belanja, bukan cuma field tunggal. Langkah-langkah berikut membuatnya
+dari nol dan memasangnya ke form transaksi kasir yang sudah ada.
+
+\begin{enumerate}
+  \item Buat kerangka kelas \phpclass{FormRequest}-nya:
+    \begin{lstlisting}[language=bash]
+php artisan make:request StoreTransactionRequest
+    \end{lstlisting}
+  \item Buka berkas yang baru dibuat di
+    \texttt{app/Http\allowbreak/Requests\allowbreak/StoreTransactionRequest.php}. Ubah
+    \cmd{authorize()} agar mengembalikan \texttt{true} (form ini boleh
+    dipakai siapa pun yang sudah login sebagai kasir), lalu isi
+    \cmd{rules()}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Requests/StoreTransactionRequest.php}]
+public function rules(): array
+{
+    return [
+        'items' => ['required', 'array', 'min:1'],
+        'items.*.product_id' => ['required', 'exists:products,id'],
+        'items.*.qty' => ['required', 'integer', 'min:1'],
+    ];
+}
+    \end{lstlisting}
+    Notasi \texttt{items.*.product\_id} memvalidasi setiap elemen array
+    \texttt{items} satu per satu, memastikan setiap baris punya
+    \texttt{product\_id} yang benar-benar ada di tabel \texttt{products}
+    dan \texttt{qty} bernilai minimal 1, tanpa perlu menulis loop
+    validasi manual.
+  \item Buka \texttt{app/Http/Controllers/TransactionController.php},
+    metode \cmd{store()}. Ganti type-hint parameternya dari
+    \phpclass{Request} biasa menjadi \phpclass{StoreTransactionRequest}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/TransactionController.php}]
+public function store(StoreTransactionRequest $request)
+{
+    $validated = $request->validated();
+    // ...perhitungan total di server, lihat bagian sebelumnya
+}
+    \end{lstlisting}
+    Cukup dengan mengganti type-hint ini, Laravel otomatis menjalankan
+    \cmd{rules()} sebelum baris pertama method \cmd{store()} sempat
+    dieksekusi.
+  \item Buka \texttt{resources/views/pos/create.blade.php} (form kasir
+    dari Bab~3). Tambahkan blok pesan sukses di bagian atas halaman:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
+@if (session('success'))
+    <div class="bg-green-50 text-green-700 p-3 rounded-md mb-4">
+        {{ session('success') }}
+    </div>
+@endif
+    \end{lstlisting}
+  \item Di dekat elemen keranjang, tambahkan blok error umum untuk field
+    \texttt{items}:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
+@error('items')
+    <p class="text-sm text-red-600">{{ $message }}</p>
+@enderror
+    \end{lstlisting}
+    Direktif \phpclass{@error('items')} hanya menampilkan blok itu kalau
+    field \texttt{items} gagal validasi, sehingga pesan error muncul
+    tepat di dekat keranjang, bukan sebagai daftar generik di puncak
+    halaman.
+  \item Di controller, tambahkan flash message setelah transaksi
+    tersimpan: \phpclass{->with('success', 'Transaksi berhasil
+    disimpan.')} pada redirect-nya.
+  \item Jalankan \artisan{php artisan serve}, buka \texttt{/pos}, lalu
+    kirim form kasir dengan keranjang kosong (tanpa menambah satu produk
+    pun). \textbf{Yang diharapkan}: halaman kembali ke \texttt{/pos}
+    (bukan pindah ke halaman lain), dan pesan error dari langkah 5
+    muncul tepat di dekat keranjang.
+  \item Tambahkan satu produk ke keranjang, lalu kirim ulang form.
+    \textbf{Yang diharapkan}: transaksi tersimpan, halaman berpindah,
+    dan pesan sukses dari langkah 4 tampil sekali; muat ulang halaman
+    yang sama sekali lagi dan pesan itu sudah hilang.
+  \item \textbf{Kalau \texttt{\$errors} selalu kosong} meski keranjang
+    dikirim kosong, periksa langkah 3: pastikan parameter method
+    \cmd{store()} benar-benar bertipe
+    \phpclass{StoreTransactionRequest}, bukan \phpclass{Request} biasa;
+    validasi hanya berjalan otomatis lewat type-hint itu.
+\end{enumerate}
+
+\branchref{chapter-06}
+
+\section{Rangkuman}
+\label{sec:validasi-input-rangkuman}
+
+\begin{itemize}
+  \item \phpclass{FormRequest} memisahkan aturan validasi dari
+    controller lewat metode \phpclass{rules()}, dijalankan otomatis
+    Laravel sebelum kode controller sempat dieksekusi, termasuk aturan
+    bawaan seperti \phpclass{exists} yang memvalidasi lewat query ke
+    basis data.
+  \item Total transaksi dan subtotal detail wajib dihitung ulang di
+    server dari harga produk yang tersimpan di basis data, karena nilai
+    apa pun yang dikirim dari klien, termasuk hasil hitungan Alpine.js,
+    bisa diubah sebelum sampai ke server dan tidak boleh dipercaya
+    begitu saja.
+  \item Pesan error validasi ditampilkan lewat \phpclass{@error()} tepat
+    di dekat input yang bermasalah, dan flash message lewat
+    \phpclass{session('success')} memberi umpan balik singkat setelah
+    redirect tanpa bertahan ke request berikutnya.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Tambahkan aturan validasi baru pada \phpclass{StoreProductRequest}
+    yang menolak nama produk yang sama persis dengan produk lain pada
+    kategori yang sama (pakai aturan \phpclass{unique} dengan klausa
+    tambahan).
+  \item Kirim request transaksi lewat curl dengan \texttt{qty} bernilai
+    0 dan \texttt{product\_id} yang tidak ada, lalu amati pesan error
+    apa yang dikembalikan Laravel untuk masing-masing kasus.
+  \item Jelaskan dengan kata-katamu sendiri: kalau field \texttt{total}
+    tetap divalidasi (misalnya dengan aturan \phpclass{numeric}), apakah
+    itu cukup untuk mencegah manipulasi total? Mengapa atau mengapa
+    tidak?
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) apa yang dilakukan
+    \phpclass{FormRequest} sebelum controller dieksekusi, (b) mengapa
+    total tidak boleh diterima langsung dari input, dan (c) bagaimana
+    flash message berbeda dari data session biasa. Cocokkan jawabanmu
+    dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tambahkan validasi stok mencukupi pada \phpclass{StoreTransactionRequest}
+atau di controller: tolak transaksi kalau \texttt{qty} yang diminta pada
+satu baris item melebihi \texttt{stock} produk yang tersimpan saat itu,
+lengkap dengan pesan error yang menyebutkan nama produk yang stoknya
+tidak cukup.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+FormRequest dan aturan validasi, serta OWASP Top 10 \cite{owasptop10}
+untuk prinsip tidak mempercayai input dari sisi klien.

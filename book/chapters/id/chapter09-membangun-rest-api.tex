@@ -1,0 +1,407 @@
+%% ========================================================================
+%% Bab 9: Merancang dan Membangun REST API
+%% ========================================================================
+
+\chapter{Merancang dan Membangun REST API}
+\label{ch:membangun-rest-api}
+
+\chapterhero{purple}{Rancang endpoint REST Simple POS yang konsisten, lindungi lewat token Sanctum, lalu dokumentasikan kontraknya lewat OpenAPI agar tim lain tak perlu membaca kode controller.}{\faIcon{plug}\quad endpoint REST}{\faIcon{key}\quad Sanctum}{\faIcon{code}\quad OpenAPI}
+
+Loket layanan publik yang tertib punya formulir baku untuk setiap
+keperluan: formulir pengajuan warna biru, formulir pengaduan warna
+kuning, masing-masing dengan kolom yang sudah ditentukan dan urutan
+langkah yang sama setiap kali. Warga tidak perlu bertanya ke petugas
+"formulir apa yang harus saya isi untuk keperluan ini", karena jenis
+formulirnya sudah bisa ditebak dari jenis keperluannya. REST API bekerja
+dengan prinsip yang sama: method HTTP dan struktur URL sudah memberi
+tahu apa yang akan terjadi sebelum satu baris dokumentasi pun dibaca.
+\route{GET /api/products} sudah menyiratkan "ambil daftar produk, tidak
+mengubah apa pun", dan \route{POST /api/transactions} sudah menyiratkan
+"buat transaksi baru". Klien mobile kasir Simple POS bergantung penuh
+pada konsistensi semacam ini, karena berbeda dengan halaman Blade, tidak
+ada manusia yang membaca tampilan API secara langsung untuk menebak apa
+yang harus dilakukan selanjutnya.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item merancang endpoint REST API Simple POS (\route{POST /api/login}, \route{GET /api/products}, \route{POST /api/transactions}) mengikuti semantik HTTP method secara konsisten;
+  \item mengimplementasikan autentikasi berbasis token dengan Laravel Sanctum untuk klien kasir mobile, termasuk header \route{Authorization: Bearer}, dan menulis klien yang benar-benar mengonsumsi endpoint terproteksi itu dari luar aplikasi;
+  \item mendokumentasikan API Simple POS memakai spesifikasi OpenAPI agar kontrak endpoint dapat dipakai tim frontend atau mobile lain tanpa membaca kode controller.
+\end{enumerate}
+
+\section{Merancang Endpoint REST API Simple POS}
+\label{sec:membangun-rest-api-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[REST] \textit{Representational State Transfer}, gaya arsitektur API yang memetakan operasi ke resource lewat method HTTP standar (GET, POST, PUT, DELETE) dan URL yang merepresentasikan resource itu sendiri.
+  \item[Endpoint] Satu kombinasi method HTTP dan path URL yang menjalankan satu operasi spesifik, misalnya \route{POST /api/login}.
+  \item[Token] String acak yang mewakili identitas pengguna setelah login berhasil, dikirim ulang pada setiap request berikutnya sebagai bukti bahwa pengguna itu sudah terautentikasi.
+  \item[Sanctum] Paket autentikasi bawaan Laravel untuk API berbasis token, dirancang untuk klien SPA maupun klien mobile murni.
+  \item[API Resource] Kelas transformasi Laravel yang mengubah model Eloquent menjadi struktur JSON yang konsisten, memisahkan bentuk respons API dari struktur kolom tabel apa adanya.
+\end{description}
+\end{istilahpenting}
+
+Semantik method HTTP bukan sekadar konvensi kosmetik: \route{GET}
+seharusnya aman (tidak mengubah state apa pun di server) dan idempoten
+(dipanggil berkali-kali menghasilkan efek yang sama seperti dipanggil
+sekali), sementara \route{POST} boleh mengubah state, seperti membuat
+baris baru. Klien mobile kasir bisa mengandalkan aturan ini: memanggil
+ulang \route{GET /api/products} berkali-kali karena koneksi terputus
+tidak akan pernah menggandakan data, sedangkan \route{POST
+/api/transactions} yang terpanggil dua kali karena request pertama
+timeout memang berpotensi membuat dua transaksi, dan klien harus
+menangani kasus itu secara eksplisit (misalnya lewat idempotency key),
+bukan mengasumsikan POST aman diulang.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Resources/ProductResource.php}]
+class ProductResource extends JsonResource
+{
+    public function toArray($request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'price' => $this->price,
+            'category' => $this->category->name,
+        ];
+    }
+}
+\end{lstlisting}
+
+\phpclass{JsonResource} memastikan setiap endpoint mengembalikan bentuk
+JSON yang konsisten dan sudah dikurasi, bukan hasil \phpclass{toJson()}
+mentah dari model Eloquent yang bisa saja ikut membocorkan kolom
+internal seperti \texttt{updated\_at} atau relasi yang tidak relevan
+bagi klien.
+
+\section{Autentikasi Token dengan Sanctum}
+\label{sec:membangun-rest-api-2}
+
+Halaman web Simple POS memakai sesi berbasis cookie (Bab~7), cocok
+untuk browser yang menyimpan cookie otomatis. Klien mobile kasir tidak
+punya cookie jar seperti itu, sehingga butuh mekanisme autentikasi yang
+berbeda: token yang disimpan sendiri oleh aplikasi mobile dan dikirim
+ulang secara eksplisit pada setiap request. Siapkan dulu Sanctum dan
+kerangka API-nya:
+
+\begin{enumerate}
+  \item Pasang Sanctum, kalau proyek Simple POS belum pernah
+    memasangnya:
+    \begin{lstlisting}[language=bash]
+php artisan install:api
+    \end{lstlisting}
+    Perintah ini membuat \texttt{routes/api.php} (kalau belum ada) dan
+    mendaftarkan middleware \phpclass{auth:sanctum}.
+  \item Buat controller autentikasi API-nya:
+    \begin{lstlisting}[language=bash]
+php artisan make:controller Api/AuthController
+    \end{lstlisting}
+  \item Buka \texttt{routes/api.php}, daftarkan route login di luar
+    middleware \phpclass{auth:sanctum} (klien belum punya token saat
+    login):
+    \begin{lstlisting}[language=php, title=\lstfile{routes/api.php}]
+Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login']);
+    \end{lstlisting}
+\end{enumerate}
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/Api/AuthController.php}]
+public function login(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required'],
+    ]);
+
+    if (! Auth::attempt($credentials)) {
+        return response()->json(['message' => 'Kredensial tidak valid.'], 401);
+    }
+
+    $user = Auth::user();
+    $token = $user->createToken('mobile-kasir')->plainTextToken;
+
+    return response()->json(['token' => $token]);
+}
+\end{lstlisting}
+
+\phpclass{createToken('mobile-kasir')} menghasilkan token baru yang
+tersimpan (dalam bentuk hash) di tabel \texttt{personal\_access\_tokens},
+dan \phpclass{->plainTextToken} adalah satu-satunya kesempatan token
+mentah itu terlihat; setelah respons ini, aplikasi tidak bisa lagi
+meminta ulang token yang sama dalam bentuk terbaca. Setiap request
+terproteksi berikutnya wajib menyertakan token itu di header:
+
+Buka \texttt{app/Http/Controllers/Api/AuthController.php} yang dibuat
+pada langkah 2 di atas, isi metode \cmd{login()} dengan kode yang baru
+ditunjukkan, lalu jalankan \artisan{php artisan serve} dan uji lewat
+\cmd{curl}:
+
+\begin{lstlisting}[language=bash]
+curl -X POST http://127.0.0.1:8000/api/login \
+  -d "email=kasir@pos.test&password=password"
+\end{lstlisting}
+
+\textbf{Yang diharapkan}: respons JSON berisi
+\texttt{\{"token":"1|xxxxxxxxxxxxxxxxxxxx"\}}. Salin nilai token itu
+(termasuk angka dan tanda \texttt{|} di depannya), lalu pakai pada
+request berikutnya:
+
+\begin{lstlisting}[language=bash]
+curl http://127.0.0.1:8000/api/products \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx"
+\end{lstlisting}
+
+\textbf{Yang diharapkan}: respons JSON berisi daftar produk. Coba juga
+tanpa header \texttt{Authorization} sama sekali; \textbf{yang
+diharapkan} kali ini: respons \texttt{401 Unauthorized} dengan pesan
+\texttt{\{"message":"Unauthenticated."\}}, bukti bahwa middleware
+\phpclass{auth:sanctum} benar-benar aktif.
+
+Route yang perlu dilindungi cukup dibungkus middleware
+\phpclass{auth:sanctum}, mirip pola \phpclass{role:admin} pada Bab~7,
+hanya saja di sini yang diperiksa adalah keberadaan dan keabsahan token
+lewat header \route{Authorization}, bukan sesi cookie.
+
+\begin{lstlisting}[language=php, title=\lstfile{routes/api.php}]
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+});
+\end{lstlisting}
+
+\section{Mengonsumsi API: Klien Sederhana untuk Kasir Mobile}
+\label{sec:membangun-rest-api-3}
+
+Bagian sebelumnya membangun API dari sisi server. Klien mobile kasir
+yang sebenarnya memanggilnya tidak menulis satu baris Laravel pun; ia
+hanya melempar request HTTP dan membaca respons JSON, entah itu
+aplikasi Flutter, React Native, atau, seperti pada langkah-langkah
+berikut, skrip PHP biasa yang memakai facade \phpclass{Http} milik
+Laravel. Polanya sama saja dipakai dari bahasa atau kerangka kerja
+lain; yang berubah cuma cara memanggil HTTP-nya.
+
+\begin{enumerate}
+  \item Mulai dari login untuk mendapatkan token, dari kode yang
+    berdiri terpisah dari server (bisa berupa command Artisan, skrip
+    mandiri, atau proyek lain sepenuhnya):
+    \begin{lstlisting}[language=php, title=\lstfile{app/Console/Commands/ApiClientDemo.php}]
+$login = Http::post("{$baseUrl}/api/login", [
+    'email' => 'kasir@pos.test',
+    'password' => 'password',
+]);
+
+if ($login->failed()) {
+    // tangani galat di sini, jangan lanjut ke langkah berikutnya
+}
+
+$token = $login->json('token');
+    \end{lstlisting}
+    \phpclass{\$login->failed()} memeriksa kode status HTTP sebelum
+    kode lanjut membaca \phpclass{\$login->json('token')}; tanpa
+    pemeriksaan ini, kredensial yang salah (401) akan membuat
+    \phpclass{\$token} bernilai \texttt{null} tanpa pernah jelas
+    kenapa, dan galat itu baru muncul beberapa langkah kemudian di
+    tempat yang membingungkan.
+  \item Pakai token itu pada request berikutnya lewat
+    \phpclass{Http::withToken()}, yang menambahkan header
+    \route{Authorization: Bearer <token>} secara otomatis:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Console/Commands/ApiClientDemo.php}]
+$products = Http::withToken($token)->get("{$baseUrl}/api/products");
+
+if ($products->failed()) {
+    // token kedaluwarsa/dicabut, atau server sedang bermasalah
+}
+    \end{lstlisting}
+  \item Kirim transaksi, dan bedakan dua jenis galat yang butuh
+    penanganan berbeda: 401 (token tidak valid) berarti klien perlu
+    login ulang, sementara 422 (validasi gagal, mis. stok tidak cukup)
+    berarti permintaannya sendiri yang salah dan login ulang tidak akan
+    membantu:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Console/Commands/ApiClientDemo.php}]
+$transaction = Http::withToken($token)->post("{$baseUrl}/api/transactions", [
+    'items' => [['product_id' => $productId, 'qty' => 1]],
+]);
+
+match ($transaction->status()) {
+    201 => /* transaksi tersimpan, baca $transaction->json('data') */,
+    401 => /* token tidak valid, login ulang */,
+    422 => /* input ditolak, tampilkan $transaction->json('message') */,
+    default => /* galat lain, tampilkan ke pengguna */,
+};
+    \end{lstlisting}
+  \item Jalankan \artisan{php artisan serve}, lalu coba jalankan
+    kode di atas terhadap Simple POS yang sedang berjalan.
+    \textbf{Yang diharapkan}: token diterima, daftar produk terbaca,
+    dan transaksi tersimpan dengan status 201, persis seperti kalau
+    dipanggil lewat \cmd{curl} pada bagian sebelumnya, hanya kali ini
+    dari kode PHP yang bisa diperluas jadi aplikasi klien sungguhan.
+  \item \textbf{Kalau langkah kedua atau ketiga selalu gagal dengan
+    401} meski login di langkah pertama sukses, periksa apakah token
+    benar-benar diteruskan ke \phpclass{withToken()} (bukan variabel
+    kosong karena langkah pertama sebenarnya gagal tapi tidak
+    diperiksa), atau apakah token itu sudah dicabut lewat
+    \route{POST /api/logout} di percobaan sebelumnya.
+\end{enumerate}
+
+\begin{warningbox}
+Klien yang mengasumsikan setiap request selalu berhasil, langsung
+membaca \phpclass{\$response->json('token')} tanpa memeriksa
+\phpclass{failed()} lebih dulu, gagal secara diam-diam: bukan error
+yang jelas, tapi nilai \texttt{null} yang menjalar ke request
+berikutnya dan baru meledak beberapa langkah kemudian dengan pesan
+yang membingungkan.
+\end{warningbox}
+
+Kode lengkap pola ini sudah tersedia sebagai perintah Artisan yang
+bisa langsung dijalankan, \cmd{php artisan api:demo}, mendemonstrasikan
+ketiga langkah di atas secara berurutan terhadap Simple POS yang
+sedang berjalan; lihat \texttt{app/Console/Commands/ApiClientDemo.php}
+pada kode lengkap bab ini.
+
+\section{Praktik: Mendokumentasikan API dengan OpenAPI}
+\label{sec:membangun-rest-api-4}
+
+Dokumentasi API yang hanya berupa catatan teks di README cepat basi:
+begitu satu field respons berubah nama, tidak ada yang memaksa siapa
+pun memperbarui catatan itu. OpenAPI mendeskripsikan endpoint dalam
+format terstruktur (YAML atau JSON) yang bisa dibaca alat lain, mulai
+dari generator dokumentasi interaktif sampai generator kode klien.
+
+\begin{enumerate}
+  \item Buat berkas \texttt{docs/openapi.yaml} di root proyek Simple
+    POS (belum ada bawaan Laravel; ini berkas baru yang berdiri sendiri,
+    tidak dibaca otomatis oleh aplikasi).
+  \item Isi bagian \texttt{paths} untuk endpoint login:
+    \begin{lstlisting}[language={}]
+paths:
+  /api/login:
+    post:
+      summary: Login dan dapatkan token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token berhasil diterbitkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+    \end{lstlisting}
+    Struktur \texttt{paths} memetakan path URL ke method HTTP, dan
+    setiap method mendeskripsikan bentuk \texttt{requestBody} yang
+    diterima beserta \texttt{responses} yang mungkin dikembalikan,
+    lengkap dengan kode status HTTP-nya.
+  \item Tambahkan entri serupa untuk \route{GET /api/products} dan
+    \route{POST /api/transactions} di bawah \texttt{paths} yang sama,
+    mengikuti pola yang sama seperti endpoint login.
+  \item Buka berkas itu di editor Swagger daring
+    (\texttt{editor.swagger.io}), tempel isi \texttt{docs/openapi.yaml}
+    ke sana. \textbf{Yang diharapkan}: panel pratinjau di sisi kanan
+    menampilkan ketiga endpoint sebagai daftar interaktif yang bisa
+    diklik, tanpa galat sintaks YAML.
+  \item \textbf{Kalau panel pratinjau menampilkan pesan galat}, itu
+    hampir selalu indentasi YAML yang salah (YAML memakai spasi,
+    bukan tab, dan tiap level indentasi harus konsisten); bandingkan
+    ulang lekukan tiap baris dengan contoh di langkah 2.
+\end{enumerate}
+
+Tabel berikut merangkum ketiga endpoint yang sudah dibangun sekaligus
+dikonsumsi pada bagian sebelumnya, kombinasi method dan path yang perlu
+diingat baik saat menulis controller di server maupun saat memanggilnya
+dari klien.
+
+\begin{table}[htbp]
+\centering
+\caption{Ringkasan endpoint API Simple POS}
+\label{tab:endpoint-summary}
+\begin{tblr}{
+  colspec = {X[0.5,l] X[1.1,l] X[1,c]},
+  hline{1,2,Z} = {solid},
+}
+Method & Path & Autentikasi \\
+POST & \route{/api/login} & Tidak perlu token \\
+GET & \route{/api/products} & \route{auth:sanctum} \\
+POST & \route{/api/transactions} & \route{auth:sanctum} \\
+\end{tblr}
+\end{table}
+
+\begin{tipbox}
+Perlakukan spesifikasi OpenAPI sebagai kontrak yang bisa diuji, bukan
+sekadar catatan pasif: alat seperti validator skema bisa memeriksa
+apakah respons controller yang sebenarnya benar-benar cocok dengan
+skema yang didokumentasikan, sehingga dokumentasi yang basi akan
+ketahuan lewat test yang gagal, bukan lewat keluhan tim frontend
+belakangan.
+\end{tipbox}
+
+\branchref{chapter-09}
+
+\section{Rangkuman}
+\label{sec:membangun-rest-api-rangkuman}
+
+\begin{itemize}
+  \item Endpoint REST Simple POS mengikuti semantik HTTP method secara
+    konsisten (\route{GET} aman dan idempoten, \route{POST} mengubah
+    state), dengan respons dikurasi lewat \phpclass{JsonResource} agar
+    tidak membocorkan struktur tabel apa adanya.
+  \item Sanctum menerbitkan token lewat \route{POST /api/login}, dan
+    setiap request terproteksi menyertakan token itu lewat header
+    \route{Authorization: Bearer}, diperiksa middleware
+    \route{auth:sanctum} pada route API. Klien yang mengonsumsi API ini
+    wajib memeriksa status respons (\phpclass{failed()}) sebelum
+    membaca isinya, dan membedakan penanganan galat 401 (login ulang)
+    dari 422 (perbaiki input), bukan mengasumsikan setiap panggilan
+    selalu berhasil.
+  \item Spesifikasi OpenAPI mendokumentasikan \texttt{paths},
+    \texttt{requestBody}, dan \texttt{responses} tiap endpoint dalam
+    format terstruktur, memungkinkan tim frontend atau mobile lain
+    memakai kontrak API tanpa membaca kode controller, dan bisa diuji
+    otomatis alih-alih sekadar catatan pasif.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Uji ketiga endpoint (\route{login}, \route{products},
+    \route{transactions}) lewat \cmd{curl}, termasuk mencoba mengakses
+    \route{/api/products} tanpa header \route{Authorization} sama
+    sekali dan mengamati respons galatnya.
+  \item Tambahkan endpoint baru \route{GET /api/categories}, lengkap
+    dengan \phpclass{JsonResource}-nya.
+  \item Lengkapi dokumentasi OpenAPI untuk endpoint
+    \route{GET /api/products}, termasuk skema query parameter untuk
+    paginasi.
+  \item Ubah \cmd{php artisan api:demo} agar mencoba login dengan
+    kata sandi yang salah lebih dulu, lalu amati bagaimana kode itu
+    berhenti pada langkah pertama alih-alih melanjutkan dengan token
+    kosong.
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) mengapa \route{GET} harus tetap
+    aman dan idempoten, (b) apa yang sebenarnya dikembalikan
+    \phpclass{createToken()}, (c) mengapa dokumentasi OpenAPI lebih
+    dapat diandalkan dibanding catatan README biasa, dan (d) kenapa
+    klien API wajib memeriksa \phpclass{failed()} sebelum membaca isi
+    respons. Cocokkan jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tambahkan endpoint \route{GET /api/transactions/\{id\}} yang
+mengembalikan satu transaksi beserta detail dan produknya, lengkap
+dengan dokumentasi OpenAPI-nya.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel Sanctum
+\cite{sanctumdocs} untuk autentikasi berbasis token, spesifikasi
+OpenAPI \cite{openapispec} untuk format dokumentasi API, dan makalah
+Fielding \cite{fielding2000rest} untuk prinsip arsitektur REST.

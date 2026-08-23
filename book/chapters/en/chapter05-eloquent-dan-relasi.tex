@@ -1,0 +1,268 @@
+%% ========================================================================
+%% Chapter 5: Eloquent ORM and Relationships
+%% ========================================================================
+
+\chapter{Eloquent ORM and Relationships}
+\label{ch:eloquent-dan-relasi}
+
+\chapterhero{teal}{Map out how Simple POS's models relate to each other, dodge the N+1 query trap, then prove pagination works correctly across 2,500 transactions.}{\faIcon{link}\quad Eloquent relationships}{\faIcon{layer-group}\quad eager loading}{\faIcon{tachometer-alt}\quad pagination at scale}
+
+A large family tree is usually drawn on a single sheet: grandparents'
+names at the top, lines running down to their children, more lines down
+to the grandchildren. Anyone reading that tree instantly knows whose
+child is whose, no need to dig through a stack of separate birth
+records one at a time. Eloquent models in Simple POS work like that
+family tree: \phpclass{Category} is the grandparent, \phpclass{Product}
+is the child, \phpclass{Transaction} and \phpclass{TransactionDetail}
+are the grandchildren. A relationship between models declares that line
+of descent once, in the model class, and after that any code anywhere
+can ask "which products belong to this category" or "which detail rows
+belong to this transaction" without hand-writing a join query every
+single time.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item map \phpclass{hasOne}, \phpclass{hasMany}, \phpclass{belongsTo}, and \phpclass{belongsToMany} relationships onto Simple POS's four models (\phpclass{Category}, \phpclass{Product}, \phpclass{Transaction}, \phpclass{TransactionDetail});
+  \item use eager loading (\phpclass{with()}) to avoid the N+1 query problem when listing transactions alongside their details and products;
+  \item apply \phpclass{paginate()} to a listing of 300 products and 2,500 transactions, and prove that the second page genuinely returns different rows than the first.
+\end{enumerate}
+
+\section{Eloquent Relationships in the Simple POS Models}
+\label{sec:eloquent-dan-relasi-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Relationship] A method on an Eloquent model describing how one table connects to another, used like an ordinary property (\texttt{\$product->category}) even though it's really running a query behind the scenes.
+  \item[Eager Loading] Loading a relationship up front through \phpclass{with()}, in a fixed, small number of queries, instead of loading it one row at a time only when it's needed.
+  \item[N+1] A problematic query pattern: one query for the main listing, plus one separate query for every single row to load its relationship.
+  \item[Lazy Loading] The opposite of eager loading: a relationship only loads once that property is actually accessed, row by row, the root cause of the N+1 problem.
+  \item[Pagination] A technique for splitting a large query result into small pages, returning only a subset of rows at a time along with metadata about the total page count.
+\end{description}
+\end{istilahpenting}
+
+Simple POS's four models connect through mirrored relationship pairs.
+\phpclass{Category} has many \phpclass{Product} through
+\phpclass{hasMany}, and every \phpclass{Product} points back to one
+\phpclass{Category} through \phpclass{belongsTo}. \phpclass{Transaction}
+has many \phpclass{TransactionDetail} through \phpclass{hasMany}, and
+every \phpclass{TransactionDetail} points back to one
+\phpclass{Transaction} as well as one \phpclass{Product}, each through
+\phpclass{belongsTo}.
+
+\begin{lstlisting}[language=php]
+class Category extends Model
+{
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+}
+
+class TransactionDetail extends Model
+{
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+\end{lstlisting}
+
+The relationship method's name, \phpclass{products()} on
+\phpclass{Category}, or \phpclass{product()} on
+\phpclass{TransactionDetail}, isn't just cosmetic convention. That name
+becomes the key used everywhere that relationship gets requested, both
+through a method call (\texttt{\$category->products()}), which returns
+a query builder, and through property access
+(\texttt{\$category->products}), which returns the resulting collection
+directly, and also through a string inside
+\phpclass{with('products')}, covered in the next section.
+
+\section{Eager Loading and the N+1 Problem}
+\label{sec:eloquent-dan-relasi-2}
+
+Picture a transaction history page listing 15 transactions, each with
+the names of the products purchased. Written without eager loading,
+Blade would loop over \texttt{\$transaction->details} for each
+transaction, and every time that property gets accessed, Eloquent only
+then runs a \texttt{SELECT * FROM transaction\_details WHERE
+transaction\_id = ?} query right there, one query per transaction. Then
+inside that details loop, accessing \texttt{\$detail->product} triggers
+one more query per detail row. For 15 transactions averaging 3 items
+each, that's 1 query for the transaction list, plus 15 detail queries,
+plus around 45 product queries: 61 queries total to render a single
+page.
+
+\begin{table}[htbp]
+\centering
+\caption{Query count: lazy loading vs eager loading for 15 transactions}
+\label{tab:lazy-vs-eager}
+\begin{tblr}{
+  colspec = {X[1.4,l] X[0.8,c] X[0.8,c]},
+  hline{1,2,Z} = {solid},
+}
+Approach & List query & Relationship queries \\
+Lazy loading (no \phpclass{with()}) & 1 & $\sim$60 (repeated N+1) \\
+Eager loading (\phpclass{with('details.product')}) & 1 & 2 \\
+\end{tblr}
+\end{table}
+
+\phpclass{with('details.product')} flips that order around: Eloquent
+runs one query for the transaction list, one extra query that loads
+every \phpclass{TransactionDetail} belonging to those transactions all
+at once (through \texttt{WHERE transaction\_id IN (...)}), and one more
+query that loads every related \phpclass{Product} all at once. The dot
+in \texttt{details.product} tells Eloquent to load a nested
+relationship: transaction details, then the product on each of those
+details, all within the same batch of queries.
+
+\begin{lstlisting}[language=php]
+$transactions = Transaction::with('details.product')
+    ->latest()
+    ->paginate(15);
+\end{lstlisting}
+
+\begin{notebox}
+The query count under eager loading doesn't depend on how many rows get
+displayed; it depends on how many relationship levels get loaded.
+Displaying 15 transactions or 150 transactions with
+\phpclass{with('details.product')} both cost 3 queries total, not 3
+multiplied by the row count.
+\end{notebox}
+
+\section{Practice: Pagination at Realistic Scale}
+\label{sec:eloquent-dan-relasi-3}
+
+Rendering all 300 products or all 2,500 transactions on a single page
+at once, through a plain \phpclass{get()}, would still run, but it
+loads down both the server and the browser with thousands of rows of
+HTML most of which a user would never look at in one sitting.
+\phpclass{paginate()} splits that query result into small chunks,
+reading only the requested number of rows based on the \texttt{page}
+parameter in the URL, plus metadata like total page count and
+previous/next links, ready to be consumed directly by the Blade
+component \phpclass{\{\{ \$products->links() \}\}}.
+
+\begin{enumerate}
+  \item Open \texttt{app/Http/Controllers/ProductController.php}, the
+    \cmd{index()} method. Replace the existing \phpclass{get()} call
+    with \phpclass{paginate()}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ProductController.php}]
+public function index()
+{
+    $products = Product::with('category')
+        ->orderBy('name')
+        ->paginate(10);
+
+    return view('products.index', compact('products'));
+}
+    \end{lstlisting}
+  \item Open \texttt{resources/views/products/index.blade.php}. Below
+    the existing product table or grid, add one line to render page
+    navigation:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/products/index.blade.php}]
+<div class="mt-4">
+    {{ $products->links() }}
+</div>
+    \end{lstlisting}
+    \phpclass{\$products->links()} automatically renders
+    previous/next links and page numbers; no extra view file needs to
+    be built by hand.
+  \item Run \artisan{php artisan serve} if it isn't running yet, then
+    open \texttt{http://127.0.0.1:8000/products}. \textbf{What to
+    expect}: only the first 10 products show up, followed by a row of
+    page-number links underneath.
+  \item Click the page 2 link (or manually change the URL to
+    \texttt{?page=2}). \textbf{What to expect}: 10 different products
+    show up compared to the first page, and the browser's address bar
+    shows \texttt{?page=2}.
+  \item \textbf{If a \texttt{Method links does not exist} error shows
+    up}, that's a sign the controller from step 1 is still calling
+    \phpclass{get()}, not \phpclass{paginate()}; \phpclass{links()} is
+    only available on a \phpclass{paginate()} result, not a plain
+    collection.
+\end{enumerate}
+
+\begin{tipbox}
+Reach for \phpclass{paginate()} whenever a row count could keep growing
+without bound over time, like a product listing or a transaction
+history. A plain \phpclass{get()} is still fine for a listing that's
+genuinely small and stays small, like a category dropdown for a filter.
+\end{tipbox}
+
+Proving pagination actually works, not just chopping up the display but
+leaving the underlying data intact, can be verified further through
+Tinker, by comparing the row IDs on two different pages:
+
+\begin{lstlisting}[language=bash]
+php artisan tinker
+>>> Product::orderBy('name')->paginate(10)->pluck('id');
+>>> Product::orderBy('name')->paginate(10, ['*'], 'page', 2)->pluck('id');
+\end{lstlisting}
+
+The fourth argument to \phpclass{paginate()} above forces the page
+number manually (it's normally pulled automatically from the
+\texttt{?page=2} query string on a real request). The two printed ID
+lists should never overlap at all; if the same ID shows up on both
+pages, that's a sign of a bug in the \phpclass{orderBy} used before
+pagination, since pagination assumes the query's result order stays
+consistent between requests.
+
+\branchref{chapter-05}
+
+\section{Summary}
+\label{sec:eloquent-dan-relasi-rangkuman}
+
+\begin{itemize}
+  \item Simple POS's four models connect through mirrored
+    \phpclass{hasMany}/\phpclass{belongsTo} pairs: \phpclass{Category}
+    to \phpclass{Product}, and \phpclass{Transaction} to
+    \phpclass{TransactionDetail}, which also points to \phpclass{Product}.
+  \item Lazy loading triggers one extra query per row per relationship
+    (the N+1 problem), while \phpclass{with('details.product')} loads a
+    nested relationship in a fixed query count, independent of how many
+    rows get displayed.
+  \item \phpclass{paginate()} splits a listing of 300 products or 2,500
+    transactions into small pages, and different pages can be proven to
+    genuinely return different rows by comparing result IDs across
+    pages.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Remove \phpclass{with('details.product')} from the transaction
+    history query, turn on Laravel's query log, and count the
+    difference in query count before and after eager loading is
+    restored.
+  \item Add a new relationship: \phpclass{Product::belongsToMany} to
+    the \phpclass{Transaction} model through the
+    \texttt{transaction\_details} pivot table, as an alternative way to
+    access every transaction that ever purchased one product.
+  \item Apply \phpclass{paginate()} to one other listing endpoint in
+    Simple POS that doesn't use it yet, then prove its second page
+    doesn't overlap the first, the same way as in the Practice section.
+  \item \textbf{Self-check:} without reopening this chapter, try
+    explaining in your own words: (a) the difference between
+    \phpclass{hasMany} and \phpclass{belongsTo}, (b) why N+1 counts as a
+    performance problem, and (c) how to prove two pagination pages
+    don't overlap. Check your answers against this chapter.
+\end{enumerate}
+
+\begin{challengebox}
+Write one query that returns the five best-selling products by total
+quantity sold, using the \phpclass{TransactionDetail} relationship and
+aggregate functions (\phpclass{sum}, \phpclass{groupBy}), not by
+pulling every row and tallying it manually in PHP.
+\end{challengebox}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for Eloquent relationships, eager loading, and
+pagination.

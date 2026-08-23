@@ -1,0 +1,269 @@
+%% ========================================================================
+%% Chapter 7: Authentication, Authorization, and RBAC
+%% ========================================================================
+
+\chapter{Authentication, Authorization, and RBAC}
+\label{ch:autentikasi-dan-otorisasi}
+
+\chapterhero{purple}{Separate who is allowed in from what they're allowed to do, then build a custom role middleware that keeps admin pages closed to ordinary cashiers.}{\faIcon{lock}\quad login \& sessions}{\faIcon{user-shield}\quad role middleware}{\faIcon{users-cog}\quad RBAC}
+
+A layered office building usually has two doors with different rules.
+The access card reader at the lobby checks exactly one thing: is this
+card registered as belonging to a building employee, yes or no. Once
+past the lobby, that same person still stops at the server room door,
+and the question there is different: no longer "are you an employee"
+but "is your role actually authorized to enter this specific room". A
+receptionist with a perfectly valid card still gets turned away at the
+server room if her role isn't IT staff. Simple POS splits those two
+questions the same way. Authentication answers the lobby question: who
+are you, proven through an email and a password. Authorization answers
+the server room question: given that identity, which pages are actually
+allowed.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item implement login and logout in Simple POS using Laravel's built-in authentication system, including the demo admin and cashier accounts;
+  \item write a custom \route{role:admin} middleware to restrict access to the product, category, and report pages to the admin role only;
+  \item compare Simple POS's manual RBAC approach (a custom middleware) with packages such as Laravel Breeze and Spatie Permission, and when each fits better.
+\end{enumerate}
+
+\section{Authentication: Login and User Sessions}
+\label{sec:autentikasi-dan-otorisasi-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Authentication] The process of proving a user's identity, usually through an email and password combination, answering the question "who are you".
+  \item[Authorization] The process of deciding what a proven identity is allowed to do, answering the question "what are you allowed to do".
+  \item[Middleware] A layer of code that inspects or modifies a request before it reaches the controller, attached to a specific route or route group.
+  \item[RBAC] \textit{Role-Based Access Control}, an authorization approach that ties access permissions to a user's role (admin, cashier) rather than to individual users one by one.
+  \item[Session] Data for a logged-in user, stored server-side across requests, usually identified through a browser cookie, so a user doesn't have to log in again on every page.
+\end{description}
+\end{istilahpenting}
+
+Laravel ships a built-in authentication system through the
+\phpclass{Auth} facade, and Simple POS uses it directly with no
+additional package. \phpclass{LoginController} accepts an email and
+password from a form, then hands the check off to
+\phpclass{Auth::attempt(['email' => ..., 'password' => ...])}.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/Auth/LoginController.php}]
+public function store(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required'],
+    ]);
+
+    if (Auth::attempt($credentials)) {
+        $request->session()->regenerate();
+        return redirect()->intended('/dashboard');
+    }
+
+    return back()->withErrors(['email' => 'Credentials do not match.']);
+}
+\end{lstlisting}
+
+\phpclass{Auth::attempt()} matches the email against a row in the
+\texttt{users} table, then verifies the password against its stored
+hash; the plain password itself is never stored in any directly
+readable form. On a match, Laravel stores that user's identity in the
+session, and \phpclass{\$request->session()->regenerate()} issues a new
+session ID after a successful login, preventing a \textit{session
+fixation} attack where an attacker plants his own old session ID before
+the victim logs in. Simple POS ships two demo accounts,
+\texttt{admin@pos.test} with the admin role and \texttt{kasir@pos.test}
+with the cashier role, both signing in through the same login form; the
+only difference is the \texttt{role} column value on each account's
+\texttt{users} row.
+
+\section{RBAC with a Custom Middleware}
+\label{sec:autentikasi-dan-otorisasi-2}
+
+A successful login only proves identity; it doesn't yet decide which
+pages that identity is allowed to reach. Laravel's built-in
+\phpclass{auth} middleware is already enough to block a user who isn't
+logged in at all, but Simple POS needs one more layer: telling a
+cashier apart from an admin once both have successfully logged in.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Middleware/EnsureUserHasRole.php}]
+class EnsureUserHasRole
+{
+    public function handle(Request $request, Closure $next, string $role)
+    {
+        if ($request->user()?->role !== $role) {
+            abort(403, 'Access denied for your role.');
+        }
+
+        return $next($request);
+    }
+}
+\end{lstlisting}
+
+The third parameter, \texttt{\$role}, isn't a fixed part of Laravel's
+middleware signature; it's a custom parameter supplied when the
+middleware is attached to a route, written as \texttt{role:admin} on a
+route group. This middleware gets registered as an alias in
+\texttt{bootstrap/app.php} so it can be called by the short name
+\texttt{role} instead of its full class name.
+
+\begin{lstlisting}[language=php, title=\lstfile{routes/web.php}]
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::resource('products', ProductController::class);
+    Route::resource('categories', CategoryController::class);
+    Route::get('/reports', [ReportController::class, 'index']);
+});
+\end{lstlisting}
+
+Those two middleware run in sequence: \phpclass{auth} first confirms
+the user is logged in at all, then \phpclass{role:admin} checks the
+specific role. A cashier trying to open \route{/products} passes the
+\phpclass{auth} middleware fine (she really is logged in) but gets
+stopped at \phpclass{role:admin}, receiving a 403 Forbidden response.
+
+\section{Practice: Restricting Access to Admin Pages}
+\label{sec:autentikasi-dan-otorisasi-3}
+
+The steps below build the \phpclass{EnsureUserHasRole} middleware from
+scratch, register it, then prove the restriction genuinely works using
+two demo accounts with different roles.
+
+\begin{enumerate}
+  \item Create the middleware class skeleton:
+    \begin{lstlisting}[language=bash]
+php artisan make:middleware EnsureUserHasRole
+    \end{lstlisting}
+  \item Open the newly created file at
+    \texttt{app/Http\allowbreak/Middleware\allowbreak/EnsureUserHasRole.php}, then
+    replace its \cmd{handle()} method body with the code already shown
+    in the previous section (the \texttt{\$role} parameter, the
+    \texttt{\$request->user()?->role} check, and
+    \cmd{abort(403, ...)}).
+  \item Open \texttt{bootstrap/app.php}, register that middleware as
+    the \texttt{role} alias inside the \cmd{->withMiddleware()} call:
+    \begin{lstlisting}[language=php, title=\lstfile{bootstrap/app.php}]
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+    ]);
+})
+    \end{lstlisting}
+    Without registering this alias, writing \texttt{role:admin} on a
+    route fails with \texttt{Target class [role] does not exist}.
+  \item Open \texttt{routes/web.php}, wrap the product, category, and
+    report routes in the \texttt{['auth', 'role:admin']} group as
+    shown in the previous section's example.
+  \item Make sure the two demo accounts exist in the seeder. Open
+    \texttt{database/seeders/DatabaseSeeder.php}, add (if not already
+    there):
+    \begin{lstlisting}[language=php, title=\lstfile{database/seeders/DatabaseSeeder.php}]
+User::factory()->create([
+    'email' => 'admin@pos.test',
+    'role' => 'admin',
+]);
+User::factory()->create([
+    'email' => 'kasir@pos.test',
+    'role' => 'kasir',
+]);
+    \end{lstlisting}
+    then run \artisan{php artisan migrate:fresh --seed} so both
+    accounts exist in the database.
+  \item Run \artisan{php artisan serve}, log in as
+    \texttt{admin@pos.test}, open \route{/products}. \textbf{What to
+    expect}: the product list page renders normally.
+  \item Log out, log in as \texttt{kasir@pos.test}, open
+    \route{/products} again. \textbf{What to expect}: what shows up is
+    a 403 error page, not the product list.
+  \item \textbf{If the cashier can still open \texttt{/products}},
+    check the two most common causes: (a) the \texttt{/products} route
+    turned out to be registered outside the \texttt{role:admin} group
+    from step 4; (b) the routes got cached before the middleware was
+    added (\artisan{php artisan route:cache} was run at some point), so
+    Laravel is still using the old route list; run
+    \artisan{php artisan route:clear} and try again.
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{Custom middleware vs ready-made authorization packages}
+\label{tab:rbac-perbandingan}
+\begin{tblr}{
+  colspec = {X[1.1,l] X[0.9,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+Approach & Setup complexity & Fits \\
+Custom middleware (Simple POS) & Low & Simple roles, 2--3 fixed roles \\
+Laravel Breeze & Medium & Ready-made auth plus UI scaffolding \\
+Spatie Permission & Medium--high & Granular roles and permissions, many combinations \\
+\end{tblr}
+\end{table}
+
+A custom middleware like \phpclass{EnsureUserHasRole} is enough for
+Simple POS because the number of roles stays small and stable. Once the
+need grows into granular per-action permissions, say "branch A's admin
+may manage branch A's products only, not branch B's", a package like
+Spatie Permission provides a far more flexible role-and-permission
+model than a single \texttt{role} string column, at the cost of a more
+elaborate setup and extra tables.
+
+\begin{warningbox}
+A middleware only protects a route it's actually attached to. Adding a
+new route inside a \phpclass{Route::resource()} group that's already
+protected by \phpclass{role:admin} stays safe, but adding a new admin
+route \textit{outside} that group, or forgetting to place it in the
+right group, leaves that page reachable by anyone logged in at all,
+regardless of role. This mistake won't show up in a development
+environment if whoever's testing always logs in as admin.
+\end{warningbox}
+
+\branchref{chapter-07}
+
+\section{Summary}
+\label{sec:autentikasi-dan-otorisasi-rangkuman}
+
+\begin{itemize}
+  \item Login and logout in Simple POS use Laravel's built-in
+    \phpclass{Auth::attempt()}, with \phpclass{session()->regenerate()}
+    preventing session fixation, and two demo accounts
+    (\texttt{admin@pos.test}, \texttt{kasir@pos.test}) told apart
+    through the \texttt{role} column.
+  \item The \phpclass{EnsureUserHasRole} middleware, registered as the
+    \texttt{role} alias and attached through \texttt{role:admin} on a
+    route group, restricts access to the product, category, and report
+    pages to admin-role users only, returning 403 for any other role.
+  \item A custom middleware fits simple RBAC with a handful of fixed
+    roles like Simple POS; a package like Laravel Breeze fits
+    ready-made auth scaffolding better, and Spatie Permission fits
+    granular per-action permissions with many role combinations better.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Log in as the cashier, try to reach \route{/reports} directly
+    through the URL, and note what response comes back compared to
+    logging in as admin.
+  \item Add a new role, say \texttt{manager}, allowed to view
+    \route{/reports} but not manage \route{/products}. Sketch out how
+    the middleware would need to change to support this.
+  \item Explain in your own words the difference between authentication
+    and authorization, using a concrete Simple POS example other than
+    the ones already covered in this chapter.
+  \item \textbf{Self-check:} without reopening this chapter, try
+    explaining in your own words: (a) what \phpclass{Auth::attempt()}
+    does, (b) why the \phpclass{auth} and \phpclass{role:admin}
+    middleware need to run in that order, and (c) when Spatie
+    Permission makes more sense than a custom middleware. Check your
+    answers against this chapter.
+\end{enumerate}
+
+\begin{challengebox}
+Add a specific error message shown when a cashier tries to reach an
+admin page, naming the page that was denied and the role required,
+instead of Laravel's generic 403 message.
+\end{challengebox}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for authentication, sessions, and middleware.

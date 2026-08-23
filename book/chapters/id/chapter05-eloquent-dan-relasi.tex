@@ -1,0 +1,264 @@
+%% ========================================================================
+%% Bab 5: Eloquent ORM dan Relasi
+%% ========================================================================
+
+\chapter{Eloquent ORM dan Relasi}
+\label{ch:eloquent-dan-relasi}
+
+\chapterhero{teal}{Petakan relasi antar model Simple POS, hindari jebakan N+1 query, lalu buktikan paginasi bekerja benar pada data 2.500 transaksi.}{\faIcon{link}\quad relasi Eloquent}{\faIcon{layer-group}\quad eager loading}{\faIcon{tachometer-alt}\quad paginasi skala nyata}
+
+Pohon silsilah keluarga besar biasa digambar dalam satu lembar: nama
+kakek-nenek di puncak, garis turun ke anak-anak mereka, garis turun lagi
+ke cucu. Siapa pun yang membaca pohon itu langsung tahu siapa anak
+siapa tanpa harus menelusuri satu per satu dokumen kelahiran yang
+terpisah-pisah. Model Eloquent pada Simple POS bekerja seperti pohon
+silsilah itu: \phpclass{Category} adalah kakek-nenek, \phpclass{Product}
+adalah anak, \phpclass{Transaction} dan \phpclass{TransactionDetail}
+adalah cucu. Relasi antar model mendeklarasikan garis keturunan itu
+sekali di kelas model, dan setelah itu kode di mana pun boleh menanyakan
+"siapa produk dari kategori ini" atau "detail apa saja milik transaksi
+ini" tanpa menulis ulang query join secara manual setiap kali.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item memetakan relasi \phpclass{hasOne}, \phpclass{hasMany}, \phpclass{belongsTo}, dan \phpclass{belongsToMany} ke empat model Simple POS (\phpclass{Category}, \phpclass{Product}, \phpclass{Transaction}, \phpclass{TransactionDetail});
+  \item menggunakan eager loading (\phpclass{with()}) untuk menghindari masalah N+1 query saat menampilkan daftar transaksi beserta detail dan produknya;
+  \item menerapkan \phpclass{paginate()} pada listing 300 produk dan 2.500 transaksi, dan membuktikan bahwa halaman kedua benar-benar mengembalikan baris berbeda dari halaman pertama.
+\end{enumerate}
+
+\section{Relasi Eloquent pada Model Simple POS}
+\label{sec:eloquent-dan-relasi-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Relasi] Metode pada model Eloquent yang mendeskripsikan bagaimana satu tabel terhubung ke tabel lain, dipakai layaknya properti biasa (\texttt{\$product->category}) meskipun sebenarnya menjalankan query di belakang layar.
+  \item[Eager Loading] Teknik memuat relasi di muka lewat \phpclass{with()}, dalam jumlah query yang tetap kecil, alih-alih memuatnya satu per satu saat baru dibutuhkan.
+  \item[N+1] Pola query bermasalah: satu query untuk daftar utama, ditambah satu query terpisah untuk setiap baris guna memuat relasinya.
+  \item[Lazy Loading] Kebalikan eager loading: relasi baru dimuat saat properti itu benar-benar diakses, baris demi baris, sumber utama masalah N+1.
+  \item[Paginasi] Teknik membagi hasil query besar menjadi halaman-halaman kecil, mengembalikan hanya sebagian baris pada satu waktu beserta metadata jumlah halaman.
+\end{description}
+\end{istilahpenting}
+
+Keempat model Simple POS terhubung lewat pasangan relasi yang saling
+berkebalikan. \phpclass{Category} punya banyak \phpclass{Product}
+lewat \phpclass{hasMany}, dan setiap \phpclass{Product} menunjuk balik
+ke satu \phpclass{Category} lewat \phpclass{belongsTo}.
+\phpclass{Transaction} punya banyak \phpclass{TransactionDetail} lewat
+\phpclass{hasMany}, dan setiap \phpclass{TransactionDetail} menunjuk
+balik ke satu \phpclass{Transaction} sekaligus satu \phpclass{Product},
+masing-masing lewat \phpclass{belongsTo}.
+
+\begin{lstlisting}[language=php]
+class Category extends Model
+{
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+}
+
+class TransactionDetail extends Model
+{
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+\end{lstlisting}
+
+Nama metode relasi, \phpclass{products()} pada \phpclass{Category}, atau
+\phpclass{product()} pada \phpclass{TransactionDetail}, bukan sekadar
+konvensi kosmetik. Nama itu menjadi kunci yang dipakai di mana pun
+relasi itu diminta, baik lewat pemanggilan metode
+(\texttt{\$category->products()}) yang mengembalikan query builder, maupun
+lewat akses properti (\texttt{\$category->products}) yang langsung
+mengembalikan koleksi hasilnya, dan juga lewat string di dalam
+\phpclass{with('products')} yang akan dibahas di bagian berikutnya.
+
+\section{Eager Loading dan Masalah N+1}
+\label{sec:eloquent-dan-relasi-2}
+
+Bayangkan halaman riwayat transaksi menampilkan 15 transaksi, masing-masing
+beserta nama produk yang dibeli. Ditulis tanpa eager loading, Blade akan
+mengulang \texttt{\$transaction->details} untuk tiap transaksi, dan
+setiap kali properti itu diakses, Eloquent baru menjalankan query
+\texttt{SELECT * FROM transaction\_details WHERE transaction\_id = ?}
+saat itu juga, satu query per transaksi. Lalu di dalam loop detail
+tersebut, mengakses \texttt{\$detail->product} memicu satu query lagi
+per baris detail. Untuk 15 transaksi dengan rata-rata 3 item, itu berarti
+1 query daftar transaksi, ditambah 15 query detail, ditambah sekitar 45
+query produk: 61 query total untuk menampilkan satu halaman.
+
+\begin{table}[htbp]
+\centering
+\caption{Jumlah query: lazy loading vs eager loading untuk 15 transaksi}
+\label{tab:lazy-vs-eager}
+\begin{tblr}{
+  colspec = {X[1.4,l] X[0.8,c] X[0.8,c]},
+  hline{1,2,Z} = {solid},
+}
+Pendekatan & Query daftar & Query relasi \\
+Lazy loading (tanpa \phpclass{with()}) & 1 & $\sim$60 (N+1 berulang) \\
+Eager loading (\phpclass{with('details.product')}) & 1 & 2 \\
+\end{tblr}
+\end{table}
+
+\phpclass{with('details.product')} membalik urutan itu: Eloquent
+menjalankan satu query untuk daftar transaksi, satu query tambahan yang
+memuat seluruh \phpclass{TransactionDetail} milik transaksi-transaksi
+itu sekaligus (lewat \texttt{WHERE transaction\_id IN (...)}), dan satu
+query lagi yang memuat seluruh \phpclass{Product} terkait sekaligus.
+Titik dari \texttt{details.product} memberi tahu Eloquent untuk
+memuat relasi berjenjang: detail transaksi, lalu produk dari
+setiap detail itu, dalam rangkaian query yang sama.
+
+\begin{lstlisting}[language=php]
+$transactions = Transaction::with('details.product')
+    ->latest()
+    ->paginate(15);
+\end{lstlisting}
+
+\begin{notebox}
+Jumlah query lewat eager loading tidak bergantung pada berapa banyak
+baris yang ditampilkan; ia bergantung pada berapa lapis relasi yang
+dimuat. Menampilkan 15 transaksi atau 150 transaksi dengan
+\phpclass{with('details.product')} sama-sama memakan 3 query total, bukan
+3 dikali jumlah baris.
+\end{notebox}
+
+\section{Praktik: Paginasi pada Data Skala Nyata}
+\label{sec:eloquent-dan-relasi-3}
+
+Menampilkan seluruh 300 produk atau 2.500 transaksi dalam satu halaman
+sekaligus, lewat \phpclass{get()} biasa, akan berjalan tapi membebani
+baik server maupun browser dengan ribuan baris HTML yang sebagian besar
+tidak akan pernah dilihat pengguna dalam satu waktu.
+\phpclass{paginate()} memecah hasil query itu menjadi potongan kecil,
+membaca hanya sejumlah baris yang diminta lewat parameter \texttt{page}
+pada URL, plus metadata seperti total halaman dan link
+sebelumnya/berikutnya, siap dipakai langsung oleh komponen Blade
+\phpclass{\{\{ \$products->links() \}\}}.
+
+\begin{enumerate}
+  \item Buka \texttt{app/Http/Controllers/ProductController.php}, metode
+    \cmd{index()}. Ganti pemanggilan \phpclass{get()} yang sudah ada
+    menjadi \phpclass{paginate()}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ProductController.php}]
+public function index()
+{
+    $products = Product::with('category')
+        ->orderBy('name')
+        ->paginate(10);
+
+    return view('products.index', compact('products'));
+}
+    \end{lstlisting}
+  \item Buka \texttt{resources/views/products/index.blade.php}. Di bawah
+    tabel atau grid produk yang sudah ada, tambahkan satu baris untuk
+    menampilkan navigasi halaman:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/products/index.blade.php}]
+<div class="mt-4">
+    {{ $products->links() }}
+</div>
+    \end{lstlisting}
+    \phpclass{\$products->links()} otomatis merender tautan
+    sebelumnya/berikutnya dan nomor halaman; tidak ada berkas view
+    tambahan yang perlu dibuat manual.
+  \item Jalankan \artisan{php artisan serve} kalau belum berjalan, lalu
+    buka \texttt{http://127.0.0.1:8000/products}. \textbf{Yang
+    diharapkan}: hanya 10 produk pertama yang tampil, diikuti deretan
+    tautan nomor halaman di bawahnya.
+  \item Klik tautan halaman 2 (atau ubah manual URL menjadi
+    \texttt{?page=2}). \textbf{Yang diharapkan}: 10 produk yang tampil
+    berbeda dari halaman pertama, dan address bar browser menunjukkan
+    \texttt{?page=2}.
+  \item \textbf{Kalau muncul error \texttt{Method links does not
+    exist}}, itu tanda controller di langkah 1 masih memanggil
+    \phpclass{get()}, bukan \phpclass{paginate()}; \phpclass{links()}
+    hanya tersedia pada hasil \phpclass{paginate()}, bukan pada
+    koleksi biasa.
+\end{enumerate}
+
+\begin{tipbox}
+Pakai \phpclass{paginate()} setiap kali jumlah baris berpotensi tumbuh
+tak terbatas seiring waktu, seperti daftar produk atau riwayat
+transaksi. \phpclass{get()} biasa masih cukup untuk daftar yang memang
+kecil dan tetap kecil, seperti daftar kategori pada dropdown filter.
+\end{tipbox}
+
+Membuktikan bahwa paginasi benar-benar bekerja, bukan cuma memotong
+tampilan tapi menyisakan data yang sama, bisa diverifikasi lebih lanjut
+lewat Tinker, dengan membandingkan ID baris pertama pada dua halaman
+berbeda:
+
+\begin{lstlisting}[language=bash]
+php artisan tinker
+>>> Product::orderBy('name')->paginate(10)->pluck('id');
+>>> Product::orderBy('name')->paginate(10, ['*'], 'page', 2)->pluck('id');
+\end{lstlisting}
+
+Argumen keempat pada \phpclass{paginate()} di atas memaksa nomor
+halaman secara manual (biasanya diambil otomatis dari query string
+\texttt{?page=2} pada request nyata). Kedua daftar ID yang tercetak
+harus sama sekali tidak beririsan; kalau ada ID yang muncul di kedua
+halaman, itu tanda ada bug pada urutan (\phpclass{orderBy}) yang dipakai
+sebelum paginasi, karena paginasi mengasumsikan urutan hasil query
+selalu konsisten antar-request.
+
+\branchref{chapter-05}
+
+\section{Rangkuman}
+\label{sec:eloquent-dan-relasi-rangkuman}
+
+\begin{itemize}
+  \item Keempat model Simple POS terhubung lewat pasangan relasi
+    \phpclass{hasMany}/\phpclass{belongsTo}: \phpclass{Category} ke
+    \phpclass{Product}, dan \phpclass{Transaction} ke
+    \phpclass{TransactionDetail} yang juga menunjuk ke \phpclass{Product}.
+  \item Lazy loading memicu satu query tambahan per baris per relasi
+    (masalah N+1), sementara \phpclass{with('details.product')} memuat
+    relasi berjenjang dalam jumlah query tetap, tidak bergantung pada
+    jumlah baris yang ditampilkan.
+  \item \phpclass{paginate()} membagi listing 300 produk atau 2.500
+    transaksi menjadi halaman-halaman kecil, dan halaman yang berbeda
+    bisa dibuktikan benar-benar mengembalikan baris berbeda dengan
+    membandingkan ID hasil antar halaman.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Hapus \phpclass{with('details.product')} dari query riwayat
+    transaksi, aktifkan query log Laravel, lalu hitung selisih jumlah
+    query sebelum dan sesudah eager loading dikembalikan.
+  \item Tambahkan relasi baru: \phpclass{Product::belongsToMany} ke
+    model \phpclass{Transaction} lewat tabel pivot
+    \texttt{transaction\_details}, sebagai cara alternatif mengakses
+    seluruh transaksi yang pernah membeli satu produk.
+  \item Terapkan \phpclass{paginate()} pada satu endpoint listing lain
+    di Simple POS yang belum memakainya, lalu buktikan halaman
+    keduanya tidak beririsan seperti pada bagian Praktik.
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) perbedaan \phpclass{hasMany} dan
+    \phpclass{belongsTo}, (b) mengapa N+1 disebut masalah performa,
+    dan (c) bagaimana cara membuktikan dua halaman paginasi tidak
+    beririsan. Cocokkan jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tulis satu query yang menampilkan lima produk terlaris berdasarkan
+total quantity terjual, memakai relasi \phpclass{TransactionDetail}
+dan fungsi agregasi (\phpclass{sum}, \phpclass{groupBy}), bukan dengan
+mengambil seluruh baris lalu menghitungnya manual di PHP.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+relasi Eloquent, eager loading, dan paginasi.

@@ -1,0 +1,269 @@
+%% ========================================================================
+%% Bab 7: Autentikasi, Otorisasi, dan RBAC
+%% ========================================================================
+
+\chapter{Autentikasi, Otorisasi, dan RBAC}
+\label{ch:autentikasi-dan-otorisasi}
+
+\chapterhero{purple}{Bedakan siapa yang boleh masuk dari apa yang boleh dilakukan, lalu bangun middleware peran kustom yang menutup halaman admin dari kasir biasa.}{\faIcon{lock}\quad login \& sesi}{\faIcon{user-shield}\quad middleware peran}{\faIcon{users-cog}\quad RBAC}
+
+Gedung perkantoran berlapis biasanya punya dua pintu yang berbeda
+sifatnya. Kartu akses di pintu lobi hanya memeriksa satu hal: apakah
+kartu ini terdaftar sebagai karyawan gedung, ya atau tidak. Begitu lolos
+lobi, orang yang sama masih akan berhenti di pintu ruang server, dan di
+situ pertanyaannya berbeda: bukan lagi "apakah kamu karyawan", tapi
+"apakah perananmu memang berwenang masuk ruang ini". Resepsionis yang
+kartunya sah tetap tertahan di depan ruang server kalau perananya bukan
+staf IT. Simple POS memisahkan dua pertanyaan itu dengan cara yang
+sama. Autentikasi menjawab pertanyaan lobi: siapa kamu, dibuktikan lewat
+email dan kata sandi. Otorisasi menjawab pertanyaan ruang server: dengan
+identitas itu, halaman mana saja yang benar-benar boleh diakses.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item mengimplementasikan login dan logout Simple POS memakai sistem autentikasi bawaan Laravel, termasuk akun demo admin dan kasir;
+  \item menulis middleware \route{role:admin} kustom untuk membatasi akses halaman produk, kategori, dan laporan hanya untuk peran admin;
+  \item membandingkan pendekatan RBAC manual (middleware kustom) pada Simple POS dengan paket seperti Laravel Breeze dan Spatie Permission, serta kapan masing-masing lebih sesuai dipakai.
+\end{enumerate}
+
+\section{Autentikasi: Login dan Sesi Pengguna}
+\label{sec:autentikasi-dan-otorisasi-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Autentikasi] Proses membuktikan identitas pengguna, biasanya lewat kombinasi email dan kata sandi, menjawab pertanyaan "kamu siapa".
+  \item[Otorisasi] Proses menentukan apa yang boleh dilakukan pengguna yang identitasnya sudah terbukti, menjawab pertanyaan "kamu boleh apa".
+  \item[Middleware] Lapisan kode yang memeriksa atau memodifikasi request sebelum sampai ke controller, dipasang pada route atau grup route tertentu.
+  \item[RBAC] \textit{Role-Based Access Control}, pendekatan otorisasi yang mengaitkan izin akses ke peran pengguna (admin, kasir), bukan ke pengguna satu per satu.
+  \item[Sesi] Data pengguna yang login disimpan server antar-request, biasanya diidentifikasi lewat cookie di browser, sehingga pengguna tidak perlu login ulang di setiap halaman.
+\end{description}
+\end{istilahpenting}
+
+Laravel menyediakan sistem autentikasi bawaan lewat facade
+\phpclass{Auth}, dan Simple POS memakainya langsung tanpa paket
+tambahan. \phpclass{LoginController} menerima email dan kata sandi dari
+form, lalu menyerahkan pemeriksaannya ke
+\phpclass{Auth::attempt(['email' => ..., 'password' => ...])}.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/Auth/LoginController.php}]
+public function store(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required'],
+    ]);
+
+    if (Auth::attempt($credentials)) {
+        $request->session()->regenerate();
+        return redirect()->intended('/dashboard');
+    }
+
+    return back()->withErrors(['email' => 'Kredensial tidak cocok.']);
+}
+\end{lstlisting}
+
+\phpclass{Auth::attempt()} mencocokkan email dengan baris pada tabel
+\texttt{users}, lalu memverifikasi kata sandi lewat hash yang tersimpan;
+kata sandi asli tidak pernah disimpan dalam bentuk yang bisa dibaca
+langsung. Kalau cocok, Laravel menyimpan identitas pengguna itu di sesi,
+dan \phpclass{\$request->session()->regenerate()} membuat ID sesi baru
+setelah login berhasil, mencegah serangan
+\textit{session fixation} di mana penyerang menyisipkan ID sesi lamanya
+sendiri sebelum korban login. Simple POS menyediakan dua akun demo,
+\texttt{admin@pos.test} berperan admin dan \texttt{kasir@pos.test}
+berperan kasir, keduanya masuk lewat form login yang sama; yang berbeda
+hanya nilai kolom \texttt{role} pada baris \texttt{users} masing-masing.
+
+\section{RBAC dengan Middleware Kustom}
+\label{sec:autentikasi-dan-otorisasi-2}
+
+Login yang berhasil hanya membuktikan identitas; ia belum menentukan
+halaman mana yang boleh diakses identitas itu. Middleware
+\phpclass{auth} bawaan Laravel sudah cukup untuk memblokir pengguna
+yang belum login sama sekali, tapi Simple POS butuh satu lapis lagi:
+membedakan kasir dari admin setelah keduanya sama-sama berhasil login.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Middleware/EnsureUserHasRole.php}]
+class EnsureUserHasRole
+{
+    public function handle(Request $request, Closure $next, string $role)
+    {
+        if ($request->user()?->role !== $role) {
+            abort(403, 'Akses ditolak untuk peran Anda.');
+        }
+
+        return $next($request);
+    }
+}
+\end{lstlisting}
+
+Parameter ketiga, \texttt{\$role}, bukan bagian tetap dari signature
+middleware Laravel; ia parameter kustom yang dipasok saat middleware
+didaftarkan pada route, dituliskan sebagai \texttt{role:admin} pada
+grup route. Middleware ini didaftarkan sebagai alias di
+\texttt{bootstrap/app.php} agar bisa dipanggil lewat nama pendek
+\texttt{role} alih-alih nama kelas penuh.
+
+\begin{lstlisting}[language=php, title=\lstfile{routes/web.php}]
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::resource('products', ProductController::class);
+    Route::resource('categories', CategoryController::class);
+    Route::get('/reports', [ReportController::class, 'index']);
+});
+\end{lstlisting}
+
+Dua middleware itu berjalan berurutan: \phpclass{auth} lebih dulu
+memastikan pengguna sudah login sama sekali, baru \phpclass{role:admin}
+memeriksa peran spesifiknya. Kasir yang mencoba membuka
+\route{/products} akan lolos middleware \phpclass{auth} (ia memang
+sudah login) tapi tertahan di \phpclass{role:admin}, menerima respons
+403 Forbidden.
+
+\section{Praktik: Membatasi Akses Halaman Admin}
+\label{sec:autentikasi-dan-otorisasi-3}
+
+Langkah-langkah berikut membuat middleware \phpclass{EnsureUserHasRole}
+dari nol, mendaftarkannya, lalu membuktikan pembatasannya benar-benar
+berjalan lewat dua akun demo yang berbeda peran.
+
+\begin{enumerate}
+  \item Buat kerangka kelas middleware-nya:
+    \begin{lstlisting}[language=bash]
+php artisan make:middleware EnsureUserHasRole
+    \end{lstlisting}
+  \item Buka berkas yang baru dibuat di
+    \texttt{app/Http\allowbreak/Middleware\allowbreak/EnsureUserHasRole.php}, lalu ganti isi
+    metode \cmd{handle()}-nya dengan kode yang sudah ditunjukkan di
+    bagian sebelumnya (parameter \texttt{\$role}, pemeriksaan
+    \texttt{\$request->user()?->role}, dan \cmd{abort(403, ...)}).
+  \item Buka \texttt{bootstrap/app.php}, daftarkan middleware itu sebagai
+    alias \texttt{role} di dalam pemanggilan \cmd{->withMiddleware()}:
+    \begin{lstlisting}[language=php, title=\lstfile{bootstrap/app.php}]
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+    ]);
+})
+    \end{lstlisting}
+    Tanpa pendaftaran alias ini, menulis \texttt{role:admin} pada route
+    akan gagal dengan pesan \texttt{Target class [role] does not exist}.
+  \item Buka \texttt{routes/web.php}, bungkus route produk, kategori, dan
+    laporan dengan grup \texttt{['auth', 'role:admin']} seperti pada
+    contoh di bagian sebelumnya.
+  \item Pastikan dua akun demo sudah ada di seeder. Buka
+    \texttt{database/seeders/DatabaseSeeder.php}, tambahkan (kalau belum
+    ada):
+    \begin{lstlisting}[language=php, title=\lstfile{database/seeders/DatabaseSeeder.php}]
+User::factory()->create([
+    'email' => 'admin@pos.test',
+    'role' => 'admin',
+]);
+User::factory()->create([
+    'email' => 'kasir@pos.test',
+    'role' => 'kasir',
+]);
+    \end{lstlisting}
+    lalu jalankan \artisan{php artisan migrate:fresh --seed} agar kedua
+    akun tersedia di basis data.
+  \item Jalankan \artisan{php artisan serve}, login sebagai
+    \texttt{admin@pos.test}, buka \route{/products}. \textbf{Yang
+    diharapkan}: halaman daftar produk tampil normal.
+  \item Logout, login sebagai \texttt{kasir@pos.test}, buka
+    \route{/products} lagi. \textbf{Yang diharapkan}: yang muncul adalah
+    halaman error 403, bukan daftar produk.
+  \item \textbf{Kalau kasir tetap bisa membuka \texttt{/products}},
+    periksa dua kemungkinan paling umum: (a) route \texttt{/products}
+    ternyata terdaftar di luar grup \texttt{role:admin} pada langkah 4;
+    (b) route sempat di-cache sebelum middleware ditambahkan
+    (\artisan{php artisan route:cache} pernah dijalankan), sehingga
+    Laravel masih memakai daftar route lama; jalankan
+    \artisan{php artisan route:clear} lalu coba lagi.
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{Middleware kustom vs paket otorisasi siap pakai}
+\label{tab:rbac-perbandingan}
+\begin{tblr}{
+  colspec = {X[1.1,l] X[0.9,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+Pendekatan & Kompleksitas setup & Cocok untuk \\
+Middleware kustom (Simple POS) & Rendah & Peran sederhana, 2--3 peran tetap \\
+Laravel Breeze & Sedang & Autentikasi siap pakai plus scaffolding UI \\
+Spatie Permission & Sedang--tinggi & Peran dan izin granular, banyak kombinasi \\
+\end{tblr}
+\end{table}
+
+Middleware kustom seperti \phpclass{EnsureUserHasRole} cukup untuk
+Simple POS karena jumlah perannya tetap kecil dan tidak berubah-ubah.
+Begitu kebutuhan tumbuh menjadi izin granular per aksi, misalnya "admin
+cabang A boleh mengelola produk cabang A saja, tidak cabang B", paket
+seperti Spatie Permission menyediakan model izin dan peran yang jauh
+lebih fleksibel daripada satu kolom \texttt{role} string, dengan
+konsekuensi setup dan tabel tambahan yang lebih rumit.
+
+\begin{warningbox}
+Middleware hanya melindungi route yang benar-benar dipasangi middleware
+itu. Menambahkan route baru ke dalam grup \phpclass{Route::resource()}
+yang sudah dilindungi \phpclass{role:admin} tetap aman, tapi menambahkan
+route admin baru \textit{di luar} grup itu, atau lupa memasukkannya ke
+grup yang benar, membuat halaman itu bisa diakses siapa pun yang sudah
+login, tanpa peduli perannya. Kesalahan ini tidak akan terlihat di
+lingkungan pengembangan kalau yang menguji selalu login sebagai admin.
+\end{warningbox}
+
+\branchref{chapter-07}
+
+\section{Rangkuman}
+\label{sec:autentikasi-dan-otorisasi-rangkuman}
+
+\begin{itemize}
+  \item Login dan logout Simple POS memakai \phpclass{Auth::attempt()}
+    bawaan Laravel, dengan \phpclass{session()->regenerate()} mencegah
+    session fixation, dan dua akun demo (\texttt{admin@pos.test},
+    \texttt{kasir@pos.test}) yang dibedakan lewat kolom \texttt{role}.
+  \item Middleware \phpclass{EnsureUserHasRole}, didaftarkan sebagai
+    alias \texttt{role} dan dipasang lewat \texttt{role:admin} pada
+    grup route, membatasi akses halaman produk, kategori, dan laporan
+    hanya untuk pengguna berperan admin, mengembalikan 403 untuk peran
+    lain.
+  \item Middleware kustom cocok untuk RBAC sederhana dengan sedikit
+    peran tetap seperti Simple POS; paket seperti Laravel Breeze lebih
+    cocok untuk scaffolding autentikasi siap pakai, dan Spatie
+    Permission lebih cocok untuk izin granular per aksi dengan banyak
+    kombinasi peran.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Login sebagai kasir, coba akses \route{/reports} langsung lewat
+    URL, dan catat respons apa yang diterima dibanding saat login
+    sebagai admin.
+  \item Tambahkan peran baru, misalnya \texttt{manager}, yang boleh
+    melihat \route{/reports} tapi tidak boleh mengelola
+    \route{/products}. Rancang bagaimana middleware perlu berubah untuk
+    mendukung ini.
+  \item Jelaskan dengan kata-katamu sendiri perbedaan autentikasi dan
+    otorisasi, memakai contoh konkret dari Simple POS selain yang sudah
+    dibahas di bab ini.
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) apa yang dilakukan
+    \phpclass{Auth::attempt()}, (b) mengapa middleware \phpclass{auth}
+    dan \phpclass{role:admin} perlu dipasang berurutan, dan (c) kapan
+    Spatie Permission lebih masuk akal dipakai daripada middleware
+    kustom. Cocokkan jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tambahkan pesan error khusus saat kasir mencoba mengakses halaman
+admin, menyebutkan nama halaman yang ditolak dan peran yang dibutuhkan,
+alih-alih pesan 403 generik bawaan Laravel.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+autentikasi, sesi, dan middleware.

@@ -1,0 +1,244 @@
+%% ========================================================================
+%% Bab 12: Studi Kasus Menyeluruh: Membangun Simple POS dari Nol
+%% ========================================================================
+
+\chapter{Studi Kasus Menyeluruh: Membangun Simple POS dari Nol}
+\label{ch:studi-kasus-menyeluruh}
+
+\chapterhero{orange}{Rangkai kembali seluruh Simple POS dari skema sampai API, telusuri sepuluh increment yang membangunnya, lalu pakai sebagai peta awal proyekmu sendiri.}{\faIcon{store}\quad Simple POS utuh}{\faIcon{cash-register}\quad sepuluh increment}{\faIcon{flag-checkered}\quad referensi PBL}
+
+Bab 1 membuka buku ini dengan sebuah restoran keluarga yang berkembang
+menjadi food court, dan usaha kecil itu menghadapi masalah nyata: satu
+juru masak yang mengingat semua pesanan di kepala tidak lagi cukup
+begitu jumlah pelanggan bertambah. Sebelas bab kemudian, Simple POS
+sudah selesai dibangun, bukan lagi rancangan di atas kertas, tapi
+aplikasi yang benar-benar menyimpan produk, mencatat transaksi, membatasi
+akses lewat peran, dan melayani klien mobile lewat API. Hari pembukaan
+perdana sebuah restoran adalah momen yang mirip: dapur sudah lengkap,
+resep sudah diuji satu per satu, tapi baru pada hari itu semuanya
+berjalan bersamaan, di depan pelanggan sungguhan. Bab ini adalah hari
+pembukaan itu untuk Simple POS: bukan bab yang mengajarkan hal baru,
+melainkan bab yang menyalakan seluruh dapur sekaligus dan melihatnya
+bekerja sebagai satu kesatuan.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item merangkai seluruh komponen Simple POS (skema, model, controller/route, view, validasi, autentikasi, laporan, API) menjadi satu alur aplikasi yang koheren;
+  \item menelusuri sepuluh increment commit Simple POS dan memetakan tiap increment ke bab yang sesuai di buku ini;
+  \item mengevaluasi Simple POS sebagai referensi arsitektur untuk proyek PBL pada domain bisnis lain, serta mengidentifikasi bagian mana yang perlu diadaptasi.
+\end{enumerate}
+
+\section{Merangkai Simple POS dari Nol}
+\label{sec:studi-kasus-menyeluruh-1}
+
+Ikuti satu transaksi kasir dari awal sampai akhir, dan setiap lapisan
+yang dilewatinya adalah satu bab yang sudah dipelajari. Kasir membuka
+\route{/pos}, sebuah halaman yang dilindungi middleware \phpclass{auth}
+dan dirender lewat layout Blade dengan keranjang belanja interaktif
+lewat Alpine.js (Bab~3). Produk yang tampil di grid diambil lewat query
+Eloquent yang sudah dilengkapi eager loading kategori (Bab~5), dibaca
+dari tabel yang skemanya dirancang dan diisi seed data sejak Bab~4.
+
+Begitu kasir menekan tombol bayar, request masuk ke
+\phpclass{TransactionController@store}, ditolak lebih dulu oleh
+\phpclass{StoreTransactionRequest} kalau ada item yang tidak valid
+(Bab~6), lalu total dihitung ulang dari harga produk di basis data,
+bukan dari angka yang dikirim klien (Bab~6). Baris \texttt{transactions}
+dan \texttt{transaction\_details} tersimpan, stok produk berkurang, dan
+seluruh proses ini hanya bisa terjadi kalau kasir yang login memang
+punya sesi yang sah (Bab~7). Beberapa hari kemudian, admin membuka
+\route{/reports}, halaman yang ditutup untuk kasir lewat middleware
+\phpclass{role:admin} (Bab~7), memfilter transaksi per rentang tanggal
+(Bab~8), dan mengekspornya ke CSV untuk rapat mingguan. Di sisi lain,
+aplikasi kasir mobile memanggil \route{POST /api/login} untuk mendapat
+token Sanctum, lalu \route{GET /api/products} dan \route{POST
+/api/transactions} dengan header \route{Authorization: Bearer} pada
+setiap request (Bab~9). Sebelum semua ini pernah dianggap selesai, 13
+test fitur (Bab~10) memverifikasi bahwa alur di atas benar-benar
+berjalan seperti yang dijelaskan, dan sebelum aplikasi ini pernah
+disebut siap dipakai, index foreign key diperiksa ulang dan
+\texttt{APP\_DEBUG} dipastikan mati di produksi (Bab~11).
+
+\begin{notebox}
+Tidak satu pun lapisan di atas berdiri sendiri. Middleware peran di
+Bab~7 tidak berarti apa-apa tanpa sistem autentikasi yang mendahuluinya;
+laporan di Bab~8 tidak berarti apa-apa tanpa kolom \texttt{total} yang
+dijamin akurat sejak Bab~6. Simple POS koheren bukan karena setiap
+bagiannya canggih sendiri-sendiri, tapi karena setiap bagian dibangun
+di atas jaminan yang sudah dipenuhi bagian sebelumnya.
+\end{notebox}
+
+\section{Menelusuri Sepuluh Increment}
+\label{sec:studi-kasus-menyeluruh-2}
+
+Simple POS pada cakupan buku ini dibangun lewat sepuluh increment, dan
+setiap increment punya padanan langsung ke satu bab yang sudah dibaca.
+
+\begin{table}[htbp]
+\centering
+\caption{Pemetaan sepuluh increment Simple POS ke bab buku ini}
+\label{tab:increment-mapping}
+\begin{tblr}{
+  colspec = {X[0.5,c] X[0.6,l] X[1.9,l]},
+  hline{1,2,Z} = {solid},
+}
+Increment & Bab terkait & Yang dibangun \\
+1 & Bab 1 & Setup proyek Laravel, Git, SQLite \\
+2 & Bab 2 & Route dan controller \\
+3 & Bab 3 & Layout Blade dan Tailwind \\
+4--5 & Bab 4--5 & Skema, migrasi, relasi Eloquent \\
+6 & Bab 6 & Validasi form \\
+7 & Bab 7 & Autentikasi dan RBAC \\
+9 & Bab 8 & Laporan, ekspor/impor \\
+10 & Bab 9 & REST API dan Sanctum \\
+\end{tblr}
+\end{table}
+
+Angka increment tidak sepenuhnya berurutan rapi dengan nomor bab, dan
+itu bukan kekeliruan penomoran. Increment 4 dan 5 sama-sama masuk ke
+Bab~4 dan Bab~5 karena skema dan relasi memang dua sisi dari satu
+pekerjaan yang sama, cukup besar untuk dipecah jadi dua bab tapi tetap
+dikerjakan sebagai rangkaian commit yang berdekatan. Increment 8 tidak
+punya baris sendiri di tabel ini karena ia bukan penambahan fitur baru,
+melainkan titik pemeriksaan menyeluruh atas increment 1 sampai 7 yang
+sudah berjalan, sebelum berlanjut ke increment 9. Sejarah kode yang
+sebenarnya jarang serapi urutan bab dalam buku; buku menyusun ulang
+urutan itu supaya lebih mudah diajarkan, sementara commit historis
+mengikuti urutan pekerjaan yang benar-benar terjadi.
+
+\section{Praktik: Simple POS sebagai Referensi Arsitektur}
+\label{sec:studi-kasus-menyeluruh-3}
+
+Sebelum menilai Simple POS sebagai referensi, jalankan dulu wujud
+lengkapnya dari nol, persis seperti pengembang lain akan melakukannya
+saat pertama kali membuka proyek ini.
+
+\begin{enumerate}
+  \item Clone repositori, lalu pindah ke branch \texttt{chapter-12}
+    (kondisi akhir Simple POS seperti yang dibahas sepanjang buku ini):
+    \begin{lstlisting}[language=bash]
+git clone https://github.com/dhanifudin/simple-pos.git
+cd simple-pos
+git checkout chapter-12
+    \end{lstlisting}
+  \item Pasang dependensi PHP dan siapkan berkas environment:
+    \begin{lstlisting}[language=bash]
+composer install
+cp .env.example .env
+php artisan key:generate
+    \end{lstlisting}
+  \item Pasang dependensi JavaScript, lalu bangun aset frontend produksi
+    (tanpa langkah ini, direktif \cmd{@vite} di layout akan melempar
+    \texttt{ViteManifestNotFoundException} begitu \route{/pos} dibuka
+    beberapa langkah lagi):
+    \begin{lstlisting}[language=bash]
+npm install
+npm run build
+    \end{lstlisting}
+  \item Jalankan migrasi sekaligus seeder:
+    \begin{lstlisting}[language=bash]
+php artisan migrate:fresh --seed
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: daftar migrasi tercetak satu per satu
+    tanpa galat, diikuti pesan bahwa seeder selesai berjalan.
+  \item Jalankan seluruh test untuk memastikan checkout ini benar-benar
+    berfungsi (bukan cuma ter-clone):
+    \begin{lstlisting}[language=bash]
+php artisan test
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: seluruh test lolos, sesuai anatomi yang
+    dibahas di Bab~10.
+  \item Jalankan server, lalu login dan catat satu transaksi
+    sungguhan lewat browser:
+    \begin{lstlisting}[language=bash]
+php artisan serve
+    \end{lstlisting}
+    Buka \texttt{http://127.0.0.1:8000}, login sebagai
+    \texttt{admin@pos.test}, buka \route{/pos}, tambahkan satu produk ke
+    keranjang, lalu simpan transaksinya. \textbf{Yang diharapkan}:
+    transaksi tersimpan dan langsung terlihat di \route{/transactions},
+    dengan stok produk yang berkurang sesuai qty yang dibeli, persis
+    alur end-to-end yang dibahas di bagian sebelumnya.
+  \item \textbf{Kalau \cmd{migrate:fresh} gagal dengan pesan
+    \texttt{database file does not exist}}, buat dulu berkas basis data
+    SQLite-nya secara manual sebelum migrasi: \artisan{touch
+    database/database.sqlite}, lalu ulangi langkah 4.
+\end{enumerate}
+
+Dengan Simple POS yang sudah berjalan penuh ini sebagai bukti, bagian
+berikut menilai pola strukturalnya sebagai referensi untuk proyek lain.
+
+Simple POS dirancang khusus untuk kasus penjualan eceran, tapi pola
+strukturalnya, bukan detail bisnisnya, adalah bagian yang paling
+berguna dipakai ulang. Proyek PBL pada domain lain, katakanlah sistem
+reservasi ruang rapat atau peminjaman buku perpustakaan, tidak akan
+punya tabel \texttt{products} atau \texttt{transactions}, tapi kerangka
+yang sama, skema lalu model lalu controller/route lalu view lalu
+validasi lalu autentikasi lalu laporan lalu API, tetap relevan sebagai
+titik awal.
+
+\begin{table}[htbp]
+\centering
+\caption{Checklist adaptasi Simple POS ke domain bisnis lain}
+\label{tab:checklist-adaptasi}
+\begin{tblr}{
+  colspec = {X[1.3,l] X[1.7,l]},
+  hline{1,2,Z} = {solid},
+}
+Bagian & Perlu diadaptasi atau dipertahankan \\
+Entitas inti (\texttt{products}, \texttt{transactions}) & Diganti total sesuai domain (mis. \texttt{rooms}, \texttt{bookings}) \\
+Skema dan relasi (Bab~4--5) & Dirancang ulang, tapi pola \texttt{hasMany}/\texttt{belongsTo} dan index FK tetap dipertahankan \\
+Pola validasi server-side (Bab~6) & Dipertahankan penuh: total/nilai kritis tetap wajib dihitung ulang di server \\
+Autentikasi dan RBAC (Bab~7) & Dipertahankan, peran disesuaikan (mis. \texttt{staf}/\texttt{anggota} alih-alih \texttt{admin}/\texttt{kasir}) \\
+Struktur laporan dan API (Bab~8--9) & Dipertahankan sebagai pola, isi dan endpoint disesuaikan domain \\
+\end{tblr}
+\end{table}
+
+\begin{tipbox}
+Pakai urutan skema $\to$ model $\to$ controller/route $\to$ view $\to$
+validasi $\to$ autentikasi $\to$ laporan $\to$ API sebagai kerangka awal
+proyek baru, persis urutan bab-bab buku ini. Urutan ini bukan kebetulan:
+setiap lapisan butuh jaminan dari lapisan sebelumnya, dan membangunnya
+di luar urutan itu biasanya berarti menulis ulang sesuatu yang
+seharusnya sudah benar sejak awal.
+\end{tipbox}
+
+\branchref{chapter-12}
+
+\section{Rangkuman}
+\label{sec:studi-kasus-menyeluruh-rangkuman}
+
+\begin{itemize}
+  \item Satu transaksi kasir pada Simple POS melewati seluruh lapisan
+    yang dipelajari di sebelas bab sebelumnya, dari skema dan model
+    sampai validasi, autentikasi, laporan, dan API, dan setiap lapisan
+    bergantung pada jaminan yang sudah dipenuhi lapisan sebelumnya.
+  \item Sepuluh increment Simple POS memetakan langsung ke Bab~1 sampai
+    Bab~9, dengan increment 4--5 menyatu ke dua bab dan increment 8
+    berperan sebagai titik pemeriksaan, bukan penambahan fitur baru.
+  \item Pola struktural Simple POS, bukan detail bisnis penjualan
+    eceran-nya, adalah yang layak dipakai ulang sebagai referensi
+    arsitektur untuk proyek pada domain bisnis lain.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Gambar ulang diagram alur end-to-end satu transaksi kasir
+    dengan kata-katamu sendiri, sebutkan bab mana yang bertanggung
+    jawab atas setiap tahapnya.
+  \item Pilih satu domain bisnis lain (reservasi, perpustakaan,
+    inventaris gudang, atau domain pilihanmu sendiri), lalu identifikasi
+    tiga bagian Simple POS yang perlu diadaptasi paling dulu untuk
+    domain itu.
+  \item Jelaskan dengan kata-katamu sendiri mengapa urutan skema
+    $\to$ model $\to$ controller $\to$ view $\to$ validasi $\to$
+    autentikasi $\to$ laporan $\to$ API lebih masuk akal dikerjakan
+    berurutan daripada diacak.
+\end{enumerate}
+
+\section{Referensi}
+
+Bab ini merangkum kembali seluruh referensi yang sudah dikutip di
+Bab~1 sampai Bab~11, tanpa rujukan baru.

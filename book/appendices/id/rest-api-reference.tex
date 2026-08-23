@@ -1,0 +1,58 @@
+%% ========================================================================
+%% Lampiran A: Referensi REST API
+%% ========================================================================
+%% STATUS: SCAFFOLD ONLY - lihat docs/authoring-guide.md
+%% ========================================================================
+
+\chapter{Referensi REST API}
+\label{app:rest-api}
+
+Lampiran ini merangkum endpoint REST API Simple POS yang dipakai oleh klien
+kasir mobile, sebagaimana dibahas pada \cref{ch:membangun-rest-api}. Seluruh
+endpoint diawali dengan Sanctum sebagai lapisan autentikasi berbasis token.
+
+\section{Autentikasi}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Keterangan} \\
+POST & \route{/api/login} & Mengirim email dan password, mengembalikan token Sanctum \\
+POST & \route{/api/logout} & Mencabut token yang sedang dipakai (memerlukan header \route{Authorization}) \\
+\end{tblr}
+
+\begin{notebox}
+Setiap permintaan ke endpoint yang dilindungi wajib menyertakan header
+\route{Authorization: Bearer <token>}, dengan \route{<token>} adalah nilai
+yang dikembalikan oleh \route{POST /api/login}.
+\end{notebox}
+
+\section{Produk}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Keterangan} \\
+GET & \route{/api/products} & Mengambil daftar produk beserta stok dan harga \\
+\end{tblr}
+
+\section{Transaksi}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Keterangan} \\
+POST & \route{/api/transactions} & Membuat transaksi baru; total dihitung server-side \\
+GET & \route{/api/transactions} & Mengambil daftar transaksi milik pengguna yang sedang masuk \\
+GET & \route{/api/transactions/\{id\}} & Mengambil detail satu transaksi \\
+\end{tblr}
+
+\begin{warningbox}
+Sama seperti pada versi web, \route{POST /api/transactions} tidak pernah
+menerima nilai total dari klien. Total tetap dihitung ulang di server dari
+harga produk dan kuantitas, mengikuti prinsip yang sama seperti pada
+\cref{ch:validasi-input}.
+\end{warningbox}

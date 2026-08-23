@@ -1,0 +1,64 @@
+%% ========================================================================
+%% Lampiran B: Referensi Perintah Artisan dan Composer
+%% ========================================================================
+%% STATUS: SCAFFOLD ONLY - lihat docs/authoring-guide.md
+%% ========================================================================
+
+\chapter{Referensi Perintah Artisan dan Composer}
+\label{app:cli}
+
+Lampiran ini merangkum perintah antarmuka baris perintah (CLI) yang paling
+sering dipakai sepanjang buku. Semua perintah dijalankan dari direktori
+proyek Simple POS, kecuali disebutkan lain.
+
+\section{Menyiapkan Proyek}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Perintah} & \textbf{Fungsi} \\
+\cmd{composer install} & Memasang dependensi PHP dari \file{composer.json} \\
+\cmd{php artisan key:generate} & Membuat kunci enkripsi aplikasi \\
+\cmd{php artisan migrate:fresh --seed} & Menjalankan ulang seluruh migrasi lalu mengisi data seed \\
+\cmd{php artisan serve} & Menjalankan server pengembangan lokal \\
+\end{tblr}
+
+\section{Migrasi dan Basis Data}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Perintah} & \textbf{Fungsi} \\
+\artisan{php artisan make:migration create\_products\_table} & Membuat berkas migrasi baru \\
+\artisan{php artisan migrate} & Menjalankan migrasi yang belum dieksekusi \\
+\artisan{php artisan migrate:rollback} & Membatalkan batch migrasi terakhir \\
+\artisan{php artisan db:seed} & Menjalankan seeder tanpa mengulang migrasi \\
+\end{tblr}
+
+\section{Membuat Berkas Kerangka}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Perintah} & \textbf{Fungsi} \\
+\artisan{php artisan make:model Product -mfs} & Membuat model beserta migrasi, factory, dan seeder \\
+\artisan{php artisan make:controller ProductController} & Membuat controller baru \\
+\artisan{php artisan make:request StoreProductRequest} & Membuat kelas FormRequest \\
+\artisan{php artisan make:middleware EnsureUserHasRole} & Membuat middleware kustom \\
+\end{tblr}
+
+\section{Pengujian dan Pemeliharaan}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Perintah} & \textbf{Fungsi} \\
+\cmd{php artisan test} & Menjalankan seluruh test fitur dan unit \\
+\artisan{php artisan route:list} & Menampilkan seluruh route terdaftar \\
+\artisan{php artisan config:cache} & Menyimpan konfigurasi ke cache untuk produksi \\
+\artisan{php artisan route:cache} & Menyimpan route ke cache untuk produksi \\
+\end{tblr}

@@ -1,0 +1,339 @@
+%% ========================================================================
+%% Chapter 1: Modern Web Architecture and the Laravel Ecosystem
+%% ========================================================================
+
+\chapter{Modern Web Architecture and the Laravel Ecosystem}
+\label{ch:arsitektur-web-modern}
+
+\chapterhero{blue}{Compare monolith, microservices, and serverless architectures, then set up a Laravel 13 project with SQLite as the foundation for Simple POS.}{\faIcon{server}\quad monolith vs microservices}{\faIcon{code-branch}\quad the Laravel ecosystem}{\faIcon{database}\quad Simple POS}
+
+A newly opened family restaurant usually handles everything itself: the
+owner cooks, a son takes orders, a daughter counts cash at the same counter
+the customers eat next to. Everybody knows everything, and when the kitchen
+gets swamped on a Saturday night, the fix is adding another stove, not
+opening a branch across town. Compare that to a food court in a mall, where
+every stall runs its own kitchen, its own register, even its own secret
+recipe, and the mall operator only provides shared tables and a power line.
+If the noodle stall is packed while the ice cream stall sits empty, both
+keep running as separate units, neither waiting on the other.
+
+Those two models map exactly onto software architecture: a monolith is the
+family restaurant (one codebase, one process, one team running everything),
+and microservices is the food court (many independent services talking
+over a network). Simple POS, the point-of-sale application built chapter by
+chapter throughout this book, is deliberately a monolith, not out of
+limitation but because the scale fits: a small shop with one or two
+cashiers does not need ten separate services just to record the sale of a
+cup of coffee. Picking the wrong architecture here, building a food court
+for a business that one kitchen can serve just fine, means spending
+development time wiring up inter-service networking nobody needs, instead
+of shipping the feature a cashier actually uses every day.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item compare monolith, microservices, and serverless architectures to explain why Laravel was chosen as the monolithic framework for Simple POS;
+  \item set up a new Laravel 13 project with SQLite as a zero-setup database, including \artisan{migrate:fresh --seed} and \artisan{serve};
+  \item explain the \cmd{increment N} commit convention on the Simple POS repository and how the increment sequence maps the application's growth chapter by chapter.
+\end{enumerate}
+
+\section{Monolith, Microservices, and Why Laravel}
+\label{sec:arsitektur-web-modern-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Monolith] An application whose layers, interface, business logic, and data access, all run in a single codebase deployed as a single unit.
+  \item[Microservices] An architecture that splits an application into independent services, each deployed on its own, communicating over a network.
+  \item[MVC] The \textit{Model-View-Controller} pattern: the Model owns data, the View owns presentation, and the Controller owns the request flow between them.
+  \item[Artisan] Laravel's built-in command-line interface for everyday development tasks: migrations, seeding, and boilerplate file generation.
+  \item[Migration] A PHP file that defines a database schema change in code, so the schema can be rebuilt consistently on any machine.
+\end{description}
+\end{istilahpenting}
+
+A \term{monolith} keeps its entire codebase, from the interface a user sees
+down to the query that touches the database, inside one project deployed as
+one unit. Adding a feature means adding code to that same project;
+deploying an update means swapping that one unit for a new version. A
+\term{microservices} architecture splits those responsibilities into
+separate services instead, say one service dedicated to a product catalog,
+another dedicated to payments, talking to each other over network calls
+(usually HTTP or a message queue). That split buys freedom: each service
+can be written in a different language, deployed on a different schedule,
+and scaled independently when its own traffic spikes.
+
+That freedom has a price. A team that splits its application into eight
+separate services now has to run eight deployment processes, manage eight
+points of failure, and handle network communication between services that
+used to be a plain function call inside the same process. For a large team
+operating a system serving millions of users, that price is worth the
+freedom it buys. For an application like Simple POS, serving one shop with
+a daily transaction volume you could tally by hand, that price far
+outweighs the benefit.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparing monolith, microservices, and serverless architectures}
+\label{tab:arsitektur-perbandingan}
+\begin{tblr}{
+  colspec = {X[1,l] X[1.2,l] X[1,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+Architecture & Deployment & Initial Complexity & Best For \\
+Monolith & Single unit & Low & Simple POS, MVPs, small teams \\
+Microservices & Many independent units & High & Large-scale systems, large teams \\
+Serverless & Function per event & Medium & Sporadic workloads \\
+\end{tblr}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.92\linewidth}{!}{%
+\begin{tikzpicture}[node distance=3mm]
+  \node[diagbox accent, minimum width=3.2cm] (ui) {Interface (UI)};
+  \node[diagbox accent, minimum width=3.2cm, below=of ui] (logic) {Business Logic};
+  \node[diagbox accent, minimum width=3.2cm, below=of logic] (data) {Data Access};
+  \node[draw=black!45, thick, rounded corners=3pt, fit=(ui)(logic)(data), inner sep=7pt] {};
+  \node[above=2mm of ui, font=\bfseries] {Monolith};
+
+  \node[diagbox, right=3.4cm of ui, yshift=-0.3cm] (svc1) {Product Service};
+  \node[diagbox, below=1.4cm of svc1] (svc2) {Payment Service};
+  \node[diagbox, right=1.6cm of svc1, yshift=-0.7cm] (svc3) {User Service};
+  \node[above=2mm of svc1, font=\bfseries] {Microservices};
+
+  \draw[diagarrow, <->] (svc1) -- (svc2);
+  \draw[diagarrow, <->] (svc2) -- (svc3);
+  \draw[diagarrow, <->] (svc3) -- (svc1);
+\end{tikzpicture}%
+}
+\caption{Monolith structure (one codebase, three layers fused together) vs
+microservices (independent services calling each other over the network)}
+\label{fig:monolith-microservices}
+\end{figure}
+
+\term{Serverless} takes a third path: code is written as small functions
+that only run when triggered by an event (an HTTP request, a cron
+schedule, a new message on a queue), and a cloud provider manages the
+servers behind the scenes. It suits workloads that spike sharply, such as
+image processing triggered only when a user uploads a photo, but it fits
+poorly for an application like Simple POS that needs a steady database
+connection throughout a shop's business hours.
+
+Laravel was chosen as this book's framework because it maps directly onto
+what a monolith needs: a single PHP project that already ships routing,
+authentication, an ORM, and a templating system, with no need to assemble
+pieces from separate libraries. Compared to writing plain PHP from scratch,
+Laravel gives a consistent MVC structure from the first line of code;
+compared to a more elaborate microservices-first framework, Laravel stays
+productive for a team of one or two people racing a deadline.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=5mm]
+  \node[diagbox accent] (req) {Request};
+  \node[diagbox accent, right=of req] (router) {Router};
+  \node[diagbox accent, right=of router] (ctrl) {Controller};
+  \node[diagbox accent, right=of ctrl] (model) {Model};
+  \node[diagbox accent, right=of model] (view) {View /\\Response};
+  \draw[diagarrow] (req) -- (router);
+  \draw[diagarrow] (router) -- (ctrl);
+  \draw[diagarrow] (ctrl) -- (model);
+  \draw[diagarrow] (model) -- (view);
+\end{tikzpicture}%
+}
+\caption{One Laravel request's flow: an incoming HTTP request passes
+through the router, gets handled by a controller, reads/writes data
+through a model, until a response comes back through a view}
+\label{fig:laravel-lifecycle}
+\end{figure}
+
+The flow in \cref{fig:laravel-lifecycle} is a pattern that repeats in
+nearly every chapter of this book: \route{/pos} in Chapter~3 follows this
+exact flow, and so does every API endpoint in Chapter~9.
+
+\begin{notebox}
+Laravel is not the only PHP framework, and PHP is not the only language for
+building monolithic web applications. Symfony offers more architectural
+flexibility at the cost of a steeper learning curve; Django (Python) and
+Ruby on Rails share a similar ``convention over configuration'' philosophy
+with Laravel. Laravel's standout strength is its package ecosystem
+(Sanctum for APIs, Excel for import/export, Cashier for payments), which
+plugs in with minimal configuration, something felt directly starting in
+Chapter~9.
+\end{notebox}
+
+\section{Setting Up a Laravel Project with SQLite}
+\label{sec:arsitektur-web-modern-2}
+
+Every Laravel project needs a database to run, and this book picks SQLite
+over MySQL or PostgreSQL for one practical reason: SQLite stores an entire
+database as a single ordinary file, with no separate server process to
+start, configure, and grant credentials to before the first line of code
+runs. A reader who just installed PHP can run migrations within the first
+minute, instead of spending half an hour setting up a MySQL account. Simple
+POS itself runs on SQLite even for in-class demonstrations, not just for
+this book's exercises.
+
+\begin{lstlisting}[language=bash]
+composer create-project laravel/laravel simple-pos
+cd simple-pos
+cp .env.example .env
+php artisan key:generate
+\end{lstlisting}
+
+Those last three commands prepare the \file{.env} configuration file
+(where credentials and environment settings live, kept separate from
+source code so they never get committed to Git) and generate the
+application's encryption key, which Laravel uses to secure sessions and
+cookies.
+
+Alongside the PHP dependencies \cmd{composer} just installed, a fresh
+Laravel project also ships with \file{package.json}: a list of JavaScript
+dependencies for the frontend toolchain (Vite and Tailwind CSS) that
+Chapter~3 starts using. \cmd{npm install} is the JavaScript-world
+equivalent of \cmd{composer install}, reading \file{package.json} and
+downloading every listed package into a \file{node\_modules/} folder:
+
+\begin{lstlisting}[language=bash]
+npm install
+\end{lstlisting}
+
+This step isn't required to run Simple POS today; Laravel's default
+welcome page still renders with a fallback style even without
+\file{node\_modules/}. Running it now avoids a sudden install pause once
+Chapter~3 starts using Tailwind and Alpine.js through Vite. The next step
+points the database connection at a SQLite file:
+
+\begin{lstlisting}[language=bash]
+touch database/database.sqlite
+php artisan migrate:fresh --seed
+\end{lstlisting}
+
+\artisan{migrate:fresh} runs every migration file from scratch (dropping
+any existing tables first, then rebuilding them from the latest schema
+definitions), while the \cmd{--seed} flag immediately populates the newly
+created tables with sample data through a seeder file. For Simple POS, that
+seeder fills in hundreds of products and thousands of transactions at once,
+a choice examined more closely in Chapter~4, once the payoff of seeding at
+realistic scale, not just a handful of rows, becomes visible.
+
+\begin{warningbox}
+The \file{.env} file holds sensitive information (the application key,
+production database credentials if any exist) and must never be committed
+to Git. A project created with \cmd{composer create-project} already ships
+a \file{.gitignore} that excludes \file{.env} by default; never remove that
+line.
+\end{warningbox}
+
+Once migrations finish, Laravel's built-in development server runs
+immediately, no separate web server like Apache or Nginx required:
+
+\begin{lstlisting}[language=bash]
+php artisan serve
+\end{lstlisting}
+
+That command serves the application at \route{http://127.0.0.1:8000} using
+PHP's built-in server, plenty for every local development session in this
+book. A real production server (covered in Chapter~11) uses a different
+setup, but the application structure learned here stays exactly the same.
+
+\section{Hands-On: Initializing Simple POS and the Git Workflow}
+\label{sec:arsitektur-web-modern-3}
+
+\subsection*{Exercise 1.1: Getting to Know the Project Structure}
+
+Before writing the first line of feature code, it's worth knowing which
+parts of Laravel's folder structure will get touched constantly throughout
+this book, and which ones can be safely ignored for now.
+
+\begin{enumerate}
+  \item Open the \file{routes/} folder, specifically \file{routes/web.php}:
+    every URL a user can reach in the application gets registered here.
+  \item Open \file{app/Http/Controllers/}: the folder where classes that
+    process each request (accepting input, calling a model, choosing a
+    view) grow one by one starting in Chapter~2.
+  \item Open \file{database/migrations/}: where database schema changes get
+    defined as code, instead of clicked together in a separate database
+    tool.
+  \item Compare that to the \file{vendor/} folder: holds every third-party
+    Composer package, never edited by hand, and never committed to Git.
+\end{enumerate}
+
+This structure is no accident. It embodies the MVC pattern flagged in the
+key-terms box earlier: \file{routes/} and \file{app/Http/Controllers/}
+handle the Controller side, the Eloquent models introduced in Chapter~5
+handle the Model side, and the Blade files in \file{resources/views/}
+(covered starting Chapter~3) handle the View side.
+
+\subsection*{Exercise 1.2: The Increment Commit Convention on Simple POS}
+
+The Simple POS repository this book draws on was not built as one single
+project all at once; it grew commit by commit, each one labeled
+\cmd{increment N}. Increment 1 holds nothing but an empty project skeleton
+from \cmd{composer create-project}, exactly like the result of Exercise
+1.1; each following increment adds one concrete capability, product routing
+and controllers, then Blade views, then the database schema, following the
+same order as this book's chapters. Reading through Simple POS's commit
+history in order is the same experience as reading this book chapter by
+chapter, just in the form of real running code instead of prose.
+
+\begin{tipbox}
+Full code for every chapter comes in two forms. The
+\texttt{\repobase} repository holds the whole history in one place, with
+one branch per chapter (\texttt{chapter-01} through \texttt{chapter-12}),
+each branch building on the previous chapter's; good for reading straight
+through like a real commit history. The end of every Praktik section in
+this book, like the box below, instead points to a standalone template
+repository for that one chapter (e.g. \texttt{\repoowner/simple-pos-ch04}
+for Chapter~4): click GitHub's \textbf{Use this template} button to start
+directly from that chapter's state, no need to know how to
+\cmd{git checkout} a specific branch. This book shows the code snippets
+most essential to understand; the full runnable code always lives in
+both repositories.
+\end{tipbox}
+
+\branchref{chapter-01}
+
+\section{Summary}
+\label{sec:arsitektur-web-modern-rangkuman}
+
+\begin{itemize}
+  \item A monolith keeps every application layer in one codebase and one
+    deployment process, fitting Simple POS's scale; microservices split
+    that into independent services whose operational cost only pays off at
+    large scale; serverless suits sporadic workloads, not an application
+    that needs a steady database connection.
+  \item A Laravel 13 project is set up with \cmd{composer create-project},
+    wired to SQLite as a zero-setup database, then started with
+    \artisan{migrate:fresh --seed} and \artisan{serve}.
+  \item The \cmd{increment N} commit convention on the Simple POS
+    repository maps the application's growth chapter by chapter, with the
+    full code for each chapter available as its own GitHub branch.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Run the three commands from Exercise 1.1 on your own machine, then
+    confirm \cmd{php artisan serve} shows Laravel's welcome page at
+    \route{http://127.0.0.1:8000}.
+  \item Open \file{database/migrations/} in the freshly created project,
+    then identify how many migration files already exist out of the box
+    (without writing any code) and which tables they create.
+  \item Explain in your own words: why does a shop with a single cashier
+    fit a monolithic architecture better than microservices, while a
+    national e-commerce platform with millions of users often reaches for
+    microservices instead.
+  \item \textbf{Self-check:} without reopening this chapter, try explaining
+    in your own words: (a) the difference between a monolith and
+    microservices, (b) why this book picks SQLite, and (c) what the
+    \cmd{--seed} flag does on \artisan{migrate:fresh}. Check your answers
+    against this chapter, and note anything you'd need to revisit.
+\end{enumerate}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for project structure and Artisan commands, and the PHP
+Manual \cite{phpmanual} as a reference for the language underlying the
+Laravel framework.

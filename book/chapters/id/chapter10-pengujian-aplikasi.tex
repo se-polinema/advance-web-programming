@@ -1,0 +1,218 @@
+%% ========================================================================
+%% Bab 10: Pengujian dan Kualitas Aplikasi
+%% ========================================================================
+
+\chapter{Pengujian dan Kualitas Aplikasi}
+\label{ch:pengujian-aplikasi}
+
+\chapterhero{orange}{Baca anatomi test fitur Simple POS yang sudah ada, jalankan sebagai gerbang kualitas, lalu susun checklist milestone sebelum melangkah ke bab berikutnya.}{\faIcon{vial}\quad 13 feature test}{\faIcon{check-circle}\quad \cmd{php artisan test}}{\faIcon{bug}\quad checklist milestone}
+
+Petugas quality control di pabrik tidak menunggu produk sampai ke tangan
+pembeli untuk tahu ada yang cacat. Ia berdiri di ujung jalur produksi,
+mengambil sampel dari setiap batch, menjalankan pemeriksaan yang sama
+persis setiap kali, dan menahan batch itu di pabrik begitu ada satu saja
+yang tidak lolos. Pemeriksaan itu tidak butuh insting atau tebakan;
+checklist-nya sudah baku, dan hasilnya selalu berupa jawaban tegas: lolos
+atau tidak. Test fitur pada Simple POS bekerja dengan peran yang sama.
+Setiap kali kode berubah, entah menambah fitur baru atau memperbaiki bug
+lama, menjalankan \cmd{php artisan test} memberi jawaban tegas dalam
+hitungan detik: perilaku yang sudah ada sebelumnya masih berjalan
+sebagaimana mestinya, atau ada yang rusak di suatu tempat yang mungkin
+tidak disadari sedang disentuh.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item menjelaskan cakupan 13 test fitur Simple POS (login/logout, otorisasi peran, transaksi POS, alur token API) dan apa yang divalidasi tiap kelompok test;
+  \item menjalankan \cmd{php artisan test} dan menafsirkan hasil 27 assertion untuk menentukan apakah sebuah perubahan kode memecahkan perilaku yang sudah ada;
+  \item menyusun checklist milestone untuk memverifikasi bahwa CRUD, autentikasi, dan otorisasi Simple POS berfungsi sebelum lanjut ke bab berikutnya.
+\end{enumerate}
+
+\section{Anatomi Test Fitur Simple POS}
+\label{sec:pengujian-aplikasi-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Feature Test] Test yang menjalankan satu alur lengkap aplikasi, dari request HTTP masuk sampai respons keluar, berbeda dari unit test yang menguji satu fungsi terisolasi.
+  \item[Assertion] Satu pernyataan pemeriksaan dalam test, misalnya "status respons harus 200" atau "stok produk harus berkurang 3", yang dinyatakan gagal kalau kenyataannya tidak cocok.
+  \item[RefreshDatabase] Trait PHPUnit/Pest bawaan Laravel yang mengembalikan basis data test ke kondisi bersih sebelum setiap test dijalankan, mencegah satu test memengaruhi hasil test lain lewat data sisa.
+  \item[Regresi] Perilaku lama yang sebelumnya berjalan benar, tapi rusak akibat perubahan kode baru, biasanya tidak disengaja dan tidak disadari sampai test gagal.
+\end{description}
+\end{istilahpenting}
+
+13 test fitur Simple POS terbagi ke empat kelompok, masing-masing
+menguji satu potongan perilaku yang sudah dibahas di bab-bab
+sebelumnya: autentikasi (login berhasil, login gagal, logout), otorisasi
+berbasis peran (admin bisa mengakses halaman produk, kasir diblokir),
+transaksi POS (stok berkurang sesuai qty, total dihitung benar dari
+harga produk), dan alur token API (login API mengembalikan token, token
+yang salah ditolak).
+
+\begin{lstlisting}[language=php, title=\lstfile{tests/Feature/ProductAuthorizationTest.php}]
+public function test_kasir_cannot_access_admin_pages(): void
+{
+    $kasir = User::factory()->create(['role' => 'kasir']);
+
+    $response = $this->actingAs($kasir)->get('/products');
+
+    $response->assertForbidden();
+}
+\end{lstlisting}
+
+\phpclass{actingAs(\$kasir)} mensimulasikan request seolah dikirim oleh
+pengguna \phpclass{\$kasir} yang sudah login, tanpa benar-benar mengisi
+form login; ini yang membuat feature test bisa menguji middleware
+\phpclass{role:admin} dari Bab~7 secara langsung.
+\phpclass{assertForbidden()} adalah satu assertion, memeriksa bahwa
+respons benar-benar berstatus 403. \phpclass{RefreshDatabase} yang
+dipasang di kelas test memastikan \phpclass{\$kasir} yang baru dibuat
+di test ini tidak bocor ke test lain yang berjalan setelahnya.
+
+\section{Menjalankan dan Menafsirkan Hasil Test}
+\label{sec:pengujian-aplikasi-2}
+
+\begin{lstlisting}[language=bash]
+php artisan test
+
+   PASS  Tests\Feature\AuthenticationTest
+  [x] user can login with valid credentials
+  [x] user cannot login with invalid credentials
+
+   PASS  Tests\Feature\TransactionTest
+  [x] stock decrements after transaction
+
+  Tests:    13 passed (27 assertions)
+  Duration: 1.42s
+\end{lstlisting}
+
+Baris \texttt{Tests: 13 passed (27 assertions)} adalah ringkasan yang
+paling penting dibaca lebih dulu: 13 adalah jumlah fungsi test yang
+dijalankan, 27 adalah jumlah pernyataan pemeriksaan individual di dalam
+seluruh test itu (satu fungsi test bisa berisi lebih dari satu
+assertion, seperti pada \phpclass{test\_kasir\_cannot\_access\_admin\_pages}
+di atas kalau ditambah pemeriksaan pesan error). Semua tanda centang
+hijau berarti seluruh perilaku yang diuji masih berjalan seperti yang
+diharapkan.
+
+\begin{warningbox}
+Test yang gagal setelah sebuah perubahan kode bukan gangguan yang harus
+dilewati begitu saja; ia adalah tepat sinyal yang seharusnya dicari:
+regresi. Kalau
+\phpclass{test\_stock\_decrements\_after\_transaction} tiba-tiba gagal
+setelah controller transaksi diubah, itu berarti perubahan itu merusak
+perilaku pengurangan stok yang sebelumnya benar, terlepas dari apakah
+perubahan itu ditujukan untuk fitur lain sama sekali.
+\end{warningbox}
+
+\section{Praktik: Checklist Milestone Sebelum Lanjut}
+\label{sec:pengujian-aplikasi-3}
+
+13 test fitur ini menutup fitur-fitur inti sampai Bab~9, tapi tidak
+seluruh perilaku Simple POS punya test otomatis. Checklist manual
+mengisi celah itu, terutama untuk hal-hal yang lebih mudah diperiksa
+lewat browser daripada ditulis sebagai assertion. Langkah-langkah
+berikut menjalankan seluruh test yang sudah ada, sengaja merusak salah
+satu untuk melihat kegagalannya, lalu menuntaskan checklist manual.
+
+\begin{enumerate}
+  \item Lihat lokasi test yang sudah ada:
+    \texttt{tests/Feature\allowbreak/AuthenticationTest\allowbreak.php},
+    \texttt{tests/Feature\allowbreak/TransactionTest\allowbreak.php}, dan berkas
+    serupa lainnya di \texttt{tests/Feature/}. Setiap berkas menguji satu
+    kelompok perilaku, sesuai anatomi pada bagian sebelumnya.
+  \item Jalankan seluruh suite untuk memastikan baseline masih hijau:
+    \begin{lstlisting}[language=bash]
+php artisan test
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: keluaran seperti pada bagian sebelumnya,
+    \texttt{13 passed (27 assertions)}.
+  \item Buka \texttt{app/Http/Controllers/TransactionController.php},
+    ubah sengaja baris pengurangan stok (misalnya ganti
+    \texttt{\$product->decrement('stock', \$qty)} menjadi
+    \texttt{\$product->increment('stock', \$qty)}, kebalikannya).
+  \item Jalankan ulang \artisan{php artisan test}. \textbf{Yang
+    diharapkan}: baris \texttt{Tests: 13 passed} berubah menjadi
+    memuat setidaknya \texttt{1 failed}, dengan nama
+    \phpclass{test\_stock\_decrements\_after\_transaction} muncul
+    ditandai gagal, disertai pesan yang membandingkan nilai stok yang
+    diharapkan dengan nilai yang benar-benar didapat.
+  \item Kembalikan baris yang diubah di langkah 3 ke bentuk semula
+    (\texttt{decrement}), jalankan \artisan{php artisan test} sekali
+    lagi, dan pastikan kembali ke \texttt{13 passed}.
+  \item Tuntaskan checklist manual berikut satu per satu, langsung di
+    browser:
+    \begin{enumerate}
+      \item Buat, ubah, lalu hapus satu produk lewat \route{/products}.
+        \textbf{Yang diharapkan}: ketiga aksi berhasil tanpa galat.
+      \item Login sebagai admin, logout, login sebagai kasir, logout
+        lagi. \textbf{Yang diharapkan}: setelah logout, membuka
+        halaman yang butuh login (mis. \route{/dashboard}) langsung
+        mengarahkan kembali ke form login.
+      \item Login sebagai kasir, buka \route{/products}.
+        \textbf{Yang diharapkan}: halaman 403, sesuai Bab~7.
+      \item Catat satu transaksi lewat \route{/pos}, bandingkan stok
+        produk sebelum dan sesudah di \route{/products}.
+        \textbf{Yang diharapkan}: stok berkurang persis sebanyak qty
+        yang dibeli.
+    \end{enumerate}
+  \item \textbf{Kalau test di langkah 4 tidak menunjukkan kegagalan
+    sama sekali} setelah perubahan sengaja di langkah 3, periksa apakah
+    baris yang diubah benar-benar baris yang dieksekusi saat transaksi
+    disimpan (bukan baris pada method lain yang serupa, mis. method
+    pembatalan transaksi).
+\end{enumerate}
+
+\begin{tipbox}
+Jalankan \cmd{php artisan test} sebelum memulai perubahan signifikan,
+bukan hanya sesudahnya. Baseline "semua hijau" sebelum perubahan
+membuat kegagalan test setelahnya tidak ambigu; kalau test yang sama
+sudah gagal sebelum perubahan apa pun dimulai, kegagalan itu bukan
+akibat dari perubahan yang baru saja ditulis.
+\end{tipbox}
+
+\branchref{chapter-10}
+
+\section{Rangkuman}
+\label{sec:pengujian-aplikasi-rangkuman}
+
+\begin{itemize}
+  \item 13 test fitur Simple POS terbagi ke empat kelompok
+    (autentikasi, otorisasi peran, transaksi POS, alur token API),
+    masing-masing memakai \phpclass{actingAs()} untuk mensimulasikan
+    pengguna login dan \phpclass{RefreshDatabase} untuk menjaga
+    isolasi antar-test.
+  \item \cmd{php artisan test} melaporkan 13 test dan 27 assertion;
+    test yang gagal setelah perubahan kode adalah sinyal regresi,
+    bukan gangguan yang boleh diabaikan.
+  \item Checklist milestone manual, seperti verifikasi CRUD produk dan
+    dekremen stok lewat browser langsung, melengkapi cakupan test
+    otomatis sebelum melangkah ke bab berikutnya.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Jalankan \cmd{php artisan test} dan baca hasilnya baris per
+    baris, catat kelompok test mana yang menguji perilaku dari Bab~7.
+  \item Ubah sengaja satu baris logika pada perhitungan total transaksi
+    (Bab~6) sampai salah, jalankan test lagi, dan amati test mana yang
+    gagal serta pesan error apa yang ditampilkan.
+  \item Tulis checklist milestone versi sendiri untuk fitur yang belum
+    ada test otomatisnya di Simple POS, minimal tiga butir.
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) perbedaan feature test dan unit
+    test, (b) mengapa \phpclass{RefreshDatabase} dibutuhkan, dan (c)
+    mengapa test yang gagal setelah perubahan kode disebut sinyal
+    regresi. Cocokkan jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tulis satu test fitur baru untuk endpoint laporan penjualan pada
+Bab~8, memverifikasi bahwa filter rentang tanggal benar-benar
+mengecualikan transaksi di luar rentang itu.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+feature testing dan \phpclass{RefreshDatabase}.

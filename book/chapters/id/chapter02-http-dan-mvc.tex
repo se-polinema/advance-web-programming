@@ -1,0 +1,248 @@
+%% ========================================================================
+%% Bab 2: Protokol HTTP dan Pola MVC
+%% ========================================================================
+
+\chapter{Protokol HTTP dan Pola MVC}
+\label{ch:http-dan-mvc}
+
+\chapterhero{blue}{Petakan siklus request/response HTTP ke pola MVC, lalu tulis route dan controller pertama Simple POS.}{\faIcon{route}\quad siklus HTTP}{\faIcon{sitemap}\quad MVC vs MVVM}{\faIcon{code}\quad route \& controller}
+
+Sepucuk surat yang dikirim ke sebuah kantor tidak langsung sampai ke meja
+orang yang dituju. Ia masuk lewat loket penerimaan, petugas loket membaca
+alamat dan jenis suratnya (surat biasa, paket, kilat khusus), lalu
+meneruskannya ke bagian yang tepat: bagian keuangan kalau amplopnya
+bertuliskan ``tagihan'', bagian personalia kalau isinya lamaran kerja.
+Petugas loket sendiri tidak pernah membuka amplop atau memutuskan isi
+balasannya; tugasnya murni menyortir dan meneruskan. Setiap kali Simple POS
+menerima permintaan dari browser, entah kasir menekan tombol ``Simpan
+Transaksi'' atau admin membuka halaman laporan, permintaan itu mengalami
+proses yang persis sama: masuk lewat satu pintu, disortir berdasarkan
+alamat dan jenisnya, diteruskan ke bagian yang tepat untuk diproses. Kalau
+proses penyortiran ini keliru, misalnya permintaan hapus produk diteruskan
+ke bagian yang tidak memeriksa apakah pengirimnya seorang admin, kios
+kehilangan kendali atas siapa yang boleh mengubah apa.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item menjelaskan siklus request/response HTTP (method, status code, header) dan memetakannya ke potongan kode route Simple POS;
+  \item membandingkan pola MVC, MVVM, dan Clean Architecture, serta menjelaskan bagaimana Laravel mengimplementasikan MVC pada praktiknya;
+  \item menulis route dan controller untuk endpoint \route{/pos} dan \route{/transactions} pada Simple POS, termasuk pemisahan route web dari middleware group-nya.
+\end{enumerate}
+
+\section{Siklus Request/Response HTTP}
+\label{sec:http-dan-mvc-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Request] Permintaan yang dikirim browser ke server, berisi method, alamat (URL), header, dan kadang data (form, JSON).
+  \item[Response] Jawaban yang dikirim server kembali ke browser, berisi status code, header, dan isi (HTML, JSON, redirect).
+  \item[Route] Aturan yang memetakan satu kombinasi method dan alamat URL ke kode yang akan menanganinya.
+  \item[Controller] Class yang berisi method-method penanganan request, dipanggil oleh route yang cocok.
+  \item[Middleware] Lapisan yang memeriksa atau mengubah request sebelum sampai ke controller, misalnya memeriksa apakah pengguna sudah login.
+\end{description}
+\end{istilahpenting}
+
+Setiap kali sebuah browser meminta halaman atau mengirim form, permintaan
+itu berbentuk \term{request} HTTP yang selalu membawa sebuah \textit{method}
+yang menyatakan maksud permintaan. Empat method yang paling sering muncul
+sepanjang buku ini adalah \cmd{GET} (meminta data, tanpa mengubah apa pun di
+server), \cmd{POST} (mengirim data baru, misalnya menyimpan transaksi
+kasir), \cmd{PATCH} (mengubah sebagian data yang sudah ada), dan
+\cmd{DELETE} (menghapus data). Server menjawab permintaan itu dengan
+sebuah \term{response} yang selalu membawa \textit{status code}, angka tiga
+digit yang menyatakan hasil permintaan secara ringkas sebelum satu byte pun
+dari isinya dibaca.
+
+\begin{table}[htbp]
+\centering
+\caption{Status code HTTP yang sering muncul pada Simple POS}
+\label{tab:status-code}
+\begin{tblr}{
+  colspec = {X[0.6,l] X[1,l] X[2,l]},
+  hline{1,2,Z} = {solid},
+}
+Kode & Arti & Contoh pada Simple POS \\
+200 & OK & Halaman \route{/transactions} berhasil ditampilkan \\
+302 & Redirect & Setelah \route{/pos} disimpan, browser diarahkan ke halaman detail \\
+404 & Not Found & Membuka \route{/transactions/9999} untuk ID yang tidak ada \\
+422 & Unprocessable Entity & Form transaksi dikirim dengan stok yang tidak mencukupi \\
+500 & Server Error & Kesalahan tak tertangani di sisi server \\
+\end{tblr}
+\end{table}
+
+Kode 302 pantas mendapat perhatian khusus karena polanya berulang di hampir
+setiap fitur tulis-data Simple POS: setelah \cmd{POST /pos} berhasil
+menyimpan transaksi, server tidak langsung mengirim halaman HTML sebagai
+jawaban, melainkan mengirim response 302 berisi header \cmd{Location} yang
+memerintahkan browser meminta ulang ke alamat lain, dalam kasus ini halaman
+detail transaksi yang baru dibuat. Pola kirim-lalu-redirect ini mencegah
+pengguna menekan tombol \textit{refresh} dan tanpa sadar mengirim transaksi
+yang sama dua kali.
+
+\begin{notebox}
+Header request dan response membawa metadata di luar isi utamanya. Header
+\cmd{Content-Type} memberi tahu format isi (\texttt{text/html},
+\texttt{application/json}); header \cmd{Authorization} pada Bab~9 akan
+membawa token Sanctum untuk permintaan dari aplikasi kasir mobile.
+\end{notebox}
+
+\section{MVC, MVVM, dan Clean Architecture}
+\label{sec:http-dan-mvc-2}
+
+Menerima request dan mengirim response saja belum cukup untuk menjaga kode
+tetap rapi begitu aplikasi tumbuh. \term{Pola MVC} (Model-View-Controller)
+menjawab masalah itu dengan membagi tiga tanggung jawab secara tegas: Model
+mengurus data dan aturan bisnis (misalnya bagaimana stok produk dihitung
+ulang setelah transaksi), View mengurus tampilan yang dilihat pengguna, dan
+Controller berdiri di tengah, menerima request, memanggil Model yang
+relevan, lalu memilih View mana yang akan ditampilkan sebagai jawaban.
+Kembali ke analogi kantor pos, Controller adalah petugas loket yang
+menyortir, Model adalah arsip berisi data sesungguhnya, dan View adalah
+formulir balasan yang akhirnya diserahkan ke pengirim.
+
+\begin{table}[htbp]
+\centering
+\caption{Perbandingan MVC, MVVM, dan Clean Architecture}
+\label{tab:mvc-mvvm-clean}
+\begin{tblr}{
+  colspec = {X[0.9,l] X[1.3,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+Pola & Pemisahan Utama & Contoh Pemakaian \\
+MVC & Model, View, Controller & Laravel (bawaan) \\
+MVVM & Model, View, ViewModel & Aplikasi dengan binding dua arah antara tampilan dan state \\
+Clean Architecture & Lapisan use case terisolasi dari framework & Sistem berskala besar dengan banyak aturan bisnis \\
+\end{tblr}
+\end{table}
+
+\term{MVVM} (Model-View-ViewModel), yang populer pada aplikasi antarmuka
+reaktif, menyisipkan ViewModel di antara Model dan View: ViewModel menyimpan
+state tampilan dan otomatis menyinkronkannya ke View lewat binding dua arah,
+sebuah pola yang lebih relevan untuk antarmuka yang berubah terus-menerus
+tanpa reload halaman. \term{Clean Architecture} melangkah lebih jauh dengan
+mengisolasi aturan bisnis inti (\textit{use case}) sepenuhnya dari framework
+yang dipakai, sehingga aturan bisnis itu bisa diuji dan bahkan dipindah ke
+framework lain tanpa disentuh. Untuk aplikasi seskala Simple POS, isolasi
+seketat itu menambah lapisan abstraksi yang belum sepadan manfaatnya;
+MVC bawaan Laravel sudah cukup rapi untuk memisahkan tanggung jawab tanpa
+menambah kerumitan yang tidak dibutuhkan.
+
+Pemetaan MVC ke struktur folder Laravel sudah disinggung sekilas di Bab~1:
+\file{routes/web.php} mendaftarkan alamat mana yang ditangani controller
+mana, \file{app/Http/Controllers/} menyimpan class Controller, model
+Eloquent di \file{app/Models/} (dibahas penuh mulai Bab~5) berperan sebagai
+Model, dan berkas Blade di \file{resources/views/} (dibahas mulai Bab~3)
+berperan sebagai View.
+
+\section{Praktik: Routing dan Controller Simple POS}
+\label{sec:http-dan-mvc-3}
+
+\subsection*{Praktik 2.1: Membuat Controller Transaksi}
+
+\begin{lstlisting}[language=bash]
+php artisan make:controller TransactionController
+\end{lstlisting}
+
+Perintah ini menghasilkan berkas \phpclass{TransactionController} kosong di
+\file{app/Http/Controllers/}, siap diisi method-method penanganan request.
+Pada Simple POS, controller ini akhirnya memiliki empat method:
+\phpclass{create} menampilkan halaman kasir untuk memilih produk,
+\phpclass{store} menyimpan transaksi baru, \phpclass{index} menampilkan
+daftar transaksi, dan \phpclass{show} menampilkan detail satu transaksi.
+
+\begin{lstlisting}[language=php, title=\lstfile{routes/web.php}]
+Route::middleware('auth')->group(function () {
+    Route::get('/pos', [TransactionController::class, 'create'])
+        ->name('pos.create');
+    Route::post('/pos', [TransactionController::class, 'store'])
+        ->name('transactions.store');
+    Route::get('/transactions', [TransactionController::class, 'index'])
+        ->name('transactions.index');
+});
+\end{lstlisting}
+
+Perhatikan bahwa \route{GET /pos} dan \route{POST /pos} adalah dua route
+yang berbeda meski alamatnya sama persis: keduanya dibedakan oleh method
+HTTP-nya, satu menampilkan formulir kasir, satu lagi memprosesnya. Keempat
+route ini juga dibungkus dalam \cmd{Route::middleware('auth')->group(...)},
+artinya setiap permintaan ke dalamnya wajib melewati middleware
+\cmd{auth} terlebih dahulu, sebuah lapisan pemeriksa yang memastikan
+pengirim sudah login sebelum permintaannya diteruskan ke
+\phpclass{TransactionController}.
+
+\begin{warningbox}
+Mendaftarkan route baru tanpa membungkusnya dalam \textit{middleware group}
+yang sesuai adalah kesalahan yang mudah luput dari perhatian dan berakibat
+serius: route yang seharusnya hanya bisa diakses admin, misalnya menghapus
+kategori produk, akan bisa diakses siapa pun yang tahu alamatnya kalau
+lupa dibungkus \cmd{Route::middleware('role:admin')->group(...)}. Selalu
+periksa route baru berada di dalam group middleware yang benar sebelum
+menganggapnya selesai.
+\end{warningbox}
+
+Untuk memeriksa seluruh route yang sudah terdaftar, termasuk method dan
+middleware-nya, Artisan menyediakan perintah yang menampilkan tabel
+ringkas tanpa perlu membuka satu per satu berkas route:
+
+\begin{lstlisting}[language=bash]
+php artisan route:list
+\end{lstlisting}
+
+\begin{challengebox}
+Tambahkan satu route baru \route{GET /pos/riwayat} pada
+\file{routes/web.php} yang mengarah ke method \phpclass{riwayat} pada
+\phpclass{TransactionController}, dibungkus middleware \cmd{auth} yang
+sama seperti route \route{/pos} lainnya. Method-nya boleh sementara hanya
+mengembalikan teks biasa, misalnya \cmd{return "Riwayat kasir";}. Jalankan
+\artisan{route:list} setelahnya dan pastikan route barumu muncul dengan
+method dan middleware yang benar.
+\end{challengebox}
+
+\branchref{chapter-02}
+
+\section{Rangkuman}
+\label{sec:http-dan-mvc-rangkuman}
+
+\begin{itemize}
+  \item Setiap request HTTP membawa method (\cmd{GET}, \cmd{POST},
+    \cmd{PATCH}, \cmd{DELETE}) dan setiap response membawa status code tiga
+    digit (200, 302, 404, 422, 500) yang menyatakan hasil permintaan
+    sebelum isinya dibaca.
+  \item MVC memisahkan Model (data dan aturan bisnis), View (tampilan), dan
+    Controller (penyortir request); MVVM cocok untuk antarmuka reaktif,
+    Clean Architecture cocok untuk sistem besar dengan aturan bisnis
+    kompleks, dan Laravel memetakan MVC langsung ke
+    \file{routes/}, \file{app/Http/Controllers/}, \file{app/Models/}, dan
+    \file{resources/views/}.
+  \item Route \route{/pos} dan \route{/transactions} pada Simple POS
+    didaftarkan di \file{routes/web.php}, ditangani oleh
+    \phpclass{TransactionController}, dan dibungkus middleware \cmd{auth}
+    supaya hanya pengguna yang sudah login yang bisa mengaksesnya.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Jalankan \artisan{route:list} pada proyek Simple POS hasil Bab~1,
+    lalu identifikasi method HTTP apa saja yang dipakai untuk route
+    \route{/pos}.
+  \item Tambahkan satu route baru \route{GET /pos/cetak-struk} yang untuk
+    sementara hanya mengembalikan teks \cmd{"Struk"}, lalu verifikasi lewat
+    \artisan{route:list} bahwa route itu muncul dengan alamat yang benar.
+  \item Jelaskan dengan kata-katamu sendiri: mengapa \route{GET /pos} dan
+    \route{POST /pos} dianggap dua route yang berbeda meski alamat
+    URL-nya identik.
+  \item \textbf{Evaluasi mandiri:} tanpa membuka kembali isi bab ini, coba
+    jelaskan dengan kata-katamu sendiri: (a) perbedaan tanggung jawab
+    Model, View, dan Controller, (b) kapan status code 422 muncul pada
+    Simple POS, dan (c) fungsi middleware \cmd{auth} pada sebuah route.
+    Periksa kembali jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\section{Referensi}
+
+Pembahasan pada bab ini merujuk pada dokumentasi resmi Laravel
+\cite{laraveldocs} untuk konvensi routing dan controller, serta disertasi
+Fielding \cite{fielding2000rest} untuk landasan semantik method dan status
+code HTTP yang menjadi dasar arsitektur REST pada Bab~9.

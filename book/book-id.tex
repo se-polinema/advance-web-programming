@@ -1,0 +1,208 @@
+%% ========================================================================
+%% Laravel Praktis - Versi Indonesia
+%% Membangun Aplikasi Kasir dari Nol
+%% Ukuran Kertas: 23cm x 15.5cm (Portrait)
+%% ========================================================================
+
+\documentclass[
+    paper=23cm:15.5cm,   % Custom paper size 23 x 15.5 cm portrait
+    11pt,               % Ukuran font
+    twoside,            % Untuk pencetakan dua sisi
+    openany,            % Bab baru boleh dimulai di halaman berikutnya
+    bibliography=totoc, % Daftar pustaka masuk ke daftar isi
+]{scrbook}            % KOMA-Script book class (lebih fleksibel)
+
+%% ========================================================================
+%% Set Language Flags BEFORE Loading Preamble
+%% ========================================================================
+\newif\ifIndonesian
+\newif\ifEnglish
+\Indonesiantrue
+\Englishfalse
+
+%% ========================================================================
+%% Preamble: Package dan Konfigurasi
+%% ========================================================================
+\input{preamble}
+
+%% Ensure Indonesian is selected
+\selectlanguage{indonesian}
+
+%% ========================================================================
+%% Informasi Buku
+%% ========================================================================
+\title{Laravel Praktis}
+\subtitle{Membangun Aplikasi Kasir dari Nol}
+\author{Dian Hanifudin Subhi dan Ade Ismail}
+\date{\today}
+\publishers{Polinema Press}
+
+%% ========================================================================
+%% Mulai Dokumen
+%% ========================================================================
+\begin{document}
+
+%% ------------------------------------------------------------------------
+%% Front Matter (Halaman Depan)
+%% ------------------------------------------------------------------------
+\frontmatter
+
+% Halaman Judul
+\input{frontmatter/id/titlepage}
+
+% Halaman Hak Cipta
+\input{frontmatter/id/copyright}
+
+% Kata Pengantar
+\input{frontmatter/id/preface}
+
+% Prakata
+\input{frontmatter/id/preface2}
+
+% Daftar Isi
+\renewcommand{\contentsname}{Daftar Isi}
+\tableofcontents
+
+% Daftar Tabel
+\listoftables
+
+%% ------------------------------------------------------------------------
+%% Main Matter (Isi Utama Buku)
+%% ------------------------------------------------------------------------
+\mainmatter
+
+%% Bagian I: Fondasi Laravel dan Arsitektur Web
+\addcontentsline{toc}{part}{\protect\numberline{I}Fondasi Laravel dan Arsitektur Web}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Bagian I\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Fondasi Laravel dan Arsitektur Web\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Bab dalam Bagian Ini}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Bab~1 \textbullet{} Arsitektur Web Modern dan Ekosistem Laravel
+  \item Bab~2 \textbullet{} Protokol HTTP dan Pola MVC
+  \item Bab~3 \textbullet{} Antarmuka dengan Blade, Tailwind, dan Alpine
+\end{itemize}
+\newpage
+
+% Bab 1: Arsitektur Web Modern dan Ekosistem Laravel
+\input{chapters/id/chapter01-arsitektur-web-modern}
+
+% Bab 2: Protokol HTTP dan Pola MVC
+\input{chapters/id/chapter02-http-dan-mvc}
+
+% Bab 3: Antarmuka dengan Blade, Tailwind, dan Alpine
+\input{chapters/id/chapter03-blade-dan-tailwind}
+
+%% Bagian II: Data dan Eloquent
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{II}Data dan Eloquent}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Bagian II\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Data dan Eloquent\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Bab dalam Bagian Ini}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Bab~4 \textbullet{} Desain Basis Data, Migrasi, dan Seeding
+  \item Bab~5 \textbullet{} Eloquent ORM dan Relasi
+  \item Bab~6 \textbullet{} Validasi dan Keamanan Input
+\end{itemize}
+\newpage
+
+% Bab 4: Desain Basis Data, Migrasi, dan Seeding
+\input{chapters/id/chapter04-desain-basis-data}
+
+% Bab 5: Eloquent ORM dan Relasi
+\input{chapters/id/chapter05-eloquent-dan-relasi}
+
+% Bab 6: Validasi dan Keamanan Input
+\input{chapters/id/chapter06-validasi-input}
+
+%% Bagian III: Keamanan, Laporan, dan API
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{III}Keamanan, Laporan, dan API}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Bagian III\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Keamanan, Laporan, dan API\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Bab dalam Bagian Ini}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Bab~7 \textbullet{} Autentikasi, Otorisasi, dan RBAC
+  \item Bab~8 \textbullet{} Pengolahan Data: Impor, Ekspor, dan Antrean
+  \item Bab~9 \textbullet{} Merancang dan Membangun REST API
+\end{itemize}
+\newpage
+
+% Bab 7: Autentikasi, Otorisasi, dan RBAC
+\input{chapters/id/chapter07-autentikasi-dan-otorisasi}
+
+% Bab 8: Pengolahan Data: Impor, Ekspor, dan Antrean
+\input{chapters/id/chapter08-pengolahan-data}
+
+% Bab 9: Merancang dan Membangun REST API
+\input{chapters/id/chapter09-membangun-rest-api}
+
+%% Bagian IV: Menuju Aplikasi Siap Produksi
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{IV}Menuju Aplikasi Siap Produksi}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Bagian IV\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Menuju Aplikasi Siap Produksi\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Bab dalam Bagian Ini}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Bab~10 \textbullet{} Pengujian dan Kualitas Aplikasi
+  \item Bab~11 \textbullet{} Optimasi, Deployment, dan Dokumentasi
+  \item Bab~12 \textbullet{} Studi Kasus Menyeluruh: Membangun Simple POS dari Nol
+\end{itemize}
+\newpage
+
+% Bab 10: Pengujian dan Kualitas Aplikasi
+\input{chapters/id/chapter10-pengujian-aplikasi}
+
+% Bab 11: Optimasi, Deployment, dan Dokumentasi
+\input{chapters/id/chapter11-optimasi-dan-deployment}
+
+% Bab 12: Studi Kasus Menyeluruh
+\input{chapters/id/chapter12-studi-kasus-menyeluruh}
+
+%% ------------------------------------------------------------------------
+%% Appendices (Lampiran)
+%% ------------------------------------------------------------------------
+\appendix
+
+% Lampiran A: Referensi REST API
+\input{appendices/id/rest-api-reference}
+
+% Lampiran B: Referensi Perintah Artisan dan Composer
+\input{appendices/id/cli-reference}
+
+% Lampiran C: Topik Lanjutan
+\input{appendices/id/topik-lanjutan}
+
+% Lampiran D: Glosarium
+\input{appendices/id/glossary}
+
+%% ------------------------------------------------------------------------
+%% Back Matter (Halaman Belakang)
+%% ------------------------------------------------------------------------
+\backmatter
+
+%% SCAFFOLD ONLY: remove once chapters cite real sources
+\nocite{*}
+
+% Daftar Pustaka
+\printbibliography[heading=bibintoc, title={Daftar Pustaka}]
+
+% Indeks (imakeidx adds it to TOC via the `intoc` option)
+\printindex
+
+\end{document}

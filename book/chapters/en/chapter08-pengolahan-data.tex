@@ -1,0 +1,289 @@
+%% ========================================================================
+%% Chapter 8: Data Processing: Import, Export, and Queues
+%% ========================================================================
+
+\chapter{Data Processing: Import, Export, and Queues}
+\label{ch:pengolahan-data}
+
+\chapterhero{purple}{Build a sales report with date filtering, export and import through CSV, then learn when heavy work belongs on a queue instead.}{\faIcon{file-csv}\quad CSV export \& import}{\faIcon{cloud-upload-alt}\quad sales reports}{\faIcon{tasks}\quad queues}
+
+A packing plant with a conveyor line handles hundreds of parcels an
+hour: goods move automatically from one station to the next, and the
+worker at the end of the line just waits for a finished parcel to
+arrive in front of her. Compare that to a small supply counter serving
+one customer at a time, start to finish, pick the item, weigh it, wrap
+it, only then serve the next customer. That one-at-a-time counter works
+fine for a small shop with few customers, but forcing it to handle
+plant-scale volume would leave a line of customers snaking out the
+door. Simple POS faces the same choice every time it processes data in
+bulk: small reports and imports are fine handled directly within a
+single request cycle, like the one-at-a-time counter, but once the
+volume approaches plant scale, that processing needs to move onto its
+own conveyor line: a queue.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item build Simple POS's sales report page with date-range filtering and a total computed from transaction data;
+  \item export the sales report to CSV and import product data from a CSV file, including handling errors on invalid rows;
+  \item explain when data processing should move to a queue instead of running directly in the request cycle, using Simple POS's large-scale product import as an example.
+\end{enumerate}
+
+\section{Sales Reports and Date Filtering}
+\label{sec:pengolahan-data-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[ETL] \textit{Extract, Transform, Load}, a common pattern for pulling raw data, reshaping it, then storing or presenting it in a new form, like a sales report summarized from transaction rows.
+  \item[Batch Processing] Processing many pieces of data at once in groups, rather than one at a time, used both in seeding (Chapter~4) and CSV import.
+  \item[Queue] A mechanism for deferring heavy work to run in the background through a separate process, rather than directly during a user's request.
+  \item[Import/Export] The process of bringing data in from an external format (CSV, Excel) into a database, or taking it out of the database into an external format to be read outside the application.
+\end{description}
+\end{istilahpenting}
+
+Simple POS's report page answers a different question from the
+ordinary transaction page: not "which transactions happened", but "what
+was the total sales figure over a given period". Scaffold it first:
+
+\begin{enumerate}
+  \item Create the controller: \artisan{php artisan make:controller
+    ReportController}.
+  \item Open \texttt{routes/web.php}, register a \route{GET /reports}
+    route pointing at \phpclass{ReportController@index}, inside
+    Chapter~7's \texttt{role:admin} group.
+  \item Create the view file at
+    \texttt{resources/views\allowbreak/reports\allowbreak/index.blade.php}, at minimum a
+    filter form with two date inputs (\texttt{name="from"} and
+    \texttt{name="to"}) and an area displaying \phpclass{\$totalSales}.
+\end{enumerate}
+
+\phpclass{ReportController@index} accepts a start and end date from a
+filter form, then filters transactions through \phpclass{whereBetween}.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ReportController.php}]
+$transactions = Transaction::whereBetween('created_at', [
+    $request->date('from')->startOfDay(),
+    $request->date('to')->endOfDay(),
+])->get();
+
+$totalSales = $transactions->sum('total');
+\end{lstlisting}
+
+\phpclass{startOfDay()} and \phpclass{endOfDay()} matter here: without
+them, a date filter of "2026-08-01 through 2026-08-31" literally means
+"up to 00:00:00 on the 31st", which excludes every transaction that
+happened during that same 31st entirely.
+\phpclass{\$transactions->sum('total')} sums the \texttt{total} column
+that's already stored per transaction (covered in Chapter~6), not
+recomputed from product prices one at a time.
+
+\section{CSV Export and Import}
+\label{sec:pengolahan-data-2}
+
+Exporting the report to CSV means turning an Eloquent collection into
+comma-separated text rows, ready to open in any spreadsheet
+application.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ReportController.php}]
+public function export(Request $request)
+{
+    $transactions = $this->filteredTransactions($request);
+
+    return response()->streamDownload(function () use ($transactions) {
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['ID', 'Date', 'Cashier', 'Total']);
+        foreach ($transactions as $t) {
+            fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
+        }
+        fclose($out);
+    }, 'sales-report.csv');
+}
+\end{lstlisting}
+
+\phpclass{response()->streamDownload()} writes CSV rows straight to the
+output stream while sending it to the browser, with no need to hold the
+entire file in server memory first; this matters once the report's row
+count starts to grow.
+
+Import runs in the opposite direction: read an uploaded CSV file, then
+turn each of its rows into a \texttt{products} row. The trickier part
+here isn't the reading and writing itself, it's handling a malformed
+row without aborting the whole import because of a single bad line.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ReportController.php}]
+$errors = [];
+foreach ($rows as $lineNumber => $row) {
+    $validator = Validator::make($row, [
+        'name' => ['required', 'string'],
+        'category_id' => ['required', 'exists:categories,id'],
+        'price' => ['required', 'integer', 'min:0'],
+    ]);
+
+    if ($validator->fails()) {
+        $errors[$lineNumber] = $validator->errors()->first();
+        continue;
+    }
+
+    Product::create($validator->validated());
+}
+\end{lstlisting}
+
+\phpclass{continue} on a row that fails validation makes sure the
+import keeps moving to the next row, collecting an error message per
+line number in the \phpclass{\$errors} array, instead of throwing an
+exception that stops the entire import just because one line in the
+middle of the file had a mistyped price.
+
+\section{Practice: When to Reach for a Queue}
+\label{sec:pengolahan-data-3}
+
+Importing a few dozen products finishes in a matter of seconds, fine to
+run directly within the request cycle like the code above: a user
+uploads a file, waits briefly, and the next page shows the result. Once
+that volume climbs into the thousands of rows, say a shop migrating its
+entire old catalog in one go, that same process can take tens of
+seconds or longer, and an HTTP request has a timeout. A user staring at
+a browser with no idea whether the process is still running or already
+failed silently is a bad experience, and on some servers that request
+can even get forcibly cut off before it finishes.
+
+\begin{table}[htbp]
+\centering
+\caption{Direct request processing vs a queued job}
+\label{tab:queue-vs-langsung}
+\begin{tblr}{
+  colspec = {X[1.1,l] X[1.1,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+Approach & User response time & Fits \\
+Direct processing (request) & Waits until finished & Small imports, under a few hundred rows \\
+Queued job & Instant, processed in the background & Large imports, heavy reports, bulk email \\
+\end{tblr}
+\end{table}
+
+Moving import to a queue means the controller only stores the file and
+dispatches one job to the queue, then immediately responds to the user
+with an "import is being processed" message, with no wait for the
+process to finish at all. The steps below move the product import from
+the previous section's code onto a queued job.
+
+\begin{enumerate}
+  \item Set up the queue driver. Open \texttt{.env}, make sure
+    \texttt{QUEUE\_CONNECTION=database} (not \texttt{sync}, which runs
+    a job directly with no real queue involved). If the queue table
+    doesn't exist yet, create its migration:
+    \begin{lstlisting}[language=bash]
+php artisan queue:table
+php artisan migrate
+    \end{lstlisting}
+  \item Create the job class:
+    \begin{lstlisting}[language=bash]
+php artisan make:job ProcessProductImport
+    \end{lstlisting}
+  \item Open \texttt{app/Jobs/ProcessProductImport.php}. Move the
+    validate-and-save loop from the previous section's code into the
+    \cmd{handle()} method, with the CSV file path stored through the
+    constructor:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Jobs/ProcessProductImport.php}]
+public function __construct(private string $csvPath) {}
+
+public function handle(): void
+{
+    $rows = /* read $this->csvPath into an array of rows */;
+    foreach ($rows as $lineNumber => $row) {
+        // ...the validation loop and Product::create() from before
+    }
+}
+    \end{lstlisting}
+  \item Open \texttt{ReportController} (or whichever import controller
+    applies), replace the direct import-loop call with dispatching the
+    job:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/ReportController.php}]
+ProcessProductImport::dispatch($request->file('csv')->store('imports'));
+
+return back()->with('success', 'Import is being processed in the background.');
+    \end{lstlisting}
+  \item Run the queue worker in a separate terminal (leave it running
+    for the rest of testing):
+    \begin{lstlisting}[language=bash]
+php artisan queue:work
+    \end{lstlisting}
+  \item Upload a CSV file through the import form. \textbf{What to
+    expect}: the page responds immediately with an "import is being
+    processed" message (no waiting), and in the \cmd{queue:work}
+    terminal, a log line appears reading
+    \texttt{Processing: App\textbackslash{}Jobs\textbackslash{}ProcessProductImport}
+    followed by \texttt{Processed} a moment later.
+  \item Open \route{/products}, refresh the page. \textbf{What to
+    expect}: the products from the CSV file are already saved, even
+    though the saving happened after the controller had already
+    finished responding.
+  \item \textbf{If the job never gets processed} (the
+    \cmd{queue:work} terminal stays silent), check two things: (a)
+    \texttt{QUEUE\_CONNECTION} in \texttt{.env} still reads
+    \texttt{sync}, so the job runs directly and never enters the queue
+    table; (b) the worker from step 5 was never actually started, or
+    got stopped before the job was dispatched in step 6.
+\end{enumerate}
+
+\begin{tipbox}
+Signs a process is worth moving to a queue: its duration can't be
+predicted upfront (depends on how large a file a user uploads), it
+doesn't need an instant result the user has to see on that same page
+right away, or it involves a slow call to an external service (sending
+email, calling a third-party API). A report that's opened and read
+directly on the page, by contrast, is usually still better processed
+directly, since the user really is waiting for the result right then.
+\end{tipbox}
+
+\branchref{chapter-08}
+
+\section{Summary}
+\label{sec:pengolahan-data-rangkuman}
+
+\begin{itemize}
+  \item Simple POS's sales report filters transactions through
+    \phpclass{whereBetween} with \phpclass{startOfDay()}/\phpclass{endOfDay()}
+    on a date range, and sums the already-stored \texttt{total} column
+    rather than recomputing from scratch.
+  \item CSV export uses \phpclass{streamDownload()} to write rows
+    straight to output without holding the entire file in memory; CSV
+    import validates each row one at a time and skips a failing row
+    through \phpclass{continue}, collecting a per-row error message
+    instead of aborting the whole process.
+  \item A process with unpredictable duration or large volume, like a
+    product import at the scale of thousands of rows, should move to a
+    queued job so the user gets an instant response while the process
+    runs in the background.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Change the report filter to also support filtering by product
+    category, alongside the existing date range.
+  \item Test the import with a CSV file containing a mix of valid and
+    invalid rows (for example, a \texttt{category\_id} that doesn't
+    exist), then check whether the valid rows still get saved and the
+    failing rows' error messages show up clearly.
+  \item Identify one other process in Simple POS, besides product
+    import, that you think is worth moving to a queued job, and explain
+    why.
+  \item \textbf{Self-check:} without reopening this chapter, try
+    explaining in your own words: (a) why \phpclass{startOfDay()}/\phpclass{endOfDay()}
+    are needed on a date filter, (b) why a failing CSV row must not
+    abort the whole import, and (c) the signs a process is worth moving
+    to a queue. Check your answers against this chapter.
+\end{enumerate}
+
+\begin{challengebox}
+Add a best-selling products summary section to the report page, showing
+the five products with the highest quantity sold within the currently
+filtered date range.
+\end{challengebox}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for the query builder, streaming responses, and
+queues.

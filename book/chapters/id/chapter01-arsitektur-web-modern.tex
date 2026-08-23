@@ -1,0 +1,344 @@
+%% ========================================================================
+%% Bab 1: Arsitektur Web Modern dan Ekosistem Laravel
+%% ========================================================================
+
+\chapter{Arsitektur Web Modern dan Ekosistem Laravel}
+\label{ch:arsitektur-web-modern}
+
+\chapterhero{blue}{Bandingkan arsitektur monolith, microservices, dan serverless, lalu siapkan proyek Laravel 13 dengan SQLite sebagai fondasi Simple POS.}{\faIcon{server}\quad monolith vs microservices}{\faIcon{code-branch}\quad ekosistem Laravel}{\faIcon{database}\quad Simple POS}
+
+Sebuah restoran keluarga yang baru buka biasanya menangani semuanya sendiri:
+pemilik memasak, anaknya mencatat pesanan, istrinya menghitung uang di meja
+kasir yang sama dengan meja pelanggan makan. Semua orang tahu semua hal, dan
+kalau dapur kebanjiran pesanan pada malam Minggu, solusinya cukup menambah
+kompor, bukan membuka cabang baru di ujung kota. Bandingkan dengan food
+court di sebuah mal, tempat setiap tenant punya dapur sendiri, kasir
+sendiri, bahkan resep rahasia sendiri, dan pengelola mal hanya menyediakan
+meja bersama serta jalur listrik. Kalau tenant bakso ramai sementara tenant
+es krim sepi, keduanya tetap berjalan sebagai unit terpisah, tidak saling
+menunggu.
+
+Kedua model itu punya padanan persis dalam arsitektur perangkat lunak:
+monolith seperti restoran keluarga (satu basis kode, satu proses, satu tim
+yang mengurus semuanya), dan microservices seperti food court (banyak
+layanan independen yang saling terhubung lewat jaringan). Simple POS,
+aplikasi kasir yang dibangun bab demi bab sepanjang buku ini, dipilih
+sebagai monolith bukan karena keterbatasan, melainkan karena skalanya
+cocok: sebuah warung dengan satu atau dua kasir tidak butuh sepuluh layanan
+terpisah hanya untuk mencatat penjualan segelas kopi. Salah pilih arsitektur
+di titik ini, membangun food court untuk bisnis yang cukup dilayani satu
+dapur, berarti menghabiskan waktu pengembangan untuk mengurus jaringan
+antar-layanan yang sebenarnya tidak dibutuhkan, alih-alih menyelesaikan
+fitur yang dipakai kasir setiap hari.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item membandingkan arsitektur monolith, microservices, dan serverless untuk menjelaskan alasan Laravel dipilih sebagai kerangka kerja monolith bagi Simple POS;
+  \item menyiapkan proyek Laravel 13 baru dengan SQLite sebagai basis data zero-setup, lengkap dengan \artisan{migrate:fresh --seed} dan \artisan{serve};
+  \item menjelaskan konvensi commit \cmd{increment N} pada repositori Simple POS dan bagaimana urutan increment memetakan pertumbuhan aplikasi bab demi bab.
+\end{enumerate}
+
+\section{Monolith, Microservices, dan Mengapa Laravel}
+\label{sec:arsitektur-web-modern-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Monolith] Aplikasi yang seluruh lapisannya, antarmuka, logika bisnis, dan akses data, berjalan dalam satu basis kode dan satu proses deploy.
+  \item[Microservices] Arsitektur yang memecah aplikasi menjadi layanan-layanan independen, masing-masing berjalan dan di-deploy sendiri, saling berkomunikasi lewat jaringan.
+  \item[MVC] Pola \textit{Model-View-Controller}: Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
+  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate.
+  \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun.
+\end{description}
+\end{istilahpenting}
+
+Sebuah aplikasi \term{monolith} menyimpan seluruh kodenya, mulai dari
+tampilan yang dilihat pengguna sampai query yang menyentuh basis data, dalam
+satu proyek yang di-deploy sebagai satu unit. Menambah fitur berarti
+menambah kode pada proyek yang sama; men-deploy pembaruan berarti mengganti
+satu unit itu dengan versi barunya. Sebaliknya, \term{microservices}
+memecah tanggung jawab itu ke layanan-layanan terpisah, misalnya satu
+layanan khusus mengurus katalog produk, layanan lain khusus mengurus
+pembayaran, dan keduanya saling bicara lewat panggilan jaringan (biasanya
+HTTP atau message queue). Pemisahan ini memberi kebebasan: setiap layanan
+bisa ditulis dengan bahasa berbeda, di-deploy dengan jadwal berbeda, dan
+diskalakan sendiri-sendiri saat trafiknya melonjak.
+
+Kebebasan itu punya harga. Sebuah tim yang memecah aplikasinya menjadi
+delapan layanan terpisah kini harus mengurus delapan proses deploy, delapan
+titik yang bisa gagal, dan komunikasi jaringan antar-layanan yang sebelumnya
+cukup dipanggil sebagai satu fungsi biasa di dalam proses yang sama. Untuk
+tim besar yang mengoperasikan sistem berskala jutaan pengguna, ongkos itu
+sepadan dengan kebebasan yang didapat. Untuk aplikasi seperti Simple POS,
+yang melayani satu warung dengan volume transaksi harian yang bisa dihitung
+manual di kertas, ongkos itu jauh melebihi manfaatnya.
+
+\begin{table}[htbp]
+\centering
+\caption{Perbandingan arsitektur monolith, microservices, dan serverless}
+\label{tab:arsitektur-perbandingan}
+\begin{tblr}{
+  colspec = {X[1,l] X[1.2,l] X[1,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+Arsitektur & Deployment & Kompleksitas Awal & Cocok Untuk \\
+Monolith & Satu unit & Rendah & Simple POS, MVP, tim kecil \\
+Microservices & Banyak unit independen & Tinggi & Sistem skala besar, tim besar \\
+Serverless & Fungsi per event & Sedang & Beban kerja sporadis \\
+\end{tblr}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.92\linewidth}{!}{%
+\begin{tikzpicture}[node distance=3mm]
+  \node[diagbox accent, minimum width=3.2cm] (ui) {Antarmuka (UI)};
+  \node[diagbox accent, minimum width=3.2cm, below=of ui] (logic) {Logika Bisnis};
+  \node[diagbox accent, minimum width=3.2cm, below=of logic] (data) {Akses Data};
+  \node[draw=black!45, thick, rounded corners=3pt, fit=(ui)(logic)(data), inner sep=7pt] {};
+  \node[above=2mm of ui, font=\bfseries] {Monolith};
+
+  \node[diagbox, right=3.4cm of ui, yshift=-0.3cm] (svc1) {Layanan Produk};
+  \node[diagbox, below=1.4cm of svc1] (svc2) {Layanan Pembayaran};
+  \node[diagbox, right=1.6cm of svc1, yshift=-0.7cm] (svc3) {Layanan Pengguna};
+  \node[above=2mm of svc1, font=\bfseries] {Microservices};
+
+  \draw[diagarrow, <->] (svc1) -- (svc2);
+  \draw[diagarrow, <->] (svc2) -- (svc3);
+  \draw[diagarrow, <->] (svc3) -- (svc1);
+\end{tikzpicture}%
+}
+\caption{Struktur monolith (satu basis kode, tiga lapisan menyatu) vs
+microservices (layanan independen yang saling memanggil lewat jaringan)}
+\label{fig:monolith-microservices}
+\end{figure}
+
+\term{Serverless} menempuh jalan ketiga: kode ditulis sebagai fungsi-fungsi
+kecil yang hanya berjalan ketika ada peristiwa yang memicunya (permintaan
+HTTP, jadwal cron, pesan baru di antrean), dan penyedia layanan cloud yang
+mengurus server di baliknya. Cocok untuk beban kerja yang naik-turun tajam,
+misalnya pemrosesan gambar yang hanya dipicu saat pengguna mengunggah foto,
+tetapi kurang cocok untuk aplikasi seperti Simple POS yang butuh koneksi
+basis data yang konsisten sepanjang jam operasional warung.
+
+Laravel dipilih sebagai kerangka kerja buku ini karena memetakan tepat ke
+kebutuhan monolith: satu proyek PHP yang sudah menyediakan routing,
+autentikasi, ORM, dan sistem template tanpa perlu merakit potongan pustaka
+dari sumber berbeda. Dibandingkan menulis PHP polos dari nol, Laravel
+memberi struktur MVC yang konsisten sejak baris kode pertama; dibandingkan
+kerangka kerja microservices-first yang lebih rumit, Laravel tetap
+produktif untuk tim satu atau dua orang yang mengejar tenggat.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=5mm]
+  \node[diagbox accent] (req) {Request};
+  \node[diagbox accent, right=of req] (router) {Router};
+  \node[diagbox accent, right=of router] (ctrl) {Controller};
+  \node[diagbox accent, right=of ctrl] (model) {Model};
+  \node[diagbox accent, right=of model] (view) {View /\\Response};
+  \draw[diagarrow] (req) -- (router);
+  \draw[diagarrow] (router) -- (ctrl);
+  \draw[diagarrow] (ctrl) -- (model);
+  \draw[diagarrow] (model) -- (view);
+\end{tikzpicture}%
+}
+\caption{Alur satu request Laravel: dari permintaan HTTP masuk lewat
+router, ditangani controller, mengambil/mengubah data lewat model, sampai
+respons dikembalikan lewat view}
+\label{fig:laravel-lifecycle}
+\end{figure}
+
+Alur pada \cref{fig:laravel-lifecycle} adalah pola yang akan berulang di
+hampir setiap bab buku ini: \route{/pos} pada Bab~3 mengikuti alur ini
+persis, begitu juga setiap endpoint API pada Bab~9.
+
+\begin{notebox}
+Laravel bukan satu-satunya kerangka kerja PHP, dan PHP bukan satu-satunya
+bahasa untuk membangun aplikasi web monolith. Symfony menawarkan fleksibilitas
+arsitektur yang lebih tinggi dengan kurva belajar yang lebih curam; Django
+(Python) dan Ruby on Rails punya filosofi ``convention over configuration''
+yang mirip Laravel. Posisi Laravel yang menonjol ada pada ekosistem
+paketnya (Sanctum untuk API, Excel untuk impor/ekspor, Cashier untuk
+pembayaran) yang langsung terintegrasi tanpa konfigurasi berlebihan, sesuatu
+yang akan terasa langsung mulai Bab~9.
+\end{notebox}
+
+\section{Menyiapkan Proyek Laravel dan SQLite}
+\label{sec:arsitektur-web-modern-2}
+
+Setiap proyek Laravel butuh basis data untuk berjalan, dan buku ini memilih
+SQLite alih-alih MySQL atau PostgreSQL untuk satu alasan praktis: SQLite
+menyimpan seluruh basis data dalam satu berkas biasa, tanpa proses server
+terpisah yang harus dinyalakan, dikonfigurasi, dan diberi kredensial
+sebelum baris kode pertama dijalankan. Pembaca yang baru menginstal PHP
+bisa langsung menjalankan migrasi pada menit pertama, bukan menghabiskan
+setengah jam mengatur akun MySQL. Simple POS sendiri berjalan di atas
+SQLite bahkan untuk demonstrasi kelas, bukan cuma untuk latihan buku ini.
+
+\begin{lstlisting}[language=bash]
+composer create-project laravel/laravel simple-pos
+cd simple-pos
+cp .env.example .env
+php artisan key:generate
+\end{lstlisting}
+
+Tiga perintah terakhir menyiapkan berkas konfigurasi \file{.env} (tempat
+kredensial dan pengaturan lingkungan disimpan, terpisah dari kode sumber
+supaya tidak pernah ikut ter-commit ke Git) dan menghasilkan kunci enkripsi
+aplikasi yang dipakai Laravel untuk mengamankan sesi dan cookie.
+
+Selain dependensi PHP yang baru saja diinstal \cmd{composer}, proyek Laravel
+terbaru juga menyertakan \file{package.json}: daftar dependensi JavaScript
+untuk toolchain frontend (Vite dan Tailwind CSS) yang akan mulai dipakai
+Bab~3. \cmd{npm install} adalah padanan \cmd{composer install} di dunia
+JavaScript, membaca \file{package.json} lalu mengunduh setiap paket yang
+terdaftar ke folder \file{node\_modules/}:
+
+\begin{lstlisting}[language=bash]
+npm install
+\end{lstlisting}
+
+Langkah ini belum wajib untuk menjalankan Simple POS hari ini; halaman
+bawaan Laravel masih tampil dengan gaya cadangan meski \file{node\_modules/}
+belum ada. Menjalankannya sekarang menghindari jeda instalasi mendadak
+begitu Bab~3 mulai memakai Tailwind dan Alpine.js lewat Vite. Langkah
+berikutnya mengarahkan koneksi basis data ke sebuah berkas SQLite:
+
+\begin{lstlisting}[language=bash]
+touch database/database.sqlite
+php artisan migrate:fresh --seed
+\end{lstlisting}
+
+\artisan{migrate:fresh} menjalankan seluruh berkas migrasi dari awal
+(menghapus tabel lama jika ada, lalu membangunnya kembali dari definisi
+skema terbaru), sedangkan opsi \cmd{--seed} langsung mengisi tabel yang baru
+dibuat dengan data contoh lewat berkas seeder. Untuk Simple POS, seeder ini
+mengisi ratusan produk dan ribuan transaksi sekaligus, sesuatu yang akan
+dibahas lebih dalam pada Bab~4 ketika alasan mengisi data dalam skala nyata,
+bukan sekadar beberapa baris, mulai terlihat manfaatnya.
+
+\begin{warningbox}
+Berkas \file{.env} menyimpan informasi yang sensitif (kunci aplikasi,
+kredensial basis data produksi jika ada) dan tidak boleh ikut di-commit ke
+Git. Proyek hasil \cmd{composer create-project} sudah menyertakan berkas
+\file{.gitignore} yang mengecualikan \file{.env} secara default; jangan
+pernah menghapus baris itu.
+\end{warningbox}
+
+Setelah migrasi selesai, server pengembangan bawaan Laravel bisa langsung
+dijalankan tanpa konfigurasi web server terpisah seperti Apache atau Nginx:
+
+\begin{lstlisting}[language=bash]
+php artisan serve
+\end{lstlisting}
+
+Perintah ini menjalankan aplikasi pada \route{http://127.0.0.1:8000} memakai
+server PHP bawaan, cukup untuk seluruh pengembangan lokal di buku ini.
+Server produksi sungguhan (dibahas pada Bab~11) memakai konfigurasi
+berbeda, tetapi struktur aplikasi yang dipelajari di sini tetap sama persis.
+
+\section{Praktik: Inisialisasi Simple POS dan Alur Git}
+\label{sec:arsitektur-web-modern-3}
+
+\subsection*{Praktik 1.1: Mengenal Struktur Proyek}
+
+Sebelum menulis kode fitur pertama, penting mengenali bagian mana dari
+struktur folder Laravel yang akan sering disentuh sepanjang buku ini, dan
+mana yang boleh diabaikan untuk sementara.
+
+\begin{enumerate}
+  \item Buka folder \file{routes/}, khususnya \file{routes/web.php}: di
+    sinilah setiap alamat URL yang bisa diakses pengguna aplikasi
+    didaftarkan.
+  \item Buka folder \file{app/Http/Controllers/}: tempat class yang
+    memproses setiap permintaan (menerima input, memanggil model, memilih
+    tampilan) akan bertambah satu demi satu mulai Bab~2.
+  \item Buka folder \file{database/migrations/}: tempat perubahan skema
+    basis data didefinisikan sebagai kode, bukan diklik lewat aplikasi
+    basis data terpisah.
+  \item Bandingkan dengan folder \file{vendor/}: berisi seluruh paket
+    Composer pihak ketiga, tidak pernah diedit manual, dan tidak ikut
+    di-commit ke Git.
+\end{enumerate}
+
+Struktur ini bukan kebetulan. Ia mewujudkan pola MVC yang disinggung di
+istilah penting bagian awal bab: \file{routes/} dan
+\file{app/Http/Controllers/} menangani sisi Controller, model Eloquent yang
+akan diperkenalkan di Bab~5 menangani sisi Model, dan berkas Blade di
+\file{resources/views/} (dibahas mulai Bab~3) menangani sisi View.
+
+\subsection*{Praktik 1.2: Konvensi Commit Increment pada Simple POS}
+
+Repositori Simple POS yang menjadi rujukan buku ini tidak dibangun sekaligus
+sebagai satu proyek utuh, melainkan tumbuh commit demi commit, masing-masing
+diberi label \cmd{increment N}. Increment 1 hanya berisi kerangka proyek
+kosong hasil \cmd{composer create-project}, persis seperti hasil Praktik
+1.1; increment berikutnya menambah satu kemampuan konkret, routing dan
+controller produk, lalu tampilan Blade, lalu skema basis data, mengikuti
+urutan yang sama dengan urutan bab pada buku ini. Membaca riwayat commit
+Simple POS secara berurutan sama seperti membaca buku ini bab demi bab,
+hanya dalam bentuk kode sungguhan alih-alih prosa.
+
+\begin{tipbox}
+Kode lengkap setiap bab tersedia dalam dua bentuk. Repositori
+\texttt{\repobase} menyimpan seluruh riwayatnya dalam satu tempat, dengan
+satu branch per bab (\texttt{chapter-01} hingga \texttt{chapter-12}), setiap
+branch dibangun di atas branch bab sebelumnya; cocok dibaca berurutan
+seperti membaca riwayat commit sungguhan. Setiap akhir bagian Praktik pada
+buku ini, seperti kotak di bawah, sebaliknya menunjuk ke repositori
+template tersendiri untuk bab itu saja (mis. \texttt{\repoowner/simple-pos-ch04}
+untuk Bab~4): klik tombol \textbf{Use this template} di GitHub untuk
+langsung mulai dari kondisi bab itu, tanpa perlu tahu cara \cmd{git
+checkout} branch tertentu. Buku ini menampilkan potongan kode yang paling
+penting untuk dipahami; kode penuh yang siap dijalankan selalu ada di
+kedua repositori itu.
+\end{tipbox}
+
+\branchref{chapter-01}
+
+\section{Rangkuman}
+\label{sec:arsitektur-web-modern-rangkuman}
+
+\begin{itemize}
+  \item Monolith menyatukan seluruh lapisan aplikasi dalam satu basis kode
+    dan satu proses deploy, cocok untuk skala Simple POS; microservices
+    memecahnya menjadi layanan independen dengan ongkos operasional yang
+    hanya sepadan untuk sistem berskala besar; serverless cocok untuk beban
+    kerja sporadis, bukan aplikasi dengan koneksi basis data yang konsisten.
+  \item Proyek Laravel 13 disiapkan dengan \cmd{composer create-project},
+    dihubungkan ke SQLite sebagai basis data zero-setup, lalu dijalankan
+    dengan \artisan{migrate:fresh --seed} dan \artisan{serve}.
+  \item Konvensi commit \cmd{increment N} pada repositori Simple POS
+    memetakan pertumbuhan aplikasi bab demi bab, dengan kode lengkap tiap
+    bab tersedia sebagai branch tersendiri di GitHub.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Jalankan ketiga perintah pada Praktik 1.1 di komputermu sendiri,
+    lalu verifikasi bahwa \cmd{php artisan serve} menampilkan halaman
+    selamat datang Laravel di \route{http://127.0.0.1:8000}.
+  \item Buka \file{database/migrations/} pada proyek yang baru dibuat, lalu
+    identifikasi berapa banyak berkas migrasi yang sudah ada secara bawaan
+    (tanpa menulis kode apa pun) dan tabel apa saja yang dibuatnya.
+  \item Jelaskan dengan kata-katamu sendiri: mengapa sebuah warung dengan
+    satu kasir lebih cocok memakai arsitektur monolith dibanding
+    microservices, sementara sebuah platform e-commerce nasional dengan
+    jutaan pengguna sering memakai microservices.
+  \item \textbf{Evaluasi mandiri:} tanpa membuka kembali isi bab ini, coba
+    jelaskan dengan kata-katamu sendiri: (a) perbedaan monolith dan
+    microservices, (b) mengapa SQLite dipilih untuk buku ini, dan (c) apa
+    fungsi opsi \cmd{--seed} pada \artisan{migrate:fresh}. Periksa kembali
+    jawabanmu dengan isi bab ini, dan catat bagian mana yang masih perlu
+    dipelajari ulang.
+\end{enumerate}
+
+\section{Referensi}
+
+Pembahasan pada bab ini merujuk pada dokumentasi resmi Laravel
+\cite{laraveldocs} untuk struktur proyek dan perintah Artisan, serta
+Manual PHP \cite{phpmanual} untuk rujukan bahasa yang mendasari kerangka
+kerja Laravel.

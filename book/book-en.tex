@@ -1,0 +1,208 @@
+%% ========================================================================
+%% Practical Laravel - English Edition
+%% Building a Point-of-Sale App from Scratch
+%% Paper Size: 23cm x 15.5cm (Portrait)
+%% ========================================================================
+
+\documentclass[
+    paper=23cm:15.5cm,   % Custom paper size 23 x 15.5 cm portrait
+    11pt,               % Font size
+    twoside,            % For double-sided printing
+    openany,            % New chapters may start on the next page
+    bibliography=totoc, % Bibliography included in the table of contents
+]{scrbook}            % KOMA-Script book class (more flexible)
+
+%% ========================================================================
+%% Set Language Flags BEFORE Loading Preamble
+%% ========================================================================
+\newif\ifIndonesian
+\newif\ifEnglish
+\Indonesianfalse
+\Englishtrue
+
+%% ========================================================================
+%% Preamble: Packages and Configuration
+%% ========================================================================
+\input{preamble}
+
+%% Ensure English is selected
+\selectlanguage{english}
+
+%% ========================================================================
+%% Book Information
+%% ========================================================================
+\title{Practical Laravel}
+\subtitle{Building a Point-of-Sale App from Scratch}
+\author{Dian Hanifudin Subhi and Ade Ismail}
+\date{\today}
+\publishers{Polinema Press}
+
+%% ========================================================================
+%% Begin Document
+%% ========================================================================
+\begin{document}
+
+%% ------------------------------------------------------------------------
+%% Front Matter
+%% ------------------------------------------------------------------------
+\frontmatter
+
+% Title Page
+\input{frontmatter/en/titlepage}
+
+% Copyright Page
+\input{frontmatter/en/copyright}
+
+% Preface
+\input{frontmatter/en/preface}
+
+% Foreword
+\input{frontmatter/en/preface2}
+
+% Table of Contents
+\renewcommand{\contentsname}{Table of Contents}
+\tableofcontents
+
+% List of Tables
+\listoftables
+
+%% ------------------------------------------------------------------------
+%% Main Matter
+%% ------------------------------------------------------------------------
+\mainmatter
+
+%% Part I: Laravel Foundations and Web Architecture
+\addcontentsline{toc}{part}{\protect\numberline{I}Laravel Foundations and Web Architecture}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Part I\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Laravel Foundations and Web Architecture\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Chapters in This Part}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Chapter~1 \textbullet{} Modern Web Architecture and the Laravel Ecosystem
+  \item Chapter~2 \textbullet{} HTTP Protocol and the MVC Pattern
+  \item Chapter~3 \textbullet{} Building Interfaces with Blade, Tailwind, and Alpine
+\end{itemize}
+\newpage
+
+% Chapter 1: Modern Web Architecture and the Laravel Ecosystem
+\input{chapters/en/chapter01-arsitektur-web-modern}
+
+% Chapter 2: HTTP Protocol and the MVC Pattern
+\input{chapters/en/chapter02-http-dan-mvc}
+
+% Chapter 3: Building Interfaces with Blade, Tailwind, and Alpine
+\input{chapters/en/chapter03-blade-dan-tailwind}
+
+%% Part II: Data and Eloquent
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{II}Data and Eloquent}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Part II\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Data and Eloquent\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Chapters in This Part}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Chapter~4 \textbullet{} Database Design, Migrations, and Seeding
+  \item Chapter~5 \textbullet{} Eloquent ORM and Relationships
+  \item Chapter~6 \textbullet{} Validation and Input Security
+\end{itemize}
+\newpage
+
+% Chapter 4: Database Design, Migrations, and Seeding
+\input{chapters/en/chapter04-desain-basis-data}
+
+% Chapter 5: Eloquent ORM and Relationships
+\input{chapters/en/chapter05-eloquent-dan-relasi}
+
+% Chapter 6: Validation and Input Security
+\input{chapters/en/chapter06-validasi-input}
+
+%% Part III: Security, Reports, and APIs
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{III}Security, Reports, and APIs}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Part III\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Security, Reports, and APIs\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Chapters in This Part}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Chapter~7 \textbullet{} Authentication, Authorization, and RBAC
+  \item Chapter~8 \textbullet{} Data Processing: Import, Export, and Queues
+  \item Chapter~9 \textbullet{} Designing and Building a REST API
+\end{itemize}
+\newpage
+
+% Chapter 7: Authentication, Authorization, and RBAC
+\input{chapters/en/chapter07-autentikasi-dan-otorisasi}
+
+% Chapter 8: Data Processing: Import, Export, and Queues
+\input{chapters/en/chapter08-pengolahan-data}
+
+% Chapter 9: Designing and Building a REST API
+\input{chapters/en/chapter09-membangun-rest-api}
+
+%% Part IV: Toward a Production-Ready Application
+\newpage
+\addcontentsline{toc}{part}{\protect\numberline{IV}Toward a Production-Ready Application}
+\vspace*{4cm}
+{\fontsize{28}{34}\sffamily\bfseries\raggedright Part IV\par}
+\vspace{6pt}
+{\fontsize{22}{28}\sffamily\bfseries\raggedright Toward a Production-Ready Application\par}
+\vspace{16pt}
+{\large\sffamily\bfseries Chapters in This Part}\par
+\vspace{6pt}
+\begin{itemize}[topsep=0pt, itemsep=2pt]
+  \item Chapter~10 \textbullet{} Testing and Application Quality
+  \item Chapter~11 \textbullet{} Optimization, Deployment, and Documentation
+  \item Chapter~12 \textbullet{} Full Case Study: Building Simple POS From Scratch
+\end{itemize}
+\newpage
+
+% Chapter 10: Testing and Application Quality
+\input{chapters/en/chapter10-pengujian-aplikasi}
+
+% Chapter 11: Optimization, Deployment, and Documentation
+\input{chapters/en/chapter11-optimasi-dan-deployment}
+
+% Chapter 12: Full Case Study
+\input{chapters/en/chapter12-studi-kasus-menyeluruh}
+
+%% ------------------------------------------------------------------------
+%% Appendices
+%% ------------------------------------------------------------------------
+\appendix
+
+% Appendix A: REST API Reference
+\input{appendices/en/rest-api-reference}
+
+% Appendix B: Artisan and Composer Command Reference
+\input{appendices/en/cli-reference}
+
+% Appendix C: Advanced Topics
+\input{appendices/en/advanced-topics}
+
+% Appendix D: Glossary
+\input{appendices/en/glossary}
+
+%% ------------------------------------------------------------------------
+%% Back Matter
+%% ------------------------------------------------------------------------
+\backmatter
+
+%% SCAFFOLD ONLY: remove once chapters cite real sources
+\nocite{*}
+
+% Bibliography
+\printbibliography[heading=bibintoc, title={References}]
+
+% Index (imakeidx adds it to TOC via the `intoc` option)
+\printindex
+
+\end{document}

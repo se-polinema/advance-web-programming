@@ -1,0 +1,70 @@
+%% ========================================================================
+%% Title Page
+%% ========================================================================
+
+\begin{titlepage}
+    \thispagestyle{empty}
+    \begin{tikzpicture}[remember picture, overlay]
+        \fill[black!8] (current page.north west) rectangle ([yshift=-4.2cm]current page.north east);
+        \draw[line width=1.2pt, black!70]
+            ([xshift=1.4cm,yshift=-1.1cm]current page.north west) --
+            ([xshift=-1.4cm,yshift=-1.1cm]current page.north east);
+        \draw[line width=0.6pt, black!40]
+            ([xshift=1.4cm,yshift=-1.45cm]current page.north west) --
+            ([xshift=-1.4cm,yshift=-1.45cm]current page.north east);
+        \draw[line width=1pt, black!55]
+            ([xshift=1.6cm,yshift=1.6cm]current page.south west) rectangle
+            ([xshift=-1.6cm,yshift=-1.6cm]current page.north east);
+    \end{tikzpicture}
+
+    \vspace*{1.8cm}
+
+    \begin{center}
+    {\small\sffamily\bfseries P O L I N E M A \ \ P R E S S\par}
+    \vspace{1.25cm}
+
+    \begin{sloppypar}
+    {\fontsize{26}{30}\selectfont\sffamily\bfseries Practical Laravel\par}
+    \vspace{0.45cm}
+    {\Large\sffamily Building a Point-of-Sale App from Scratch\par}
+    \vspace{0.7cm}
+    {\normalsize\itshape Building a point-of-sale app step by step, from routing and databases to authentication and APIs\par}
+    \end{sloppypar}
+    \end{center}
+
+    \vspace{1.5cm}
+
+    \begin{tcolorbox}[
+        enhanced,
+        colback=black!3,
+        colframe=black!55,
+        boxrule=0.7pt,
+        arc=2pt,
+        left=10pt,
+        right=10pt,
+        top=10pt,
+        bottom=10pt,
+        width=1\textwidth,
+        center title,
+        title={\bfseries\sffamily Author}
+    ]
+    \centering
+    {\large\bfseries Dian Hanifudin Subhi and Ade Ismail\par}
+    \end{tcolorbox}
+
+    \vfill
+
+    \begin{minipage}{1\textwidth}
+        \centering
+        \rule{0.25\textwidth}{0.6pt}\hspace{0.03\textwidth}\rule{0.25\textwidth}{0.6pt}\par
+        \vspace{0.35cm}
+        {\small\sffamily A practical reference for web application\\development with Laravel\par}
+        \vspace{0.75cm}
+        {\normalsize\bfseries Polinema Press\par}
+        {\normalsize Malang \textbullet{} \the\year\par}
+    \end{minipage}
+
+\end{titlepage}
+
+% Blank page behind the title page (for two-sided printing)
+\cleardoublepage

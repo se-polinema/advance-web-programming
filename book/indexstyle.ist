@@ -1,0 +1,17 @@
+% indexstyle.ist - Fancy index style for the sqa-book project.
+% Used by imakeidx via: options={-s indexstyle.ist}
+%
+% Effect:
+%   * Each alphabetic group (A, B, C, ...) is separated by a styled heading
+%     rendered through the \indexgroup{} macro defined in preamble.tex.
+%   * Page numbers are separated from the term by a dotted leader so the
+%     index visually echoes the table of contents.
+
+headings_flag       1
+heading_prefix      "\\indexgroup{"
+heading_suffix      "}\n"
+heading_compositor  " "
+
+delim_0             "\\,\\dotfill\\,"
+delim_1             "\\,\\dotfill\\,"
+delim_2             "\\,\\dotfill\\,"

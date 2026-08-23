@@ -1,0 +1,257 @@
+%% ========================================================================
+%% Bab 11: Optimasi, Deployment, dan Dokumentasi
+%% ========================================================================
+
+\chapter{Optimasi, Deployment, dan Dokumentasi}
+\label{ch:optimasi-dan-deployment}
+
+\chapterhero{orange}{Profilkan ulang query N+1 dan index dengan angka nyata, siapkan Simple POS untuk deployment, lalu tinggalkan dokumentasi teknis untuk pengembang berikutnya.}{\faIcon{tachometer-alt}\quad profil N+1 \& index}{\faIcon{rocket}\quad persiapan deployment}{\faIcon{file-alt}\quad dokumentasi teknis}
+
+Kurir yang memindahkan kantor dari satu gedung ke gedung lain punya dua
+rute yang bisa dipilih: jalan pintas yang sudah dipetakan sebelumnya
+lewat gang belakang, atau rute muter-muter lewat jalan utama yang macet
+karena belum sempat dicek rute alternatifnya. Kurir yang berpengalaman
+tidak menebak-nebak; ia sudah mengukur kedua rute itu dengan stopwatch
+sebelum hari pindahan, dan tahu persis rute mana yang lebih cepat untuk
+truk bermuatan penuh. Bab ini melakukan hal serupa pada Simple POS di
+penghujung perjalanannya: mengukur ulang, dengan angka konkret, seberapa
+jauh perbaikan eager loading (Bab~5) dan index foreign key (Bab~4)
+benar-benar mempercepat aplikasi, lalu menyiapkan aplikasi itu untuk
+"hari pindahan" yang sesungguhnya, yaitu deployment ke lingkungan
+produksi, dan meninggalkan peta rute itu dalam bentuk dokumentasi bagi
+siapa pun yang melanjutkan perjalanan.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item memprofilkan query N+1 dan query tanpa index pada Simple POS memakai \cmd{EXPLAIN QUERY PLAN}, lalu mengukur perbaikannya setelah eager loading dan index ditambahkan;
+  \item menyiapkan Simple POS untuk deployment (konfigurasi environment produksi, migrasi, caching konfigurasi dan route);
+  \item menyusun dokumentasi teknis ringkas yang menjelaskan keputusan arsitektur Simple POS bagi pengembang lain yang melanjutkan proyek.
+\end{enumerate}
+
+\section{Memprofilkan Query N+1 dan Index}
+\label{sec:optimasi-dan-deployment-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Profiling] Proses mengukur secara langsung, dengan angka, bagian mana dari sebuah aplikasi yang memakan waktu paling banyak, alih-alih menebak berdasarkan intuisi.
+  \item[Query Cache] Mekanisme menyimpan hasil query yang mahal agar tidak perlu dijalankan ulang pada request berikutnya yang identik.
+  \item[Route Cache] Berkas hasil kompilasi seluruh definisi route Laravel, mempercepat pencocokan URL ke route tanpa memuat ulang seluruh berkas route setiap request.
+  \item[Config Cache] Berkas hasil penggabungan seluruh berkas konfigurasi Laravel menjadi satu, menghindari pembacaan berulang banyak berkas kecil pada setiap request.
+\end{description}
+\end{istilahpenting}
+
+Bab~4 dan Bab~5 masing-masing menunjukkan satu bug performa: index
+foreign key yang hilang pada SQLite, dan masalah N+1 pada listing
+transaksi. Kali ini kedua perbaikan itu diukur bersamaan, dengan skenario
+yang lebih dekat ke kondisi produksi: menampilkan halaman riwayat
+transaksi lengkap dengan detail dan produknya, di atas basis data yang
+sudah terisi penuh hasil seeding Bab~4.
+
+\begin{enumerate}
+  \item Ukur dulu kondisi \textit{tanpa} eager loading:
+    \begin{lstlisting}[language=bash]
+php artisan tinker
+>>> DB::enableQueryLog();
+>>> Transaction::latest()->take(15)->get()->each(fn($t) => $t->details);
+>>> count(DB::getQueryLog());
+    \end{lstlisting}
+    \phpclass{DB::enableQueryLog()} mengaktifkan pencatatan setiap query
+    yang dijalankan Eloquent dalam sesi tinker itu. \textbf{Yang
+    diharapkan}: angka yang tercetak sekitar 16 (1 query daftar
+    transaksi, ditambah 15 query detail, satu per transaksi, karena
+    \phpclass{\$t->details} diakses lazy di dalam \phpclass{each()}).
+  \item Keluar dari tinker (\cmd{exit}), lalu ulangi dengan
+    \phpclass{with('details.product')} dipasang di awal query:
+    \begin{lstlisting}[language=bash]
+php artisan tinker
+>>> DB::enableQueryLog();
+>>> Transaction::with('details.product')->latest()->take(15)->get();
+>>> count(DB::getQueryLog());
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: angka yang tercetak turun jadi 3, sesuai
+    penjelasan Bab~5, bukan sekadar klaim teoretis.
+  \item Verifikasi index dengan perintah yang sama seperti Bab~4,
+    dijalankan di sini pada query laporan penjualan Bab~8:
+    \begin{lstlisting}[language=bash]
+sqlite3 database/database.sqlite \
+  "EXPLAIN QUERY PLAN SELECT * FROM transactions WHERE created_at BETWEEN ? AND ?;"
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: baris hasil memuat
+    \texttt{SEARCH ... USING INDEX}, bukan \texttt{SCAN}, membuktikan
+    index \texttt{transactions.created\_at} yang ditambahkan di Bab~4
+    benar-benar dipakai, bukan cuma ada di skema tapi tidak pernah
+    tersentuh query yang sebenarnya berjalan.
+\end{enumerate}
+
+\section{Menyiapkan Deployment}
+\label{sec:optimasi-dan-deployment-2}
+
+Lingkungan pengembangan lokal dan lingkungan produksi punya prioritas
+yang berlawanan pada satu hal penting: informasi galat. Di lokal,
+melihat detail lengkap sebuah exception, termasuk isi query dan baris
+kode yang memicunya, mempercepat proses debugging. Di produksi,
+informasi yang sama, kalau ditampilkan ke pengguna umum, membocorkan
+struktur internal aplikasi (nama tabel, jalur berkas server, bahkan
+sepotong kode sumber) kepada siapa pun yang kebetulan memicu error.
+
+\begin{warningbox}
+\texttt{APP\_DEBUG=true} pada environment produksi adalah salah satu
+kesalahan konfigurasi paling umum dan paling berbahaya: begitu satu
+saja request memicu exception yang tidak tertangani, Laravel
+menampilkan halaman debug lengkap ke pengguna, termasuk isi variabel
+environment lain yang mungkin berisi kredensial basis data. Berkas
+\texttt{.env} produksi wajib memakai \texttt{APP\_DEBUG=false} dan
+\texttt{APP\_ENV=production}.
+\end{warningbox}
+
+Setelah konfigurasi environment benar, empat perintah berikut menyiapkan
+Simple POS untuk berjalan lebih cepat di produksi:
+
+\begin{enumerate}
+  \item Bangun aset frontend produksi. Server produksi tidak pernah
+    menjalankan \cmd{npm run dev}, dev server yang membutuhkan Node tetap
+    hidup di latar belakang; sebagai gantinya, \cmd{npm run build}
+    membundel dan meminifikasi seluruh CSS \& JavaScript sekali jadi ke
+    \texttt{public/build/}, lalu direktif \cmd{@vite} yang sama dari
+    Bab~3 otomatis membaca berkas hasil build itu, bukan dev server:
+    \begin{lstlisting}[language=bash]
+npm ci
+npm run build
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: keluaran diakhiri baris \texttt{built in N
+    ms} bertanda centang, beserta daftar berkas \texttt{public/build/}
+    yang dihasilkan. \cmd{npm ci} dipakai alih-alih \cmd{npm install} di
+    lingkungan produksi karena ia memasang persis versi yang terkunci di
+    \texttt{package-lock.json}, tanpa kemungkinan memutakhirkan versi
+    paket secara tidak sengaja.
+  \item Jalankan migrasi tanpa konfirmasi interaktif yang biasanya
+    muncul di lingkungan produksi (Laravel secara default menolak
+    menjalankan migrasi begitu saja di \texttt{APP\_ENV=production}
+    tanpa flag ini, sebagai pengaman tambahan):
+    \begin{lstlisting}[language=bash]
+php artisan migrate --force
+    \end{lstlisting}
+  \item Gabungkan seluruh berkas konfigurasi menjadi satu berkas
+    terkompilasi:
+    \begin{lstlisting}[language=bash]
+php artisan config:cache
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: keluaran
+    \texttt{INFO Configuration cached successfully.}
+  \item Gabungkan seluruh definisi route menjadi satu berkas
+    terkompilasi:
+    \begin{lstlisting}[language=bash]
+php artisan route:cache
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: keluaran \texttt{INFO Routes cached
+    successfully.} Kedua cache ini mempercepat setiap request karena
+    Laravel tidak perlu memuat ulang puluhan berkas kecil setiap kali
+    dijalankan.
+  \item \textbf{Kalau aplikasi tiba-tiba error setelah
+    \cmd{config:cache}} (mis. perubahan pada \texttt{.env} tidak
+    terasa berpengaruh, atau route baru tidak ditemukan), itu tanda
+    cache lama masih dipakai. Bersihkan dengan
+    \artisan{php artisan config:clear} dan
+    \artisan{php artisan route:clear}, lakukan perubahan yang
+    diperlukan, baru jalankan ulang \cmd{config:cache}/\cmd{route:cache}.
+\end{enumerate}
+
+\section{Praktik: Dokumentasi Teknis Simple POS}
+\label{sec:optimasi-dan-deployment-3}
+
+Kode yang berjalan benar tidak selalu menjelaskan dirinya sendiri
+kepada pengembang berikutnya. Dokumentasi teknis yang baik tidak
+mengulang apa yang sudah terbaca dari kode (nama kolom, nama metode),
+tapi menjawab pertanyaan yang tidak bisa dijawab kode itu sendiri:
+mengapa keputusan tertentu diambil.
+
+\begin{enumerate}
+  \item Buat berkas \texttt{docs/architecture.md} di root proyek
+    Simple POS (belum ada bawaan; ini berkas dokumentasi baru).
+  \item Isi dengan judul \texttt{\#\# Keputusan Arsitektur}, lalu satu
+    subbagian per keputusan yang sudah dibuat sepanjang buku ini,
+    minimal dua contoh berikut:
+    \begin{lstlisting}[language={}, title=\lstfile{docs/architecture.md}]
+## Keputusan Arsitektur
+
+### Mengapa SQLite, bukan MySQL/PostgreSQL?
+Simple POS memakai SQLite untuk pengembangan karena tidak butuh
+proses server basis data terpisah, cocok untuk demo dan kelas.
+Skema tetap portabel ke MySQL/PostgreSQL lewat migrasi standar
+Laravel, dengan catatan: index foreign key harus tetap dibuat
+eksplisit (lihat Bab 4), karena MySQL membuatnya otomatis sementara
+SQLite tidak.
+
+### Mengapa middleware kustom, bukan Spatie Permission?
+Simple POS hanya punya dua peran tetap (admin, kasir), sehingga
+middleware kustom `role:admin` lebih sederhana dan tidak menambah
+dependensi. Lihat Bab 7 untuk perbandingan lengkap.
+    \end{lstlisting}
+    Dua bagian di atas bukan sekadar mendeskripsikan apa yang ada
+    (deskriptif), tapi menjelaskan mengapa pilihan itu diambil
+    dibanding alternatif lain yang masuk akal (justifikasi), sesuatu
+    yang tidak bisa disimpulkan pengembang baru hanya dengan membaca
+    kode \phpclass{EnsureUserHasRole} itu sendiri.
+  \item Tambahkan subbagian ketiga untuk satu keputusan lain yang belum
+    tercatat, misalnya kenapa total transaksi dihitung ulang di server
+    (Bab~6) atau kenapa impor CSV dipindah ke antrean (Bab~8).
+  \item \textbf{Verifikasi}: minta satu rekan (atau baca ulang sendiri
+    esok harinya) menjawab "kenapa Simple POS memakai SQLite" hanya
+    dari membaca \texttt{docs/architecture.md}, tanpa membuka kode sama
+    sekali. Kalau jawabannya meleset atau ia masih harus menebak,
+    tambahkan kalimat yang hilang ke berkas itu.
+\end{enumerate}
+
+\branchref{chapter-11}
+
+\section{Rangkuman}
+\label{sec:optimasi-dan-deployment-rangkuman}
+
+\begin{itemize}
+  \item Profiling ulang lewat \phpclass{DB::enableQueryLog()} dan
+    \cmd{EXPLAIN QUERY PLAN} membuktikan dengan angka konkret bahwa
+    perbaikan eager loading (Bab~5) dan index foreign key (Bab~4)
+    benar-benar dipakai pada skenario mendekati produksi, bukan sekadar
+    klaim teoretis.
+  \item Persiapan deployment mencakup \texttt{APP\_DEBUG=false} untuk
+    mencegah kebocoran informasi sensitif, plus \cmd{npm run build}
+    untuk membundel aset frontend produksi, \phpclass{migrate --force},
+    \phpclass{config:cache}, dan \phpclass{route:cache} untuk
+    menjalankan migrasi dan mempercepat request di lingkungan produksi.
+  \item Dokumentasi teknis yang berguna menjelaskan mengapa sebuah
+    keputusan arsitektur diambil dibanding alternatif lain, bukan
+    sekadar mendeskripsikan ulang apa yang sudah terbaca langsung dari
+    kode.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Profilkan satu query lain di Simple POS yang belum diperiksa di
+    bab ini (misalnya listing produk per kategori), dan catat apakah
+    ia sudah memakai index yang ada.
+  \item Siapkan checklist deployment versi sendiri, minimal lima butir,
+    mencakup konfigurasi environment dan perintah cache.
+  \item Tulis satu halaman dokumentasi arsitektur untuk satu bagian
+    Simple POS yang belum dibahas di bab ini (misalnya alur import CSV
+    dari Bab~8).
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) mengapa \texttt{APP\_DEBUG=true}
+    berbahaya di produksi, (b) apa yang dilakukan
+    \phpclass{route:cache}, dan (c) perbedaan dokumentasi deskriptif
+    dan dokumentasi yang menjelaskan justifikasi keputusan. Cocokkan
+    jawabanmu dengan isi bab ini.
+\end{enumerate}
+
+\begin{challengebox}
+Ukur perbaikan performa pada endpoint laporan penjualan Bab~8 sebelum
+dan sesudah index \texttt{transactions.created\_at} ditambahkan, lewat
+\cmd{EXPLAIN QUERY PLAN}, dan tuliskan hasilnya dalam satu tabel
+perbandingan.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+konfigurasi deployment dan perintah caching.

@@ -1,0 +1,243 @@
+%% ========================================================================
+%% Chapter 2: HTTP Protocol and the MVC Pattern
+%% ========================================================================
+
+\chapter{HTTP Protocol and the MVC Pattern}
+\label{ch:http-dan-mvc}
+
+\chapterhero{blue}{Map the HTTP request/response cycle onto the MVC pattern, then write Simple POS's first route and controller.}{\faIcon{route}\quad the HTTP cycle}{\faIcon{sitemap}\quad MVC vs MVVM}{\faIcon{code}\quad routes \& controllers}
+
+A letter dropped off at a post office doesn't land on the right desk by
+itself. It comes in through the intake counter, a clerk reads the address
+and the type of mail (a regular letter, a parcel, express delivery), then
+forwards it to the right department: accounting if the envelope says
+``invoice'', HR if it's a job application. The clerk never opens the
+envelope or decides what the reply should say; the job is purely sorting
+and forwarding. Every time Simple POS receives a request from a browser,
+whether a cashier clicks ``Save Transaction'' or an admin opens the reports
+page, that request goes through exactly the same process: one entry point,
+sorted by address and type, forwarded to the right handler. Get that
+sorting wrong, say a request to delete a product gets forwarded to a
+handler that never checks whether the sender is actually an admin, and the
+shop loses control over who can change what.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item explain the HTTP request/response cycle (method, status code, header) and map it onto Simple POS route code;
+  \item compare the MVC, MVVM, and Clean Architecture patterns, and explain how Laravel implements MVC in practice;
+  \item write a route and controller for the \route{/pos} and \route{/transactions} endpoints on Simple POS, including separating web routes from their middleware groups.
+\end{enumerate}
+
+\section{The HTTP Request/Response Cycle}
+\label{sec:http-dan-mvc-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Request] What a browser sends to a server, carrying a method, an address (URL), headers, and sometimes data (a form, JSON).
+  \item[Response] What a server sends back to a browser, carrying a status code, headers, and a body (HTML, JSON, a redirect).
+  \item[Route] A rule mapping one combination of method and URL to the code that will handle it.
+  \item[Controller] A class holding request-handling methods, invoked by whichever route matches.
+  \item[Middleware] A layer that inspects or transforms a request before it reaches a controller, for example checking whether the user is logged in.
+\end{description}
+\end{istilahpenting}
+
+Every time a browser requests a page or submits a form, that request takes
+the shape of an HTTP \term{request} that always carries a \textit{method}
+stating its intent. Four methods show up constantly throughout this book:
+\cmd{GET} (asking for data, without changing anything server-side),
+\cmd{POST} (submitting new data, such as saving a cashier's transaction),
+\cmd{PATCH} (updating part of existing data), and \cmd{DELETE} (removing
+data). The server answers with a \term{response} that always carries a
+\textit{status code}, a three-digit number summarizing the outcome before a
+single byte of the body gets read.
+
+\begin{table}[htbp]
+\centering
+\caption{HTTP status codes that show up on Simple POS}
+\label{tab:status-code}
+\begin{tblr}{
+  colspec = {X[0.6,l] X[1,l] X[2,l]},
+  hline{1,2,Z} = {solid},
+}
+Code & Meaning & Example on Simple POS \\
+200 & OK & The \route{/transactions} page renders successfully \\
+302 & Redirect & After \route{/pos} saves, the browser is sent to the detail page \\
+404 & Not Found & Opening \route{/transactions/9999} for an ID that doesn't exist \\
+422 & Unprocessable Entity & The transaction form is submitted with insufficient stock \\
+500 & Server Error & An unhandled error on the server side \\
+\end{tblr}
+\end{table}
+
+Code 302 deserves special attention because the pattern repeats across
+nearly every write-heavy feature in Simple POS: once \cmd{POST /pos}
+successfully saves a transaction, the server doesn't send back an HTML page
+directly; it sends a 302 response carrying a \cmd{Location} header that
+tells the browser to request a different address instead, in this case the
+detail page for the transaction just created. That save-then-redirect
+pattern stops a user from hitting refresh and accidentally submitting the
+same transaction twice.
+
+\begin{notebox}
+Request and response headers carry metadata outside the main body. The
+\cmd{Content-Type} header states the body's format (\texttt{text/html},
+\texttt{application/json}); the \cmd{Authorization} header, covered in
+Chapter~9, will carry a Sanctum token for requests coming from a mobile
+cashier app.
+\end{notebox}
+
+\section{MVC, MVVM, and Clean Architecture}
+\label{sec:http-dan-mvc-2}
+
+Handling a request and sending a response isn't enough on its own to keep
+code organized as an application grows. The \term{MVC pattern}
+(Model-View-Controller) answers that by drawing a firm line between three
+responsibilities: the Model owns data and business rules (say, how stock
+gets recalculated after a transaction), the View owns what the user sees,
+and the Controller sits in the middle, accepting a request, calling the
+relevant Model, then picking which View to render as the answer. Back to
+the post office analogy, the Controller is the sorting clerk, the Model is
+the actual filed records, and the View is the reply form finally handed to
+the sender.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparing MVC, MVVM, and Clean Architecture}
+\label{tab:mvc-mvvm-clean}
+\begin{tblr}{
+  colspec = {X[0.9,l] X[1.3,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+Pattern & Main Separation & Typical Use \\
+MVC & Model, View, Controller & Laravel (built in) \\
+MVVM & Model, View, ViewModel & Applications with two-way binding between view and state \\
+Clean Architecture & Use-case layer isolated from the framework & Large systems with heavy business logic \\
+\end{tblr}
+\end{table}
+
+\term{MVVM} (Model-View-ViewModel), popular in reactive interface
+frameworks, inserts a ViewModel between Model and View: the ViewModel holds
+view state and keeps it automatically synced to the View through two-way
+binding, a pattern that suits interfaces that keep changing without a full
+page reload. \term{Clean Architecture} goes further still, isolating core
+business rules (\textit{use cases}) entirely from whatever framework is in
+use, so those rules can be tested, and even moved to a different framework,
+without touching them. For an application at Simple POS's scale, that
+level of isolation adds an abstraction layer the benefit doesn't yet
+justify; Laravel's built-in MVC already separates responsibilities cleanly
+without piling on complexity nobody needs.
+
+Mapping MVC onto Laravel's folder structure was already touched on in
+Chapter~1: \file{routes/web.php} registers which address is handled by
+which controller, \file{app/Http/Controllers/} holds the Controller
+classes, the Eloquent models in \file{app/Models/} (covered fully starting
+Chapter~5) play the Model role, and the Blade files in
+\file{resources/views/} (covered starting Chapter~3) play the View role.
+
+\section{Hands-On: Routing and Controllers on Simple POS}
+\label{sec:http-dan-mvc-3}
+
+\subsection*{Exercise 2.1: Creating the Transaction Controller}
+
+\begin{lstlisting}[language=bash]
+php artisan make:controller TransactionController
+\end{lstlisting}
+
+This command generates an empty \phpclass{TransactionController} file in
+\file{app/Http/Controllers/}, ready to fill with request-handling methods.
+On Simple POS, this controller ends up with four methods:
+\phpclass{create} renders the cashier page for picking products,
+\phpclass{store} saves a new transaction, \phpclass{index} lists past
+transactions, and \phpclass{show} renders one transaction's detail.
+
+\begin{lstlisting}[language=php, title=\lstfile{routes/web.php}]
+Route::middleware('auth')->group(function () {
+    Route::get('/pos', [TransactionController::class, 'create'])
+        ->name('pos.create');
+    Route::post('/pos', [TransactionController::class, 'store'])
+        ->name('transactions.store');
+    Route::get('/transactions', [TransactionController::class, 'index'])
+        ->name('transactions.index');
+});
+\end{lstlisting}
+
+Notice that \route{GET /pos} and \route{POST /pos} are two separate routes
+despite sharing the exact same address: they're distinguished by their
+HTTP method, one renders the cashier form, the other processes it. All
+three routes also sit inside \cmd{Route::middleware('auth')->group(...)},
+meaning every request into them must pass through the \cmd{auth} middleware
+first, a layer that confirms the sender is logged in before the request
+ever reaches \phpclass{TransactionController}.
+
+\begin{warningbox}
+Registering a new route without wrapping it in the right \textit{middleware
+group} is an easy mistake to miss, with serious consequences: a route that
+should only be reachable by an admin, say deleting a product category, will
+be reachable by anyone who knows its address if it's left out of
+\cmd{Route::middleware('role:admin')->group(...)}. Always check that a new
+route sits inside the correct middleware group before considering it done.
+\end{warningbox}
+
+To inspect every route already registered, including its method and
+middleware, Artisan ships a command that prints a compact table without
+opening a single route file by hand:
+
+\begin{lstlisting}[language=bash]
+php artisan route:list
+\end{lstlisting}
+
+\begin{challengebox}
+Add a new route, \route{GET /pos/history}, to \file{routes/web.php}
+pointing at a \phpclass{history} method on \phpclass{TransactionController},
+wrapped in the same \cmd{auth} middleware as the other \route{/pos} routes.
+The method can return plain text for now, say \cmd{return "Cashier
+history";}. Run \artisan{route:list} afterward and confirm your new route
+shows up with the correct method and middleware.
+\end{challengebox}
+
+\branchref{chapter-02}
+
+\section{Summary}
+\label{sec:http-dan-mvc-rangkuman}
+
+\begin{itemize}
+  \item Every HTTP request carries a method (\cmd{GET}, \cmd{POST},
+    \cmd{PATCH}, \cmd{DELETE}) and every response carries a three-digit
+    status code (200, 302, 404, 422, 500) that summarizes the outcome
+    before its body gets read.
+  \item MVC separates the Model (data and business rules), the View
+    (presentation), and the Controller (request sorter); MVVM suits
+    reactive interfaces, Clean Architecture suits large systems with
+    complex business rules, and Laravel maps MVC directly onto
+    \file{routes/}, \file{app/Http/Controllers/}, \file{app/Models/}, and
+    \file{resources/views/}.
+  \item The \route{/pos} and \route{/transactions} routes on Simple POS
+    are registered in \file{routes/web.php}, handled by
+    \phpclass{TransactionController}, and wrapped in \cmd{auth} middleware
+    so only logged-in users can reach them.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Run \artisan{route:list} on the Simple POS project from Chapter~1,
+    then identify which HTTP methods are used for the \route{/pos} route.
+  \item Add a new route, \route{GET /pos/print-receipt}, that for now just
+    returns the text \cmd{"Receipt"}, then confirm through
+    \artisan{route:list} that it shows up with the correct address.
+  \item Explain in your own words: why are \route{GET /pos} and
+    \route{POST /pos} treated as two different routes despite sharing the
+    exact same URL.
+  \item \textbf{Self-check:} without reopening this chapter, try explaining
+    in your own words: (a) the difference in responsibility between the
+    Model, View, and Controller, (b) when status code 422 shows up on
+    Simple POS, and (c) what the \cmd{auth} middleware does on a route.
+    Check your answers against this chapter.
+\end{enumerate}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for routing and controller conventions, and Fielding's
+dissertation \cite{fielding2000rest} for the semantics of HTTP methods and
+status codes that later ground the REST architecture in Chapter~9.

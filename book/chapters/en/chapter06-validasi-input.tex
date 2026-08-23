@@ -1,0 +1,260 @@
+%% ========================================================================
+%% Chapter 6: Validation and Input Security
+%% ========================================================================
+
+\chapter{Validation and Input Security}
+\label{ch:validasi-input}
+
+\chapterhero{teal}{Reject malformed input before it ever touches the database, then recompute the transaction total server-side, never trust a number the client sends.}{\faIcon{shield-alt}\quad FormRequests}{\faIcon{check-double}\quad server-side totals}{\faIcon{exclamation-triangle}\quad error messages}
+
+The guard at a warehouse gate doesn't just wave through anyone who
+claims to be a courier. He checks the delivery order, matches the
+vehicle's plate number, and holds back anyone whose paperwork is
+incomplete right there at the gate, before a single item gets anywhere
+near the storage area. A cashier at the register has a quieter version
+of that same habit: the moment a customer hands over cash and names an
+amount, a good cashier doesn't just take that number at face value, she
+recounts the total herself off the printed receipt. Simple POS runs
+both habits at once. A FormRequest plays the gate guard, holding back
+malformed data before it ever reaches the controller. Server-side total
+computation plays the recounting cashier, never accepting a total sent
+from a form or client-side JavaScript at face value.
+
+\textbf{What You'll Learn}
+
+\begin{enumerate}
+  \item write \phpclass{FormRequest} classes to validate Simple POS's product and transaction input, including custom validation rules;
+  \item explain why a transaction's total and a transaction detail's subtotal must be computed server-side rather than accepted directly from client input;
+  \item handle validation error messages and flash messages on Simple POS's Blade forms so users get clear feedback when input is rejected.
+\end{enumerate}
+
+\section{FormRequests and Validation Rules}
+\label{sec:validasi-input-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[FormRequest] A Laravel class wrapping one request's validation and authorization logic, separated from the controller, so the controller only ever handles data already declared valid.
+  \item[Validation] The process of checking whether input data meets a set of rules (type, format, value bounds) before that data gets used any further.
+  \item[Sanitization] The process of cleaning or normalizing input data, such as trimming extra whitespace or casting a type, usually run after validation passes.
+  \item[Flash Message] A short message stored in the session for exactly one following request, used to show a success or failure notice after a redirect.
+\end{description}
+\end{istilahpenting}
+
+Putting validation rules directly inside a controller method works fine
+for a very simple form, but once one form has more than a handful of
+rules, the controller quickly fills up with checking code that isn't
+really the controller's job at all. \phpclass{FormRequest} moves that
+responsibility into its own class: the \phpclass{rules()} method
+declares every field's rules, and Laravel runs that validation
+automatically before the controller method ever gets to execute at all.
+
+\begin{lstlisting}[language=php, title=\lstfile{app/Http/Requests/StoreProductRequest.php}]
+class StoreProductRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'price' => ['required', 'integer', 'min:0'],
+            'stock' => ['required', 'integer', 'min:0'],
+        ];
+    }
+}
+\end{lstlisting}
+
+The \phpclass{exists:categories,id} rule is an example of a built-in
+Laravel rule that runs a database query as part of validation: it
+rejects the request if the submitted \texttt{category\_id} doesn't
+match any \texttt{id} row in the \texttt{categories} table. Once
+\phpclass{StoreProductRequest} is used as a controller parameter's
+type-hint, in place of a plain \phpclass{Request}, Laravel automatically
+runs \phpclass{rules()} first; if anything fails, the request gets
+redirected straight back to the originating form with error messages
+attached, and the controller body never gets a chance to run at all.
+
+\section{Why Totals Are Computed Server-Side}
+\label{sec:validasi-input-2}
+
+Chapter~3 already touched on this briefly: the Alpine.js cart on the
+cashier page computes a subtotal directly in the browser, purely for
+display. If the transaction form got submitted with a \texttt{total}
+field carrying that Alpine-computed value, and the server trusted it
+outright with no verification, anyone who alters the value on the
+request itself (through browser DevTools, or an HTTP client like curl
+that never runs any JavaScript at all) could submit whatever total they
+wanted, including one far smaller than what the purchased products
+actually cost.
+
+\begin{warningbox}
+Any value originating on the client side, no matter how correct its
+computation looks on screen, can be altered before it ever reaches the
+server. A \texttt{total} field submitted through an HTML form is no
+exception; it's just a string in the request body like any other field,
+and nothing stops someone from changing it to a different value before
+the request actually gets sent.
+\end{warningbox}
+
+Simple POS sidesteps that risk by never reading \texttt{total} from
+input at all. The controller only accepts a list of
+\texttt{product\_id} and \texttt{qty} pairs, then pulls each product's
+real price from the database, multiplies it by the quantity for each
+detail row, and sums up every one of those subtotals itself.
+
+\begin{lstlisting}[language=php]
+$total = 0;
+foreach ($validated['items'] as $item) {
+    $product = Product::findOrFail($item['product_id']);
+    $subtotal = $product->price * $item['qty'];
+    $total += $subtotal;
+    // save the TransactionDetail with $subtotal here
+}
+$transaction->update(['total' => $total]);
+\end{lstlisting}
+
+With this pattern, whatever value someone tries to slip in through a
+\texttt{total} field on the request, that value is never read at all;
+the server always recomputes from a trusted source, the product price
+actually stored in the database at that moment.
+
+\section{Practice: Validating the Product and Transaction Forms}
+\label{sec:validasi-input-3}
+
+\phpclass{StoreTransactionRequest} validates the structure of a shopping
+item array, not just a single field. The steps below build it from
+scratch and wire it onto the existing cashier transaction form.
+
+\begin{enumerate}
+  \item Create the \phpclass{FormRequest} class skeleton:
+    \begin{lstlisting}[language=bash]
+php artisan make:request StoreTransactionRequest
+    \end{lstlisting}
+  \item Open the newly created file at
+    \texttt{app/Http\allowbreak/Requests\allowbreak/StoreTransactionRequest.php}. Change
+    \cmd{authorize()} to return \texttt{true} (any logged-in cashier
+    may use this form), then fill in \cmd{rules()}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Requests/StoreTransactionRequest.php}]
+public function rules(): array
+{
+    return [
+        'items' => ['required', 'array', 'min:1'],
+        'items.*.product_id' => ['required', 'exists:products,id'],
+        'items.*.qty' => ['required', 'integer', 'min:1'],
+    ];
+}
+    \end{lstlisting}
+    The \texttt{items.*.product\_id} notation validates every element
+    of the \texttt{items} array one by one, confirming every row's
+    \texttt{product\_id} genuinely exists in the \texttt{products}
+    table and its \texttt{qty} is at least 1, without hand-writing a
+    manual validation loop.
+  \item Open \texttt{app/Http/Controllers/TransactionController.php},
+    the \cmd{store()} method. Change its parameter's type-hint from a
+    plain \phpclass{Request} to \phpclass{StoreTransactionRequest}:
+    \begin{lstlisting}[language=php, title=\lstfile{app/Http/Controllers/TransactionController.php}]
+public function store(StoreTransactionRequest $request)
+{
+    $validated = $request->validated();
+    // ...total computed server-side, see the previous section
+}
+    \end{lstlisting}
+    Just by swapping that type-hint, Laravel automatically runs
+    \cmd{rules()} before the first line of the \cmd{store()} method
+    ever gets a chance to execute.
+  \item Open \texttt{resources/views/pos/create.blade.php} (the
+    cashier form from Chapter~3). Add a success message block near the
+    top of the page:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
+@if (session('success'))
+    <div class="bg-green-50 text-green-700 p-3 rounded-md mb-4">
+        {{ session('success') }}
+    </div>
+@endif
+    \end{lstlisting}
+  \item Near the cart element, add a general error block for the
+    \texttt{items} field:
+    \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
+@error('items')
+    <p class="text-sm text-red-600">{{ $message }}</p>
+@enderror
+    \end{lstlisting}
+    The \phpclass{@error('items')} directive only renders that block
+    when the \texttt{items} field specifically failed validation, so
+    the error message shows up right next to the cart, not as a
+    generic list at the top of the page.
+  \item In the controller, add a flash message once the transaction is
+    saved: \phpclass{->with('success', 'Transaction saved
+    successfully.')} on its redirect.
+  \item Run \artisan{php artisan serve}, open \texttt{/pos}, then
+    submit the cashier form with an empty cart (without adding a
+    single product). \textbf{What to expect}: the page returns to
+    \texttt{/pos} (not some other page), and the error message from
+    step 5 shows up right next to the cart.
+  \item Add one product to the cart, then resubmit the form.
+    \textbf{What to expect}: the transaction saves, the page redirects,
+    and the success message from step 4 shows up once; reload that
+    same page again and the message is already gone.
+  \item \textbf{If \texttt{\$errors} is always empty} even when the
+    cart is submitted empty, check step 3: make sure the \cmd{store()}
+    method's parameter is genuinely typed as
+    \phpclass{StoreTransactionRequest}, not a plain \phpclass{Request};
+    validation only runs automatically through that type-hint.
+\end{enumerate}
+
+\branchref{chapter-06}
+
+\section{Summary}
+\label{sec:validasi-input-rangkuman}
+
+\begin{itemize}
+  \item \phpclass{FormRequest} separates validation rules from the
+    controller through the \phpclass{rules()} method, run automatically
+    by Laravel before the controller code ever executes, including
+    built-in rules like \phpclass{exists} that validate through a
+    database query.
+  \item A transaction's total and its detail subtotals must be
+    recomputed server-side from the product price stored in the
+    database, because any value sent from the client, including an
+    Alpine.js computation, can be altered before it reaches the server
+    and must never be trusted outright.
+  \item Validation error messages are shown through \phpclass{@error()}
+    right next to the offending input, and a flash message through
+    \phpclass{session('success')} gives brief feedback after a redirect
+    without persisting into the next request.
+\end{itemize}
+
+\section{Exercises}
+
+\begin{enumerate}
+  \item Add a new validation rule to \phpclass{StoreProductRequest}
+    that rejects a product name identical to another product's name
+    within the same category (use the \phpclass{unique} rule with an
+    additional clause).
+  \item Submit a transaction request through curl with \texttt{qty} set
+    to 0 and a \texttt{product\_id} that doesn't exist, then observe
+    what error message Laravel returns for each case.
+  \item Explain in your own words: if the \texttt{total} field still
+    got validated (say, with a \phpclass{numeric} rule), would that be
+    enough to prevent total manipulation? Why or why not?
+  \item \textbf{Self-check:} without reopening this chapter, try
+    explaining in your own words: (a) what \phpclass{FormRequest} does
+    before the controller executes, (b) why a total must never be
+    accepted directly from input, and (c) how a flash message differs
+    from ordinary session data. Check your answers against this
+    chapter.
+\end{enumerate}
+
+\begin{challengebox}
+Add a sufficient-stock validation to \phpclass{StoreTransactionRequest}
+or the controller: reject a transaction if the \texttt{qty} requested
+on any item row exceeds that product's currently stored \texttt{stock},
+with an error message naming the specific product that's short on
+stock.
+\end{challengebox}
+
+\section{References}
+
+This chapter draws on the official Laravel documentation
+\cite{laraveldocs} for FormRequests and validation rules, and the OWASP
+Top 10 \cite{owasptop10} for the principle of never trusting
+client-side input.

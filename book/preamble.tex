@@ -1,0 +1,690 @@
+%% ========================================================================
+%% Preamble: Package dan Konfigurasi
+%% ========================================================================
+
+%% ------------------------------------------------------------------------
+%% Encoding dan Font
+%% ------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}      % Input encoding UTF-8
+\usepackage[T1]{fontenc}         % Font encoding
+%% ------------------------------------------------------------------------
+%% Font Utama - Times New Roman 11pt
+%% ------------------------------------------------------------------------
+\usepackage{times}                  % Times New Roman font
+\usepackage{amsfonts}               % Additional math fonts
+
+%% Monospace font configuration for better readability
+\usepackage[scaled=1.05]{inconsolata}  % Better monospace font, slightly enlarged
+\usepackage{microtype}           % Typographical refinements
+\usepackage[htt]{hyphenat}       % Allow hyphenation of dictionary words set in \texttt
+
+%% ------------------------------------------------------------------------
+%% Bahasa
+%% ------------------------------------------------------------------------
+\usepackage[english]{babel}  % Dukungan bahasa
+\babelprovide[import]{indonesian}
+
+%% Language flags - MUST be set by book-id.tex or book-en.tex before loading preamble
+%% \newif\ifIndonesian
+%% \newif\ifEnglish
+%% Then set \Indonesiantrue or \Englishtrue
+%%
+%% The flags control all language-specific elements below
+
+%% Konfigurasi istilah bahasa - conditional based on language
+\providecommand{\abstractname}{Abstract}
+\ifIndonesian
+    \addto\captionsindonesian{%
+        \renewcommand{\figurename}{Gambar}%
+        \renewcommand{\tablename}{Tabel}%
+        \renewcommand{\contentsname}{Daftar Isi}%
+        \renewcommand{\listfigurename}{Daftar Gambar}%
+        \renewcommand{\listtablename}{Daftar Tabel}%
+        \renewcommand{\bibname}{Daftar Pustaka}%
+        \renewcommand{\indexname}{Indeks}%
+        \renewcommand{\appendixname}{Lampiran}%
+        \renewcommand{\abstractname}{Abstrak}%
+        \renewcommand{\partname}{Bagian}%
+        \renewcommand{\chaptername}{Bab}%
+    }
+\else
+    % English uses babel defaults
+    \addto\captionsenglish{%
+        \renewcommand{\bibname}{References}%
+    }
+\fi
+
+%% ------------------------------------------------------------------------
+%% Ukuran Kertas dan Margin
+%% ------------------------------------------------------------------------
+\usepackage{geometry}
+\geometry{
+    top=2cm,
+    bottom=2cm,
+    left=2cm,
+    right=2cm,
+    headheight=15pt
+}
+
+%% ------------------------------------------------------------------------
+%% Grafis dan Gambar
+%% ------------------------------------------------------------------------
+\usepackage{graphicx}            % Untuk memasukkan gambar
+\usepackage{float}               % Kontrol posisi float
+\usepackage{subfig}              % Subfigure support
+\usepackage{wrapfig}             % Bungkus teks di sekitar gambar
+\raggedbottom                    % Hindari ruang vertikal besar saat relayout halaman
+
+%% Float tuning for tighter page layout with tables/figures
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.8}
+
+%% Konfigurasi caption - language-aware
+\ifIndonesian
+    \captionsetup{
+        figurename=Gambar,
+        tablename=Tabel
+    }
+\else
+    \captionsetup{
+        figurename=Figure,
+        tablename=Table
+    }
+\fi
+
+\usepackage{tikz}                % Untuk diagram
+\usetikzlibrary{shapes,arrows,arrows.meta,positioning,calc,fit,backgrounds}
+\usepackage{pgfplots}            % Plot dan grafik
+\pgfplotsset{compat=1.18}
+
+%% ------------------------------------------------------------------------
+%% Gaya diagram TikZ (dipakai lintas bab; lihat docs/authoring-guide.md)
+%% ------------------------------------------------------------------------
+%% \diagbox: kotak netral abu-abu, dipakai untuk elemen sekunder pada diagram.
+%% \diagbox accent: kotak beraksen warna bab (mis. blue!55!black untuk Bab 1),
+%%   dipakai untuk elemen utama/penekanan pada diagram bab itu.
+%% \diagarrow: panah alur, tebal, konsisten di semua diagram.
+%% Seluruh tikzpicture pembahasan bab sebaiknya dibungkus
+%% \resizebox{\linewidth}{!}{...} supaya ukurannya otomatis pas dengan lebar
+%% teks halaman (11.5cm), tanpa perlu menghitung dimensi node secara manual.
+\tikzset{
+  diagbox/.style={
+    draw=black!55, thick, rounded corners=2pt,
+    fill=black!4,
+    minimum width=2.1cm, minimum height=0.9cm,
+    align=center, font=\small,
+  },
+  diagbox accent/.style={
+    diagbox, draw=blue!55!black, fill=blue!8!white,
+  },
+  diagarrow/.style={
+    -{Stealth[length=2.2mm]}, thick, black!65,
+  },
+}
+
+%% Path untuk gambar
+\graphicspath{{images/}{figures/}}
+
+%% ------------------------------------------------------------------------
+%% Tabel
+%% ------------------------------------------------------------------------
+\usepackage{booktabs}            % Tabel profesional
+\usepackage{longtable}           % Tabel panjang (multi-halaman)
+\usepackage{tabularx}            % Tabel dengan lebar kolom fleksibel
+\usepackage{multirow}            % Sel tabel multi-baris
+\usepackage{array}               % Enhanced array and tabular
+% tabularray hooks into xcolor to load ninecolors, which uses rgb:Hsb color
+% expressions. xcolor 2.x (Ubuntu's TeX Live) doesn't register the Hsb model
+% by default, so ninecolors fails. We don't use ninecolors palettes, so stub
+% it out before tabularray loads. xcolor is already loaded transitively by
+% tikz/pgfplots above, so tabularray's hook fires immediately at registration.
+\makeatletter
+\@namedef{ver@ninecolors.sty}{9999/01/01 stubbed}
+\makeatother
+\usepackage{tabularray}           % Tabels dengan tblr environment
+\usepackage{xstring}              % Ekstraksi substring (dipakai \branchref)
+
+%% ------------------------------------------------------------------------
+%% Warna
+%% ------------------------------------------------------------------------
+\usepackage{xcolor}              % Dukungan warna
+\definecolor{codegreen}{gray}{0.25}
+\definecolor{codegray}{gray}{0.45}
+\definecolor{codepurple}{gray}{0.15}
+\definecolor{backcolour}{gray}{0.94}
+\definecolor{linkcolor}{gray}{0.0}
+\definecolor{commandcolor}{gray}{0.0}
+
+%% ------------------------------------------------------------------------
+%% Listing Kode
+%% ------------------------------------------------------------------------
+\usepackage{listings}            % Syntax highlighting untuk kode
+\usepackage{needspace}           % Reserve vertical space to avoid bad breaks
+
+%% Konfigurasi nama caption untuk listing - language-aware
+\ifIndonesian
+    \renewcommand{\lstlistingname}{Kode}
+    \renewcommand{\lstlistlistingname}{Daftar Kode}
+\else
+    \renewcommand{\lstlistingname}{Listing}
+    \renewcommand{\lstlistlistingname}{List of Listings}
+\fi
+
+%% Definisi bahasa untuk listing: bash (perintah CLI)
+\lstdefinelanguage{bash}{
+    keywords={if, then, else, elif, fi, for, while, do, done, case, esac,
+              function, return, exit, break, continue, in, select},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morestring=[b]",
+    morestring=[b]'
+}
+
+%% Definisi bahasa untuk listing: Dart (bahasa utama buku ini).
+%% listings tidak menyertakan definisi Dart bawaan, jadi didefinisikan manual.
+\lstdefinelanguage{Dart}{
+    morekeywords={abstract, as, assert, async, await, break, case, catch,
+        class, const, continue, covariant, default, deferred, do, dynamic,
+        else, enum, export, extends, extension, external, factory, false,
+        final, finally, for, Function, get, hide, if, implements, import, in,
+        interface, is, late, library, mixin, new, null, on, operator, part,
+        required, rethrow, return, set, show, static, super, switch, sync,
+        this, throw, true, try, typedef, var, void, while, with, yield},
+    morekeywords=[2]{int, double, num, String, bool, List, Map, Set, Future,
+        Stream, Widget, StatelessWidget, StatefulWidget, State, BuildContext,
+        Column, Row, Container, Text, Scaffold, Navigator, Provider, override},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+    morestring=[b]'
+}
+
+%% Basic style definition (used by both lstlisting and tcolorbox)
+\lstdefinestyle{codestyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{black}\bfseries,
+    keywordstyle=[2]\color{codepurple}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\scriptsize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=t,
+    keepspaces=true,
+    numbers=none,            % No line numbers
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,            % Simple frame around code
+    rulecolor=\color{black},
+    xleftmargin=0.6em,
+    framexleftmargin=0.5em,
+    framesep=2pt
+}
+
+%% Default language is PHP (the book's primary language, built into
+%% listings); shell snippets pass [language=bash] explicitly.
+\lstset{style=codestyle, language=PHP}
+
+%% ------------------------------------------------------------------------
+%% Prevent Page Breaks in Listings - Simple approach
+%% ------------------------------------------------------------------------
+%% Add penalties to discourage page breaks inside listings
+\lstset{
+    aboveskip=2pt,
+    belowskip=0pt,
+    abovecaptionskip=2pt,
+    belowcaptionskip=0pt
+}
+
+%% Reserve 10 lines of vertical space before each lstlisting. Listings of
+%% fewer than 10 lines start on a new page if needed and stay together;
+%% longer listings break naturally past the reserved space.
+\AddToHook{env/lstlisting/before}{\Needspace{10\baselineskip}}
+
+%% For very long code that MUST be allowed to break, use this environment
+\lstnewenvironment{longlisting}[1][]{%
+    \lstset{#1}%
+}{}
+
+%% ------------------------------------------------------------------------
+%% Hyperlinks dan Referensi
+%% ------------------------------------------------------------------------
+\usepackage[
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black,
+    bookmarks=true,
+    bookmarksnumbered=true,
+    pdfborder={0 0 0}
+]{hyperref}
+
+%% ------------------------------------------------------------------------
+%% Landscape pages (for wide tables that don't fit portrait text width)
+%% ------------------------------------------------------------------------
+\usepackage{pdflscape}
+
+%% ------------------------------------------------------------------------
+%% Header dan Footer
+%% ------------------------------------------------------------------------
+\usepackage{scrlayer-scrpage}    % KOMA-Script header/footer
+\clearpairofpagestyles
+\setkomafont{pagefoot}{\fontsize{10}{12}\selectfont}
+\setkomafont{pagehead}{\fontsize{10}{12}\selectfont}
+\ohead{\rightmark}               % Section in outer header
+\ifoot{\leftmark}                % Chapter in inner footer
+\ofoot[\pagemark]{\pagemark}    % Page number in outer footer (right on odd, left on even)
+\pagestyle{scrheadings}
+
+%% ------------------------------------------------------------------------
+%% Bibliography (Daftar Pustaka)
+%% ------------------------------------------------------------------------
+\usepackage[
+    backend=biber,
+    style=ieee,
+    sorting=none
+]{biblatex}
+\addbibresource{references.bib}
+% biblatex has no indonesian.lbx; map it to english to suppress the
+% "Language 'indonesian' not supported" warning that causes run.xml to
+% oscillate and makes latexmk rerun pdflatex indefinitely.
+\DeclareLanguageMapping{indonesian}{english}
+
+%% ------------------------------------------------------------------------
+%% Matematika
+%% ------------------------------------------------------------------------
+\usepackage{amsmath}             % Matematika lanjutan
+\usepackage{amssymb}             % Simbol matematika
+\usepackage{amsthm}              % Theorem environments
+
+%% cleveref MUST be loaded after amsmath and hyperref
+\usepackage[capitalise,noabbrev]{cleveref}  % Referensi pintar
+
+%% Konfigurasi cleveref - language-aware
+\ifIndonesian
+    \crefname{figure}{gambar}{gambar}
+    \Crefname{figure}{Gambar}{Gambar}
+    \crefname{table}{tabel}{tabel}
+    \Crefname{table}{Tabel}{Tabel}
+    \crefname{chapter}{bab}{bab}
+    \Crefname{chapter}{Bab}{Bab}
+    \crefname{section}{bagian}{bagian}
+    \Crefname{section}{Bagian}{Bagian}
+    \crefname{subsection}{subbagian}{subbagian}
+    \Crefname{subsection}{Subbagian}{Subbagian}
+    \crefname{equation}{persamaan}{persamaan}
+    \Crefname{equation}{Persamaan}{Persamaan}
+    \crefname{listing}{kode}{kode}
+    \Crefname{listing}{Kode}{Kode}
+    \crefname{appendix}{lampiran}{lampiran}
+    \Crefname{appendix}{Lampiran}{Lampiran}
+\else
+    % English defaults from cleveref are fine
+    % Override only if needed
+\fi
+
+%% ------------------------------------------------------------------------
+%% Box dan Environment Khusus
+%% ------------------------------------------------------------------------
+\usepackage[most]{tcolorbox}     % Colored boxes
+\selectcolormodel{gray}         % Pastikan output aman untuk cetak hitam-putih
+\usepackage{fontawesome5}        % Icons for box titles
+
+%% Define box titles based on language
+\ifIndonesian
+    \def\noteboxTitle{\faInfoCircle\quad Catatan}
+    \def\warningboxTitle{\faExclamationTriangle\quad Peringatan}
+    \def\tipboxTitle{\faLightbulb\quad Tips}
+    \def\exampleboxPrefix{\faBookOpen\quad Contoh: }
+    \def\exerciseboxPrefix{Latihan }
+    \def\challengeboxTitle{\faChevronCircleRight\quad Tantangan}
+    \def\istilahpentingTitle{\faKey\quad Istilah Penting}
+\else
+    \def\noteboxTitle{\faInfoCircle\quad Note}
+    \def\warningboxTitle{\faExclamationTriangle\quad Warning}
+    \def\tipboxTitle{\faLightbulb\quad Tip}
+    \def\exampleboxPrefix{\faBookOpen\quad Example: }
+    \def\exerciseboxPrefix{Exercise }
+    \def\challengeboxTitle{\faChevronCircleRight\quad Challenge}
+    \def\istilahpentingTitle{\faKey\quad Key Terms}
+\fi
+
+% Box untuk catatan / note
+\newtcolorbox{notebox}{
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    title=\noteboxTitle,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk peringatan / warning
+\newtcolorbox{warningbox}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    title=\warningboxTitle,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk tip
+\newtcolorbox{tipbox}{
+    colback=green!5!white,
+    colframe=green!75!black,
+    title=\tipboxTitle,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk contoh / example
+\newtcolorbox{examplebox}[1][]{
+    colback=yellow!10!white,
+    colframe=orange!75!black,
+    title=\exampleboxPrefix#1,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk latihan / exercise
+\newtcolorbox{exercisebox}[1][]{
+    colback=purple!5!white,
+    colframe=purple!75!black,
+    title=\exerciseboxPrefix#1,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk tantangan / challenge
+\newtcolorbox{challengebox}{
+    colback=teal!5!white,
+    colframe=teal!75!black,
+    title=\challengeboxTitle,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+% Box untuk istilah penting / key terms (mengikuti preseden SQA: kotak ke-7 di
+% luar katalog os-book, dipakai karena kosakata Dart/Flutter/Supabase padat)
+\newtcolorbox{istilahpenting}{
+    colback=green!5!white,
+    colframe=green!75!black,
+    title=\istilahpentingTitle,
+    fonttitle=\bfseries,
+    enhanced, breakable,
+    top=2pt, bottom=2pt, left=3pt, right=3pt,
+    toptitle=1pt, bottomtitle=1pt,
+    before skip=4pt, after skip=4pt
+}
+
+%% Unbreakable code listing using tcolorbox (prevents page breaks)
+%% This is an alternative to standard lstlisting for code that must stay together
+\newtcblisting{codebox}[2][]{
+    listing only,
+    listing options={
+        language=Dart,
+        style=codestyle,
+        float=,         % Disable float for tcolorbox
+        #1
+    },
+    title={#2},
+    colback=backcolour,
+    colframe=black!30,
+    fonttitle=\bfseries\small,
+    breakable=false,    % This prevents page breaks inside the box
+    enhanced,
+    before upper={\parindent0pt}
+}
+
+%% For very long code that NEEDS to break across pages
+\newtcblisting{longcodebox}[2][]{
+    listing only,
+    listing options={
+        language=Dart,
+        style=codestyle,
+        float=,
+        #1
+    },
+    title={#2},
+    colback=backcolour,
+    colframe=black!30,
+    fonttitle=\bfseries\small,
+    breakable=true,     % Allows page breaks for very long code
+    enhanced,
+    before upper={\parindent0pt}
+}
+
+%% ------------------------------------------------------------------------
+%% Command Khusus Laravel/PHP (perintah CLI, class, paket, berkas, branch GitHub)
+%% ------------------------------------------------------------------------
+\newcommand{\cmd}[1]{\texttt{\textcolor{commandcolor}{#1}}}   % Perintah CLI (composer/php)
+\newcommand{\phpclass}[1]{\texttt{#1}}                        % Nama class/model/controller PHP
+\newcommand{\pkg}[1]{\textsf{#1}}                             % Nama paket dari Composer/npm
+\newcommand{\file}[1]{\texttt{#1}}                            % Nama berkas konfigurasi/proyek
+\newcommand{\artisan}[1]{\cmd{#1}}                            % Perintah Artisan CLI (php artisan ...)
+\newcommand{\route}[1]{\texttt{#1}}                           % Path/nama route Laravel
+\newcommand{\lstfile}[1]{\normalfont\ttfamily\scriptsize\textcolor{codegray}{\faIcon{file-alt}\ #1}} % Label path berkas di atas lstlisting
+
+%% Repositori kode contoh, dua bentuk:
+%%   - \repobase: repo multi-branch (dhanifudin/simple-pos), satu branch per bab,
+%%     dipakai untuk narasi "baca riwayat commit berurutan" (Bab 1, Bab 12).
+%%   - \branchref{}: repo template per-bab (dhanifudin/simple-pos-chNN), satu repo
+%%     berdiri sendiri per bab dengan tombol "Use this template" GitHub, dipakai
+%%     di akhir setiap Praktik supaya pembaca bisa mulai langsung dari bab mana pun.
+\newcommand{\repobase}{dhanifudin/simple-pos}
+\newcommand{\repoowner}{dhanifudin}
+
+%% \branchref{chapter-08} -> callout baku "Kode lengkap: <repo template>, dari bab
+%% chapter-08" dengan tautan langsung ke repo template GitHub-nya. Nomor bab (dua
+%% digit terakhir dari argumen, mis. "08" dari "chapter-08") diekstrak lewat xstring
+%% sehingga nama repo template (simple-pos-ch08) tidak perlu tabel manual per bab
+%% dan otomatis tetap benar kalau suatu saat ada bab ke-13.
+%% "branch" sengaja tidak diterjemahkan menjadi "cabang" di edisi Indonesia;
+%% ini istilah teknis git/GitHub, diperlakukan sama seperti "widget"/"state".
+%% Dipakai di akhir setiap Praktik; lihat docs/authoring-guide.md.
+\newcommand{\branchref}[1]{%
+    \StrRight{#1}{2}[\branchrefnum]%
+    \def\branchreftemplate{simple-pos-ch\branchrefnum}%
+    \begin{tcolorbox}[
+        enhanced, breakable,
+        colback=black!3, colframe=black!45,
+        boxrule=0.5pt, arc=1.5pt,
+        left=6pt, right=6pt, top=3pt, bottom=3pt,
+        before skip=4pt, after skip=6pt,
+        fontupper=\small
+    ]
+    {\faCodeBranch}\quad{\bfseries\ifIndonesian Kode lengkap\else Full code\fi:}\
+    \href{https://github.com/\repoowner/\branchreftemplate}{\texttt{\repoowner/\branchreftemplate}}
+    \ifIndonesian
+        (repo template, klik \textbf{Use this template} untuk mulai dari kondisi bab ini).
+    \else
+        (template repo, click \textbf{Use this template} to start from this chapter's state).
+    \fi
+    \end{tcolorbox}%
+}
+
+%% \indexterm{X} writes an index entry that:
+%%   - sorts under the lowercased form of X (so chapter uses of \term{widget}
+%%     merge with glossary uses of \gitem{Widget} under a single entry),
+%%   - displays X with its first character forced to uppercase.
+\makeatletter
+\newcommand{\indexterm}[1]{%
+    \begingroup
+        \lowercase{\edef\@@idxkey{#1}}%
+        \@@idxcapfirst#1\@nil
+        \protected@edef\@@idxentry
+            {\noexpand\index{\@@idxkey @\@@idxdisp}}%
+        \@@idxentry
+    \endgroup
+}
+\def\@@idxcapfirst#1#2\@nil{%
+    \uppercase{\def\@@idxfirst{#1}}%
+    \edef\@@idxdisp{\@@idxfirst#2}%
+}
+\makeatother
+\newcommand{\term}[1]{\textit{#1}\protect\indexterm{#1}}
+\newcommand{\gitem}[2]{\item[\textit{#1}]\indexterm{#1} #2}
+
+\newcommand{\chaptertag}[1]{%
+    \tikz[baseline=(tag.base)]\node[
+        fill=black,
+        fill opacity=0.08,
+        text opacity=1,
+        rounded corners=3pt,
+        inner xsep=6pt,
+        inner ysep=3pt,
+        text=black!75,
+        font=\sffamily\scriptsize\bfseries
+    ] (tag) {#1};%
+}
+
+\newcommand{\chapterhero}[5]{%
+    \begin{tcolorbox}[
+        enhanced,
+        boxrule=0pt,
+        arc=2pt,
+        outer arc=2pt,
+        left=14pt,
+        right=12pt,
+        top=10pt,
+        bottom=10pt,
+        before skip=2pt,
+        after skip=10pt,
+        colframe=#1!15!white,
+        colback=#1!8!white,
+        borderline west={3pt}{0pt}{#1!55!black},
+    ]
+    {\color{#1!55!black}\sffamily\bfseries\small \ifIndonesian Fokus Bab\else Chapter Focus\fi}\par
+    \vspace{3pt}
+    {\color{black!85}\fontsize{11}{14}\selectfont #2}\par
+    \vspace{8pt}
+    \chaptertag{#3}\hspace{6pt}\chaptertag{#4}\hspace{6pt}\chaptertag{#5}
+    \end{tcolorbox}%
+}
+
+%% ------------------------------------------------------------------------
+%% Indeks - imakeidx with two columns, dotted leaders, alphabetic group headers
+%% ------------------------------------------------------------------------
+\newcommand{\indexgroup}[1]{%
+    \par\addvspace{12pt}\nopagebreak
+    {\noindent\sffamily\bfseries\large\color{black!70} #1}\par\nopagebreak
+    \vspace{1pt}\hrule height 0.4pt\relax
+    \par\nopagebreak\vspace{4pt}%
+}
+\usepackage{imakeidx}
+\ifIndonesian
+    \makeindex[title=Indeks, intoc, columns=2, columnsep=18pt,
+        options={-s indexstyle.ist}]
+\else
+    \makeindex[title=Index, intoc, columns=2, columnsep=18pt,
+        options={-s indexstyle.ist}]
+\fi
+
+%% ------------------------------------------------------------------------
+%% Teorema dan Definisi - language-aware
+%% ------------------------------------------------------------------------
+\theoremstyle{definition}
+\ifIndonesian
+    \newtheorem{definition}{Definisi}[chapter]
+    \newtheorem{example}{Contoh}[chapter]
+\else
+    \newtheorem{definition}{Definition}[chapter]
+    \newtheorem{example}{Example}[chapter]
+\fi
+
+\theoremstyle{plain}
+\ifIndonesian
+    \newtheorem{theorem}{Teorema}[chapter]
+\else
+    \newtheorem{theorem}{Theorem}[chapter]
+\fi
+
+%% Konfigurasi nama untuk cleveref (teorema) - language-aware
+\ifIndonesian
+    \crefname{definition}{definisi}{definisi}
+    \Crefname{definition}{Definisi}{Definisi}
+    \crefname{example}{contoh}{contoh}
+    \Crefname{example}{Contoh}{Contoh}
+    \crefname{theorem}{teorema}{teorema}
+    \Crefname{theorem}{Teorema}{Teorema}
+\else
+    % English defaults from cleveref are fine
+\fi
+
+%% ------------------------------------------------------------------------
+%% Spacing dan Format
+%% ------------------------------------------------------------------------
+\usepackage{setspace}
+\setstretch{1.15}
+
+\setlength{\parindent}{1.2em}
+\setlength{\parskip}{0pt}
+
+%% ------------------------------------------------------------------------
+%% Chapter dan Section Formatting
+%% ------------------------------------------------------------------------
+\setkomafont{part}{\fontsize{14}{16}\selectfont\bfseries}
+\setkomafont{chapter}{\fontsize{14}{16}\selectfont\bfseries}
+\setkomafont{section}{\fontsize{12}{14}\selectfont\bfseries}
+\setkomafont{subsection}{\fontsize{11}{13}\selectfont\bfseries}
+\setkomafont{subsubsection}{\fontsize{11}{13}\selectfont}
+\addtokomafont{paragraph}{\fontsize{11}{13}\selectfont}
+\addtokomafont{subparagraph}{\fontsize{11}{13}\selectfont}
+
+%% Compact heading spacing
+\RedeclareSectionCommand[beforeskip=0.6cm, afterskip=0.25cm]{chapter}
+\RedeclareSectionCommand[
+    beforeskip=-1.4ex plus -.8ex minus -.2ex,
+    afterskip=0.35ex plus .15ex
+]{section}
+\RedeclareSectionCommand[
+    beforeskip=-1.1ex plus -.8ex minus -.2ex,
+    afterskip=0.2ex plus .1ex
+]{subsection}
+\RedeclareSectionCommand[
+    beforeskip=-0.8ex plus -.6ex minus -.2ex,
+    afterskip=0.1ex plus .1ex
+]{subsubsection}
+
+%% ------------------------------------------------------------------------
+%% Miscellaneous
+%% ------------------------------------------------------------------------
+\usepackage{enumitem}            % Enhanced list environments
+\setlist{topsep=1pt, parsep=0pt, itemsep=0.5pt, partopsep=0pt}
+\usepackage{csquotes}            % Context sensitive quotation
+
+%% Suppress overfull hbox warnings di batas tertentu
+\hfuzz=5pt
+
+%% Let TeX stretch interword space as a last resort instead of producing an
+%% overfull box (text spilling past the margin) on tight lines, especially
+%% around long inline \texttt-based tokens (\cmd, \phpclass, \route, \file).
+\tolerance=1500
+\hbadness=1500
+\emergencystretch=3em

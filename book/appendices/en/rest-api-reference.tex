@@ -1,0 +1,58 @@
+%% ========================================================================
+%% Appendix A: REST API Reference
+%% ========================================================================
+%% STATUS: SCAFFOLD ONLY - see docs/authoring-guide.md
+%% ========================================================================
+
+\chapter{REST API Reference}
+\label{app:rest-api}
+
+This appendix summarizes the Simple POS REST API endpoints used by a mobile
+cashier client, as discussed in \cref{ch:membangun-rest-api}. Every endpoint
+sits behind Sanctum as the token-based authentication layer.
+
+\section{Authentication}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+POST & \route{/api/login} & Send an email and password, returns a Sanctum token \\
+POST & \route{/api/logout} & Revoke the token currently in use (requires the \route{Authorization} header) \\
+\end{tblr}
+
+\begin{notebox}
+Every request to a protected endpoint must include an
+\route{Authorization: Bearer <token>} header, where \route{<token>} is the
+value returned by \route{POST /api/login}.
+\end{notebox}
+
+\section{Products}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+GET & \route{/api/products} & Fetch the product list along with stock and price \\
+\end{tblr}
+
+\section{Transactions}
+
+\begin{tblr}{
+  colspec = {X[0.4,l] X[1.4,l] X[1.4,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+POST & \route{/api/transactions} & Create a new transaction; the total is computed server-side \\
+GET & \route{/api/transactions} & Fetch the transaction list for the currently logged-in user \\
+GET & \route{/api/transactions/\{id\}} & Fetch a single transaction's detail \\
+\end{tblr}
+
+\begin{warningbox}
+Just like the web version, \route{POST /api/transactions} never accepts a
+total value from the client. The total is always recomputed server-side from
+product prices and quantities, following the same principle covered in
+\cref{ch:validasi-input}.
+\end{warningbox}

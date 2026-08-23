@@ -1,0 +1,293 @@
+%% ========================================================================
+%% Bab 4: Desain Basis Data, Migrasi, dan Seeding
+%% ========================================================================
+
+\chapter{Desain Basis Data, Migrasi, dan Seeding}
+\label{ch:desain-basis-data}
+
+\chapterhero{teal}{Rancang skema basis data Simple POS, isi dengan data seed berskala nyata, lalu buktikan kenapa index foreign key bukan hal opsional.}{\faIcon{database}\quad skema Simple POS}{\faIcon{table}\quad migrasi \& seeding}{\faIcon{key}\quad index FK}
+
+Gudang kelontong yang baik menaruh setiap barang di rak berlabel, dengan
+katalog kartu yang mencatat rak mana menyimpan barang apa. Pegawai baru
+yang mencari stok gula pasir tinggal membaca katalog, langsung ke rak
+nomor sekian, tanpa menyusuri seluruh gudang satu per satu. Gudang yang
+tidak punya katalog seperti itu masih bisa dipakai, barang tetap ada di
+suatu tempat, tapi mencarinya berarti menyusuri baris demi baris rak
+sampai ketemu. Basis data Simple POS bekerja dengan logika yang sama:
+skema tabel adalah tata letak rak itu sendiri, dan index adalah katalog
+kartunya. Tanpa index yang tepat pada kolom yang sering dicari, mesin
+basis data tetap bisa menemukan barisnya, hanya saja dengan menyusuri
+seluruh tabel satu per satu, dan pada tabel berisi ribuan baris transaksi
+perbedaan itu terasa nyata.
+
+\textbf{Yang Akan Kamu Pelajari}
+
+\begin{enumerate}
+  \item merancang skema basis data Simple POS (\phpclass{categories}, \phpclass{products}, \phpclass{transactions}, \phpclass{transaction\_details}) beserta relasinya;
+  \item menulis migrasi dan seeder skala nyata (300 produk, 2.500 transaksi) memakai bulk insert lewat \phpclass{DB::table()->insert()} dalam batch, bukan \phpclass{Model::create()} satu per satu;
+  \item menjelaskan mengapa \phpclass{constrained()} pada SQLite tidak otomatis membuat index pada kolom foreign key, dampaknya pada query listing produk, dan cara memverifikasinya dengan \cmd{EXPLAIN QUERY PLAN}.
+\end{enumerate}
+
+\section{Merancang Skema Simple POS}
+\label{sec:desain-basis-data-1}
+
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Migrasi] Berkas PHP yang mendeskripsikan perubahan struktur tabel (membuat, mengubah, menghapus kolom) secara terprogram, sehingga skema basis data punya riwayat yang bisa dijalankan ulang di komputer lain.
+  \item[Skema] Rancangan struktur tabel: nama kolom, tipe data, dan batasan (nullable, default, unique) yang berlaku pada setiap barisnya.
+  \item[Foreign Key] Kolom pada satu tabel yang menunjuk ke \texttt{id} baris pada tabel lain, menjaga agar sebuah \phpclass{transaction\_details} tidak pernah menunjuk ke produk yang tidak ada.
+  \item[Index] Struktur data tambahan yang dibangun mesin basis data di atas satu atau beberapa kolom, mempercepat pencarian baris pada kolom itu tanpa harus memindai seluruh tabel.
+  \item[Seeder] Kelas PHP yang mengisi tabel dengan data awal atau data uji, dijalankan lewat \artisan{db:seed} atau sebagai bagian dari \artisan{migrate:fresh --seed}.
+\end{description}
+\end{istilahpenting}
+
+Simple POS bertumpu pada empat tabel inti, dan relasinya cukup lurus
+untuk digambar di atas kertas sebelum satu baris migrasi pun ditulis.
+Satu \phpclass{categories} punya banyak \phpclass{products}. Satu
+\phpclass{products} bisa muncul di banyak \phpclass{transaction\_details},
+dan satu \phpclass{transactions} juga punya banyak
+\phpclass{transaction\_details}, masing-masing mencatat satu baris item
+yang dibeli. \phpclass{transactions} sendiri menunjuk balik ke
+\phpclass{users}, mencatat kasir mana yang memproses transaksi itu.
+
+\begin{table}[htbp]
+\centering
+\caption{Skema kolom empat tabel inti Simple POS}
+\label{tab:skema-inti}
+\begin{tblr}{
+  colspec = {X[0.9,l] X[2.1,l]},
+  hline{1,2,Z} = {solid},
+}
+Tabel & Kolom utama \\
+\texttt{categories} & \texttt{id}, \texttt{name} \\
+\texttt{products} & \texttt{id}, \texttt{category\_id} (fk), \texttt{name}, \texttt{price}, \texttt{stock} \\
+\texttt{transactions} & \texttt{id}, \texttt{user\_id} (fk), \texttt{total}, \texttt{created\_at} \\
+\texttt{transaction\_details} & \texttt{id}, \texttt{transaction\_id} (fk), \texttt{product\_id} (fk), \texttt{qty}, \texttt{subtotal} \\
+\end{tblr}
+\end{table}
+
+Perhatikan bahwa \texttt{transactions.total} dan
+\texttt{transaction\_details.subtotal} adalah kolom yang disimpan, bukan
+dihitung ulang setiap kali dibaca. Itu keputusan sadar: total transaksi
+harus tetap sama persis seperti nilai saat transaksi itu terjadi, meskipun
+harga produk berubah di kemudian hari. Bab~6 membahas mengapa nilai ini
+juga wajib dihitung ulang di server saat transaksi disimpan, bukan
+sekadar dipercaya begitu saja dari input.
+
+\begin{lstlisting}[language=php, title=\lstfile{database/migrations/2026_08_20_122440_create_products_table.php}]
+Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('category_id')->constrained();
+    $table->string('name');
+    $table->unsignedInteger('price');
+    $table->unsignedInteger('stock')->default(0);
+    $table->timestamps();
+});
+\end{lstlisting}
+
+\cmd{foreignId('category\_id')->constrained()} adalah pasangan yang
+sering dipakai bersama: baris pertama membuat kolom
+\texttt{category\_id} bertipe unsigned big integer, baris kedua
+menambahkan \textit{constraint} foreign key yang menunjuk ke
+\texttt{categories.id} berdasarkan konvensi penamaan Laravel. Constraint
+ini menjaga integritas data, mencegah baris produk menunjuk ke kategori
+yang sudah dihapus, tapi seperti akan terlihat di bagian Praktik, itu
+tidak otomatis berarti kolomnya sudah punya index.
+
+\section{Migrasi dan Seeding Skala Nyata}
+\label{sec:desain-basis-data-2}
+
+Seeder Simple POS mengisi basis data dengan 300 produk dan 2.500
+transaksi, masing-masing dengan beberapa baris \phpclass{transaction\_details}.
+Menulis seeder itu dengan \phpclass{Product::create()} dipanggil 300
+kali di dalam loop akan berjalan, tapi setiap panggilan
+\phpclass{Model::create()} membuka satu query \texttt{INSERT} sendiri
+ke basis data, lengkap dengan overhead membentuk objek Eloquent, memicu
+event model, dan menghitung ulang atribut. Untuk seed berskala ratusan
+atau ribuan baris, overhead itu bertumpuk cepat.
+
+\begin{lstlisting}[language=php, title=\lstfile{database/seeders/DatabaseSeeder.php}]
+$products = [];
+foreach ($categoryIds as $categoryId) {
+    for ($i = 0; $i < 30; $i++) {
+        $products[] = [
+            'category_id' => $categoryId,
+            'name' => fake()->words(2, true),
+            'price' => fake()->numberBetween(5000, 50000),
+            'stock' => fake()->numberBetween(0, 200),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
+}
+
+foreach (array_chunk($products, 50) as $chunk) {
+    DB::table('products')->insert($chunk);
+}
+\end{lstlisting}
+
+\phpclass{DB::table()->insert()} melewati lapisan Eloquent sama sekali:
+ia menyusun satu pernyataan \texttt{INSERT} yang menulis banyak baris
+sekaligus, jauh lebih sedikit round-trip ke basis data dibanding satu
+query per baris. \cmd{array\_chunk()} membagi array besar menjadi
+kelompok-kelompok kecil sebelum di-insert, karena sebagian mesin basis
+data punya batas jumlah baris atau parameter dalam satu pernyataan
+\texttt{INSERT}; SQLite sendiri cukup toleran, tapi kebiasaan membagi
+per batch tetap berguna saat seeder yang sama suatu hari dijalankan di
+atas MySQL atau PostgreSQL.
+
+\begin{warningbox}
+Seeding transaksi butuh perhatian ekstra: satu transaksi terdiri dari
+baris \texttt{transactions} plus beberapa baris
+\texttt{transaction\_details} yang harus konsisten satu sama lain.
+Bungkus proses insert transaksi dan detailnya dalam satu
+\phpclass{DB::transaction(function () \{ ... \})}. Kalau prosesnya
+gagal di tengah jalan, misalnya karena data acak yang dihasilkan tidak
+valid, seluruh perubahan dalam blok itu dibatalkan bersama, sehingga
+basis data tidak pernah berakhir dengan transaksi yang tercatat tapi
+detailnya hilang separuh.
+\end{warningbox}
+
+\section{Praktik: Index Foreign Key dan EXPLAIN QUERY PLAN}
+\label{sec:desain-basis-data-3}
+
+\cmd{foreignId()->constrained()} pada MySQL memang otomatis membuat
+index pada kolom itu sebagai efek samping, tapi Simple POS memakai
+SQLite untuk pengembangan, dan pada SQLite \cmd{constrained()} hanya
+menambahkan \textit{constraint} foreign key, bukan index. Constraint
+menjaga integritas data (menolak insert yang menunjuk ke baris yang
+tidak ada), tapi tidak mempercepat pencarian. Query listing produk per
+kategori, seperti yang dipakai halaman \route{/products}, memfilter
+\texttt{WHERE category\_id = ?}. Tanpa index eksplisit pada kolom itu,
+SQLite terpaksa memindai seluruh tabel \texttt{products} baris demi
+baris untuk menemukan baris yang cocok.
+
+\cmd{EXPLAIN QUERY PLAN} adalah perintah SQLite yang menampilkan
+strategi yang dipakai mesin basis data untuk menjalankan satu query,
+tanpa benar-benar mengeksekusinya. Langkah-langkah berikut membuktikan
+perbedaan sebelum dan sesudah index ditambahkan, memakai basis data yang
+sudah diisi seeder dari bagian sebelumnya.
+
+\begin{enumerate}
+  \item Pastikan basis data sudah terisi seeder (kalau belum, jalankan
+    \artisan{php artisan migrate:fresh --seed} terlebih dulu), lalu lihat
+    kondisi \textit{sebelum} ada index eksplisit:
+    \begin{lstlisting}[language=bash]
+sqlite3 database/database.sqlite \
+  "EXPLAIN QUERY PLAN SELECT * FROM products WHERE category_id = 3;"
+    \end{lstlisting}
+    \textbf{Yang diharapkan}: baris hasilnya memuat kata
+    \texttt{SCAN products}, tandanya SQLite memindai seluruh tabel dari
+    baris pertama sampai terakhir untuk menemukan baris yang cocok.
+  \item Buat migrasi baru khusus untuk index (jangan mengedit migrasi
+    lama yang sudah pernah dijalankan):
+    \begin{lstlisting}[language=bash]
+php artisan make:migration add_index_to_products_and_transactions_table
+    \end{lstlisting}
+  \item Buka berkas migrasi yang baru dibuat di
+    \texttt{database/migrations/}, lalu isi metode \cmd{up()}-nya:
+    \begin{lstlisting}[language=php]
+public function up(): void
+{
+    Schema::table('products', function (Blueprint $table) {
+        $table->index('category_id');
+    });
+
+    Schema::table('transactions', function (Blueprint $table) {
+        $table->index('user_id');
+        $table->index('created_at');
+    });
+}
+    \end{lstlisting}
+  \item Jalankan migrasi itu. Pakai \artisan{php artisan migrate}, bukan
+    \artisan{php artisan migrate:fresh}, supaya index ditambahkan di atas
+    data seeder yang sudah ada, bukan menghapus semuanya lagi:
+    \begin{lstlisting}[language=bash]
+php artisan migrate
+    \end{lstlisting}
+  \item Jalankan ulang perintah \cmd{EXPLAIN QUERY PLAN} yang persis sama
+    seperti langkah 1. \textbf{Yang diharapkan}: baris hasilnya sekarang
+    berubah menjadi \texttt{SEARCH products USING INDEX
+    products\_category\_id\_index}, tandanya SQLite langsung melompat ke
+    baris yang relevan lewat struktur index, tanpa menyentuh baris lain
+    sama sekali.
+  \item \textbf{Kalau perintah \cmd{sqlite3} tidak dikenali} (belum
+    terinstal di sistem), pakai jalur alternatif lewat Tinker tanpa perlu
+    memasang apa pun:
+    \begin{lstlisting}[language=bash]
+php artisan tinker
+>>> DB::select("EXPLAIN QUERY PLAN SELECT * FROM products WHERE category_id = 3");
+    \end{lstlisting}
+    Hasilnya berupa array asosiatif; kolom \texttt{detail} di dalamnya
+    berisi teks \texttt{SCAN}/\texttt{SEARCH} yang sama seperti pada CLI
+    \cmd{sqlite3}.
+\end{enumerate}
+
+\begin{warningbox}
+Pada tabel berisi puluhan baris, perbedaan \texttt{SCAN} dan
+\texttt{SEARCH} nyaris tidak terasa. Pada tabel berisi ribuan baris,
+seperti \texttt{transactions} milik Simple POS setelah seeding penuh,
+\texttt{SCAN} berarti setiap baris ikut diperiksa pada setiap query,
+dan waktu itu bertambah linear seiring tabel bertumbuh. Index bukan
+optimasi prematur di sini; ia perbaikan atas bug performa yang sudah
+nyata begitu data mendekati skala produksi.
+\end{warningbox}
+
+\branchref{chapter-04}
+
+\section{Rangkuman}
+\label{sec:desain-basis-data-rangkuman}
+
+\begin{itemize}
+  \item Simple POS terdiri dari empat tabel inti,
+    \texttt{categories}--\texttt{products}--\texttt{transactions}--%
+    \texttt{transaction\_details}, dihubungkan lewat foreign key, dengan
+    \texttt{total} dan \texttt{subtotal} disimpan sebagai nilai tetap,
+    bukan dihitung ulang setiap kali dibaca.
+  \item Seeding skala nyata (300 produk, 2.500 transaksi) memakai
+    \phpclass{DB::table()->insert()} dalam batch lewat
+    \cmd{array\_chunk()}, jauh lebih efisien daripada memanggil
+    \phpclass{Model::create()} satu per satu, dan insert transaksi
+    beserta detailnya dibungkus dalam satu \phpclass{DB::transaction()}.
+  \item \cmd{constrained()} pada SQLite tidak otomatis membuat index;
+    index foreign key harus ditambahkan eksplisit lewat
+    \cmd{\$table->index()}, dan perbedaannya bisa dibuktikan langsung
+    lewat \cmd{EXPLAIN QUERY PLAN}, yang berubah dari \texttt{SCAN}
+    menjadi \texttt{SEARCH ... USING INDEX} setelah index ditambahkan.
+\end{itemize}
+
+\section{Latihan}
+
+\begin{enumerate}
+  \item Tambahkan index pada kolom \texttt{transaction\_details.product\_id},
+    lalu jalankan \cmd{EXPLAIN QUERY PLAN} pada query yang mencari
+    seluruh detail transaksi untuk satu produk tertentu. Bandingkan
+    hasilnya sebelum dan sesudah index ditambahkan.
+  \item Hitung ulang: jika seeder diubah menjadi 1.000 produk dan
+    10.000 transaksi, berapa kira-kira jumlah baris
+    \texttt{transaction\_details} yang dihasilkan, dengan asumsi
+    rata-rata 3 item per transaksi?
+  \item Tulis satu query listing baru pada Simple POS (misalnya
+    transaksi dalam rentang tanggal tertentu), lalu jalankan
+    \cmd{EXPLAIN QUERY PLAN} pada query itu sendiri untuk memeriksa
+    apakah ia memakai index yang sudah ada.
+  \item \textbf{Self-check:} tanpa membuka ulang bab ini, coba jelaskan
+    dengan kata-katamu sendiri: (a) mengapa \texttt{total} transaksi
+    disimpan alih-alih dihitung ulang, (b) mengapa bulk insert dipilih
+    untuk seeding skala besar, dan (c) apa yang sebenarnya ditambahkan
+    \cmd{constrained()} pada SQLite. Cocokkan jawabanmu dengan isi bab
+    ini.
+\end{enumerate}
+
+\begin{challengebox}
+Tambahkan kolom baru \texttt{sku} (string, unik, nullable) pada tabel
+\texttt{products} lewat migrasi baru, bukan dengan mengubah migrasi
+lama yang sudah pernah dijalankan. Jalankan
+\artisan{migrate} dan pastikan skema berubah tanpa perlu
+\artisan{migrate:fresh}.
+\end{challengebox}
+
+\section{Referensi}
+
+Bab ini mengacu pada dokumentasi resmi Laravel \cite{laraveldocs} untuk
+konvensi migrasi, query builder, dan seeder.

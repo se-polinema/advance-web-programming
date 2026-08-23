@@ -1,0 +1,64 @@
+%% ========================================================================
+%% Appendix B: Artisan and Composer Command Reference
+%% ========================================================================
+%% STATUS: SCAFFOLD ONLY - see docs/authoring-guide.md
+%% ========================================================================
+
+\chapter{Artisan and Composer Command Reference}
+\label{app:cli}
+
+This appendix summarizes the command-line interface (CLI) commands used most
+often throughout the book. All commands are run from the Simple POS project
+directory unless noted otherwise.
+
+\section{Setting Up a Project}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Command} & \textbf{Purpose} \\
+\cmd{composer install} & Install PHP dependencies from \file{composer.json} \\
+\cmd{php artisan key:generate} & Generate the application's encryption key \\
+\cmd{php artisan migrate:fresh --seed} & Re-run every migration, then seed the database \\
+\cmd{php artisan serve} & Run the local development server \\
+\end{tblr}
+
+\section{Migrations and the Database}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Command} & \textbf{Purpose} \\
+\artisan{php artisan make:migration create\_products\_table} & Create a new migration file \\
+\artisan{php artisan migrate} & Run migrations that have not yet executed \\
+\artisan{php artisan migrate:rollback} & Roll back the last migration batch \\
+\artisan{php artisan db:seed} & Run seeders without re-running migrations \\
+\end{tblr}
+
+\section{Generating Boilerplate Files}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Command} & \textbf{Purpose} \\
+\artisan{php artisan make:model Product -mfs} & Create a model along with its migration, factory, and seeder \\
+\artisan{php artisan make:controller ProductController} & Create a new controller \\
+\artisan{php artisan make:request StoreProductRequest} & Create a FormRequest class \\
+\artisan{php artisan make:middleware EnsureUserHasRole} & Create a custom middleware \\
+\end{tblr}
+
+\section{Testing and Maintenance}
+
+\begin{tblr}{
+  colspec = {X[1,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Command} & \textbf{Purpose} \\
+\cmd{php artisan test} & Run every feature and unit test \\
+\artisan{php artisan route:list} & List every registered route \\
+\artisan{php artisan config:cache} & Cache configuration for production \\
+\artisan{php artisan route:cache} & Cache routes for production \\
+\end{tblr}
