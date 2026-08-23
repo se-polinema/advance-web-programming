@@ -14,12 +14,17 @@ jobs:
       - name: Build book PDFs
         working-directory: book
         run: |
-          # On a fresh checkout (no cached .bbl), latexmk's first pass hits
-          # undefined-references noise before biber resolves the bibliography;
-          # $force_mode papers over it but still exits non-zero. The PDF from
-          # that first pass is already fine — this just gets a clean exit code.
-          make both || true
-          make both
+          # On a fresh checkout (no cached .bbl), each language's first
+          # latexmk pass hits undefined-references noise before biber
+          # resolves the bibliography; $force_mode papers over it but still
+          # exits non-zero. `make both` stops at the first failing target,
+          # so id and en each need their own two-pass treatment rather than
+          # running `make both` twice as a whole (which only warms id before
+          # en hits the same fresh-checkout issue for the first time).
+          make id || true
+          make id
+          make en || true
+          make en
 
       - name: Check for LaTeX errors
         working-directory: book
