@@ -163,12 +163,23 @@ Alur pada \cref{fig:laravel-lifecycle} adalah pola yang akan berulang di
 hampir setiap bab buku ini: \route{/pos} pada Bab~3 mengikuti alur ini
 persis, begitu juga setiap endpoint API pada Bab~9.
 
+Satu detail yang membedakan Laravel dari PHP polos: pada PHP polos, alamat
+URL biasanya sama persis dengan path berkas di server (mis.
+\route{/produk.php} memuat \file{produk.php}). Laravel meniadakan pemetaan
+langsung ini; setiap permintaan, apa pun alamatnya, selalu masuk lewat satu
+berkas yang sama, \file{public/index.php}, yang baru kemudian menyerahkan
+permintaan itu ke \file{routes/web.php} untuk dicocokkan dengan Controller
+yang sesuai. Tidak ada berkas lain di dalam proyek yang bisa diakses
+langsung lewat URL. Mulai Bab~2, kamu juga akan melihat pemanggilan seperti
+\cmd{Route::get(...)}; sekilas mirip pemanggilan method static PHP biasa,
+tetapi proses di baliknya berbeda (disebut \textit{facade}), dijelaskan
+lebih lanjut saat pertama kali dipakai.
+
 \begin{notebox}
 Laravel bukan satu-satunya kerangka kerja PHP, dan PHP bukan satu-satunya
-bahasa untuk membangun aplikasi web monolith. Symfony menawarkan fleksibilitas
-arsitektur yang lebih tinggi dengan kurva belajar yang lebih curam; Django
-(Python) dan Ruby on Rails punya filosofi ``convention over configuration''
-yang mirip Laravel. Posisi Laravel yang menonjol ada pada ekosistem
+bahasa untuk membangun aplikasi web monolith. Django (Python) dan Ruby on
+Rails punya filosofi ``convention over configuration'' yang mirip Laravel.
+Posisi Laravel yang menonjol ada pada ekosistem
 paketnya (Sanctum untuk API, Excel untuk impor/ekspor, Cashier untuk
 pembayaran) yang langsung terintegrasi tanpa konfigurasi berlebihan, sesuatu
 yang akan terasa langsung mulai Bab~9.
@@ -186,9 +197,17 @@ bisa langsung menjalankan migrasi pada menit pertama, bukan menghabiskan
 setengah jam mengatur akun MySQL. Simple POS sendiri berjalan di atas
 SQLite bahkan untuk demonstrasi kelas, bukan cuma untuk latihan buku ini.
 
+\begin{tipbox}
+Sebelum lanjut, pastikan empat alat berikut sudah terpasang dengan
+menjalankan masing-masing perintah ini di terminal: \cmd{php -v} (versi
+8.2 ke atas), \cmd{composer -V}, \cmd{node -v}, dan \cmd{git --version}.
+Kalau salah satu belum terpasang atau versinya terlalu lama, instal dulu
+sebelum melanjutkan ke langkah berikutnya.
+\end{tipbox}
+
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate. Daftar lengkap perintahnya bisa dilihat kapan saja dengan menjalankan \artisan{php artisan list}; Artisan hanya alat bantu pengembangan, tidak ikut berjalan saat aplikasi melayani pengguna.
+  \item[Artisan] Antarmuka baris perintah bawaan Laravel untuk menjalankan tugas pengembangan sehari-hari: migrasi, seeding, dan pembuatan berkas boilerplate. Daftar lengkap perintahnya bisa dilihat kapan saja dengan menjalankan \artisan{php artisan list}; Artisan hanya alat bantu pengembangan, tidak ikut berjalan saat aplikasi melayani pengguna. Daftar perintah Artisan dan Composer yang paling sering dipakai di buku ini terangkum di Lampiran~B.
   \item[Migrasi] Berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema dapat dibangun ulang secara konsisten di komputer mana pun. Perlakukan seperti version control untuk skema: perubahan baru berarti berkas migrasi baru, bukan mengedit migrasi lama yang sudah pernah dijalankan di komputer lain.
 \end{description}
 \end{istilahpenting}
@@ -209,6 +228,20 @@ menyiapkan berkas konfigurasi \file{.env} (tempat kredensial dan
 pengaturan lingkungan disimpan, terpisah dari kode sumber supaya tidak
 pernah ikut ter-commit ke Git) dan menghasilkan kunci enkripsi aplikasi
 yang dipakai Laravel untuk mengamankan sesi dan cookie.
+
+\cmd{composer create-project} bukan sekadar mengunduh Laravel, melainkan
+menjalankan Composer, pengelola dependensi PHP: ia membaca berkas
+\file{composer.json}, mengunduh setiap paket yang terdaftar ke
+\file{vendor/}, lalu menghasilkan \file{vendor/autoload.php}. Berkas
+itulah yang membuat setiap class di proyek ini, termasuk milikmu sendiri,
+langsung bisa dipakai tanpa \cmd{require} atau \cmd{include} manual
+seperti pada PHP polos. Nilai di \file{.env} juga tidak langsung dipakai
+di kode; Laravel membacanya lewat helper \cmd{env()}, yang biasanya
+dibungkus lagi oleh berkas \file{config/*.php} dan diakses lewat helper
+\cmd{config()}. Lapisan ini tidak ada padanannya di PHP polos yang
+biasanya hanya memakai konstanta atau berkas \texttt{.ini} tunggal, tetapi
+memungkinkan konfigurasi di-cache untuk performa saat aplikasi berjalan
+di server produksi (dibahas lebih lanjut pada Bab~11).
 
 \begin{tipbox}
 \textbf{Kalau \cmd{composer create-project} gagal} dengan pesan yang

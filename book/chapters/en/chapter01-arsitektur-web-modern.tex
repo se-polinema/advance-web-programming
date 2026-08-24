@@ -34,7 +34,7 @@ of shipping the feature a cashier actually uses every day.
 \begin{enumerate}
   \item compare monolith, microservices, and serverless architectures to explain why Laravel was chosen as the monolithic framework for Simple POS;
   \item set up a new Laravel 13 project with SQLite as a zero-setup database, including \artisan{migrate:fresh --seed} and \artisan{serve};
-  \item explain the \cmd{increment N} commit convention on the Simple POS repository and how the increment sequence maps the application's growth chapter by chapter.
+  \item get to know Laravel's project folder structure (\file{routes/}, \file{app/Http/Controllers/}, \file{database/migrations/}) as an embodiment of the MVC pattern, then initialize a Git repository with the first \cmd{increment 1} commit.
 \end{enumerate}
 
 \section{Monolith, Microservices, and Why Laravel}
@@ -42,11 +42,8 @@ of shipping the feature a cashier actually uses every day.
 
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
-  \item[Monolith] An application whose layers, interface, business logic, and data access, all run in a single codebase deployed as a single unit.
-  \item[Microservices] An architecture that splits an application into independent services, each deployed on its own, communicating over a network.
-  \item[MVC] The \textit{Model-View-Controller} pattern: the Model owns data, the View owns presentation, and the Controller owns the request flow between them.
-  \item[Artisan] Laravel's built-in command-line interface for everyday development tasks: migrations, seeding, and boilerplate file generation.
-  \item[Migration] A PHP file that defines a database schema change in code, so the schema can be rebuilt consistently on any machine.
+  \item[Monolith] An application whose layers, interface, business logic, and data access, all run in a single codebase deployed as a single unit. Often mistaken for ``messy code''; a well-structured monolith (e.g. following MVC) stays clean, its real opposite isn't ``modular'', it's ``distributed''.
+  \item[Microservices] An architecture that splits an application into independent services, each deployed on its own, communicating over a network. Rule of thumb: only worth it once an organization has enough teams that each can own and operate its own service; a small team splitting its application just adds operational overhead.
 \end{description}
 \end{istilahpenting}
 
@@ -110,6 +107,12 @@ microservices (independent services calling each other over the network)}
 \label{fig:monolith-microservices}
 \end{figure}
 
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Serverless] A model of code execution as small functions that only run when triggered by an event, with no server process staying up continuously; a cloud provider manages the infrastructure. The name is misleading: the server still exists, it just isn't your responsibility. Because the process doesn't stay alive continuously, there's a \textit{cold start} delay when a function hasn't been called recently, and billing is per execution, not per hour a server stays on.
+\end{description}
+\end{istilahpenting}
+
 \term{Serverless} takes a third path: code is written as small functions
 that only run when triggered by an event (an HTTP request, a cron
 schedule, a new message on a queue), and a cloud provider manages the
@@ -118,11 +121,17 @@ image processing triggered only when a user uploads a photo, but it fits
 poorly for an application like Simple POS that needs a steady database
 connection throughout a shop's business hours.
 
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[MVC] The \textit{Model-View-Controller} pattern: the Model owns data, the View owns presentation, and the Controller owns the request flow between them. Practical rule for where code goes: touches data, goes in the Model; handles request flow, goes in the Controller; renders output, goes in the View. The framework doesn't enforce this (a query inside a view still runs), it's a discipline the code's author has to maintain.
+\end{description}
+\end{istilahpenting}
+
 Laravel was chosen as this book's framework because it maps directly onto
 what a monolith needs: a single PHP project that already ships routing,
 authentication, an ORM, and a templating system, with no need to assemble
 pieces from separate libraries. Compared to writing plain PHP from scratch,
-Laravel gives a consistent MVC structure from the first line of code;
+Laravel gives a consistent \term{MVC} structure from the first line of code;
 compared to a more elaborate microservices-first framework, Laravel stays
 productive for a team of one or two people racing a deadline.
 
@@ -153,10 +162,9 @@ exact flow, and so does every API endpoint in Chapter~9.
 
 \begin{notebox}
 Laravel is not the only PHP framework, and PHP is not the only language for
-building monolithic web applications. Symfony offers more architectural
-flexibility at the cost of a steeper learning curve; Django (Python) and
-Ruby on Rails share a similar ``convention over configuration'' philosophy
-with Laravel. Laravel's standout strength is its package ecosystem
+building monolithic web applications. Django (Python) and Ruby on Rails
+share a similar ``convention over configuration'' philosophy with Laravel.
+Laravel's standout strength is its package ecosystem
 (Sanctum for APIs, Excel for import/export, Cashier for payments), which
 plugs in with minimal configuration, something felt directly starting in
 Chapter~9.
@@ -174,6 +182,13 @@ minute, instead of spending half an hour setting up a MySQL account. Simple
 POS itself runs on SQLite even for in-class demonstrations, not just for
 this book's exercises.
 
+\begin{istilahpenting}
+\begin{description}[leftmargin=0pt,style=nextline]
+  \item[Artisan] Laravel's built-in command-line interface for everyday development tasks: migrations, seeding, and boilerplate file generation. The full command list can be viewed anytime by running \artisan{php artisan list}; Artisan is strictly a development tool, it never runs while the application serves real users.
+  \item[Migration] A PHP file that defines a database schema change in code, so the schema can be rebuilt consistently on any machine. Treat it like version control for the schema: a new change means a new migration file, never editing an old migration that has already run on another machine.
+\end{description}
+\end{istilahpenting}
+
 \begin{lstlisting}[language=bash]
 composer create-project laravel/laravel simple-pos
 cd simple-pos
@@ -181,11 +196,24 @@ cp .env.example .env
 php artisan key:generate
 \end{lstlisting}
 
-Those last three commands prepare the \file{.env} configuration file
+\textbf{What to expect}: \cmd{composer create-project} prints a list of
+packages being downloaded one by one, ending with a line like
+\texttt{Application ready in simple-pos. You can now start using
+Composer!}; \artisan{key:generate} prints
+\texttt{INFO Application key set successfully.} Those last three commands
+prepare the \file{.env} configuration file
 (where credentials and environment settings live, kept separate from
 source code so they never get committed to Git) and generate the
 application's encryption key, which Laravel uses to secure sessions and
 cookies.
+
+\begin{tipbox}
+\textbf{If \cmd{composer create-project} fails} with a message
+mentioning the PHP version (e.g. \texttt{requires php \textasciicircum{}8.2}),
+run
+\cmd{php -v} to confirm the installed PHP version is 8.2 or higher;
+Laravel 13 cannot be installed on an older PHP version.
+\end{tipbox}
 
 Alongside the PHP dependencies \cmd{composer} just installed, a fresh
 Laravel project also ships with \file{package.json}: a list of JavaScript
@@ -198,7 +226,9 @@ downloading every listed package into a \file{node\_modules/} folder:
 npm install
 \end{lstlisting}
 
-This step isn't required to run Simple POS today; Laravel's default
+\textbf{What to expect}: \cmd{npm install} prints the number of packages
+installed, ending with a line like \texttt{added N packages in Ns}, with
+no \texttt{npm error} lines in between. This step isn't required to run Simple POS today; Laravel's default
 welcome page still renders with a fallback style even without
 \file{node\_modules/}. Running it now avoids a sudden install pause once
 Chapter~3 starts using Tailwind and Alpine.js through Vite. The next step
@@ -209,7 +239,9 @@ touch database/database.sqlite
 php artisan migrate:fresh --seed
 \end{lstlisting}
 
-\artisan{migrate:fresh} runs every migration file from scratch (dropping
+\textbf{What to expect}: the list of migrations prints one by one, each
+ending with \texttt{DONE}, with no error lines in between, followed by a
+message that the seeder finished running. \artisan{migrate:fresh} runs every migration file from scratch (dropping
 any existing tables first, then rebuilding them from the latest schema
 definitions), while the \cmd{--seed} flag immediately populates the newly
 created tables with sample data through a seeder file. For Simple POS, that
@@ -232,7 +264,11 @@ immediately, no separate web server like Apache or Nginx required:
 php artisan serve
 \end{lstlisting}
 
-That command serves the application at \route{http://127.0.0.1:8000} using
+\textbf{What to expect}: a line reading \texttt{INFO Server running on
+[http://127.0.0.1:8000]}, then the terminal stays open waiting for
+requests (press \texttt{Ctrl+C} to stop it). Open that address in a
+browser; Laravel's welcome page, not an error message, is the sign every
+step in this section succeeded. That command serves the application at \route{http://127.0.0.1:8000} using
 PHP's built-in server, plenty for every local development session in this
 book. A real production server (covered in Chapter~11) uses a different
 setup, but the application structure learned here stays exactly the same.
@@ -275,14 +311,53 @@ from \cmd{composer create-project}, exactly like the result of Exercise
 and controllers, then Blade views, then the database schema, following the
 same order as this book's chapters. Reading through Simple POS's commit
 history in order is the same experience as reading this book chapter by
-chapter, just in the form of real running code instead of prose.
+chapter, just in the form of real running code instead of prose. The
+following steps create your own \cmd{increment 1} commit, so this
+convention feels real, not just something you read about.
+
+\begin{enumerate}
+  \item \cmd{composer create-project} doesn't automatically set up a Git
+    repository (unlike the \cmd{laravel new} installer, which does this
+    automatically), so this step is done manually on purpose from inside
+    the \file{simple-pos/} folder:
+    \begin{lstlisting}[language=bash]
+git init
+    \end{lstlisting}
+    \textbf{What to expect}: a message reading \texttt{Initialized empty
+    Git repository in .../simple-pos/.git/}.
+  \item Add every project file to the staging area, then make the first
+    commit with a message following the \cmd{increment N} convention:
+    \begin{lstlisting}[language=bash]
+git add .
+git commit -m "increment 1: empty Laravel project"
+    \end{lstlisting}
+    \textbf{What to expect}: a summary of how many files were committed,
+    ending with a line like \texttt{N files changed, M insertions(+)}.
+    Notice that \file{vendor/}, \file{node\_modules/}, and \file{.env}
+    aren't mentioned at all; Laravel's default \file{.gitignore} already
+    excludes all three, exactly as the warning in the previous section
+    said.
+  \item Verify the commit actually got saved:
+    \begin{lstlisting}[language=bash]
+git log --oneline
+    \end{lstlisting}
+    \textbf{What to expect}: one line with a short hash followed by the
+    message \texttt{increment 1: empty Laravel project}, exactly as just
+    written.
+  \item \textbf{If \cmd{git commit} fails} with a message asking for
+    \texttt{user.name}/\texttt{user.email}, this is a machine that has
+    never used Git before; set it once with
+    \cmd{git config --global user.name "Your Name"} and
+    \cmd{git config --global user.email "email@you.com"}, then repeat
+    step 2.
+\end{enumerate}
 
 \begin{tipbox}
 Full code for every chapter comes in two forms. The
 \texttt{\repobase} repository holds the whole history in one place, with
 one branch per chapter (\texttt{chapter-01} through \texttt{chapter-12}),
 each branch building on the previous chapter's; good for reading straight
-through like a real commit history. The end of every Praktik section in
+through like a real commit history. The end of every Exercise section in
 this book, like the box below, instead points to a standalone template
 repository for that one chapter (e.g. \texttt{\repoowner/simple-pos-ch04}
 for Chapter~4): click GitHub's \textbf{Use this template} button to start
@@ -306,17 +381,23 @@ both repositories.
   \item A Laravel 13 project is set up with \cmd{composer create-project},
     wired to SQLite as a zero-setup database, then started with
     \artisan{migrate:fresh --seed} and \artisan{serve}.
-  \item The \cmd{increment N} commit convention on the Simple POS
-    repository maps the application's growth chapter by chapter, with the
-    full code for each chapter available as its own GitHub branch.
+  \item Laravel's folder structure (\file{routes/}, \file{app/Http/Controllers/},
+    \file{database/migrations/}) embodies the MVC pattern; the first
+    \cmd{increment N} commit marks the Git repository as initialized,
+    with the same convention mapping the application's growth chapter by
+    chapter and the full code for each chapter available as its own
+    GitHub branch.
 \end{itemize}
 
 \section{Exercises}
 
 \begin{enumerate}
-  \item Run the three commands from Exercise 1.1 on your own machine, then
+  \item Run every setup command from Section 2 (\cmd{composer
+    create-project} through \artisan{serve}) on your own machine, then
     confirm \cmd{php artisan serve} shows Laravel's welcome page at
-    \route{http://127.0.0.1:8000}.
+    \route{http://127.0.0.1:8000}; follow up with the three Git commands
+    from Exercise 1.2 and confirm \cmd{git log --oneline} shows your own
+    \texttt{increment 1} commit.
   \item Open \file{database/migrations/} in the freshly created project,
     then identify how many migration files already exist out of the box
     (without writing any code) and which tables they create.
