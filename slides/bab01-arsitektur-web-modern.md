@@ -7,6 +7,7 @@ style: |
   section {
     font-family: 'Helvetica Neue', Arial, sans-serif;
     padding: 56px 72px;
+    justify-content: center;
   }
   section.lead {
     background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
@@ -39,7 +40,10 @@ style: |
     width: 100%;
   }
   table.small {
-    font-size: 0.6em;
+    font-size: 0.75em;
+  }
+  th, td {
+    padding: 4px 10px;
   }
   th {
     background: #1d4ed8;
@@ -127,7 +131,7 @@ style: |
 
 Pertemuan 1: **Arsitektur Web Modern dan Ekosistem Laravel**
 
-Rencana Pembelajaran Semester (RPS) & Materi Bab 1
+Rencana Pembelajaran Semester (RPS) & Materi Pertemuan 1
 
 ---
 
@@ -152,7 +156,10 @@ Mata kuliah ini memakai <b>Simple POS</b>, aplikasi kasir/point-of-sale UMKM yan
 
 ---
 
-## Rencana Pembelajaran (1/2)
+## Rencana Pembelajaran Semester
+
+<div class="cols">
+<div>
 
 <table class="small">
 <tr><th>Pertemuan</th><th>Materi</th></tr>
@@ -167,9 +174,8 @@ Mata kuliah ini memakai <b>Simple POS</b>, aplikasi kasir/point-of-sale UMKM yan
 <tr><td>9</td><td>Pengolahan &amp; Ekspor Data</td></tr>
 </table>
 
----
-
-## Rencana Pembelajaran (2/2)
+</div>
+<div>
 
 <table class="small">
 <tr><th>Pertemuan</th><th>Materi</th></tr>
@@ -182,6 +188,9 @@ Mata kuliah ini memakai <b>Simple POS</b>, aplikasi kasir/point-of-sale UMKM yan
 <tr><td>16</td><td>Persiapan Ujian Akhir PBL</td></tr>
 <tr><td>17</td><td><b>UAS</b></td></tr>
 </table>
+
+</div>
+</div>
 
 <div class="tip-box">
 Pertemuan 1&ndash;10 membangun fondasi teknis Laravel; Pertemuan 11&ndash;17 mengalihkannya menjadi proyek <i>Project Based Learning</i> (PBL) mandiri.
@@ -210,34 +219,7 @@ Pertemuan 1&ndash;10 membangun fondasi teknis Laravel; Pertemuan 11&ndash;17 men
 <!-- _class: divider -->
 
 # Bagian 2
-## Bab 1: Arsitektur Web Modern dan Ekosistem Laravel
-
----
-
-## Restoran Keluarga vs. Food Court
-
-<div class="cols">
-<div>
-
-**Restoran keluarga**
-- Satu dapur, satu kasir, satu tim
-- Semua orang tahu semua hal
-- Ramai? Tambah kompor, bukan cabang baru
-
-</div>
-<div>
-
-**Food court**
-- Setiap tenant: dapur, kasir, resep sendiri
-- Unit-unit independen
-- Satu tenant sepi tidak mengganggu yang lain
-
-</div>
-</div>
-
-<div class="tip-box">
-Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena keterbatasan, tapi karena skalanya cocok: satu warung dengan satu-dua kasir tidak butuh sepuluh layanan terpisah.
-</div>
+## Pertemuan 1: Arsitektur Web Modern dan Ekosistem Laravel
 
 ---
 
@@ -247,11 +229,23 @@ Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena kete
 
 2. Memahami alasan **Laravel 13** dengan **SQLite** sebagai basis data zero-setup dipilih untuk Simple POS
 
-3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) sebagai perwujudan pola **MVC**, dan konvensi commit `increment N` yang menyertainya
+3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) sebagai perwujudan pola **MVC**
 
 <div class="tip-box">
-Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik lengkap ada di buku &mdash; bukan di slide.
+Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik lengkap dibahas terpisah di luar slide ini.
 </div>
+
+---
+
+## Apa itu Arsitektur Web?
+
+<div class="term-box">
+<b>Arsitektur web:</b> cara lapisan-lapisan aplikasi (antarmuka, logika bisnis, akses data) diorganisasi dan di-deploy &mdash; satu unit, atau banyak unit terpisah.
+</div>
+
+- Pilihan arsitektur bukan sekadar teknis &mdash; ia menentukan berapa banyak proses deploy, titik gagal, dan komunikasi jaringan yang harus dikelola tim
+- Arsitektur yang "lebih canggih" bukan berarti lebih baik: membangun food court untuk bisnis satu dapur hanya menghabiskan usaha untuk pipa penghubung, bukan fitur
+- Tiga gaya yang akan kita bandingkan: **monolith**, **microservices**, **serverless**
 
 ---
 
@@ -279,6 +273,35 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 - **Harganya:** 8 layanan = 8 proses deploy + 8 titik gagal + komunikasi jaringan antar-layanan
 - Sepadan untuk **tim besar** dengan sistem berskala jutaan pengguna
 - Untuk Simple POS: ongkos jauh melebihi manfaatnya
+
+---
+
+## Analogi: Restoran Keluarga vs. Food Court
+
+Dua arsitektur yang baru saja kita definisikan, dalam analogi sehari-hari:
+
+<div class="cols">
+<div>
+
+**Restoran keluarga (monolith)**
+- Satu dapur, satu kasir, satu tim
+- Semua orang tahu semua hal
+- Ramai? Tambah kompor, bukan cabang baru
+
+</div>
+<div>
+
+**Food court (microservices)**
+- Setiap tenant: dapur, kasir, resep sendiri
+- Unit-unit independen
+- Satu tenant sepi tidak mengganggu yang lain
+
+</div>
+</div>
+
+<div class="tip-box">
+Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena keterbatasan, tapi karena skalanya cocok: satu warung dengan satu-dua kasir tidak butuh sepuluh layanan terpisah.
+</div>
 
 ---
 
@@ -335,6 +358,33 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 
 ---
 
+## Satu Pintu Masuk: `public/index.php`
+
+<div class="cols">
+<div>
+
+**PHP polos**
+- URL memetakan langsung ke berkas
+- `/produk.php` &rarr; menjalankan `produk.php`
+- Setiap berkas berpotensi diakses langsung lewat URL
+
+</div>
+<div>
+
+**Laravel**
+- Semua request masuk lewat satu berkas: `public/index.php`
+- Alamat URL didaftarkan di `routes/web.php`
+- Berkas lain (Controller, Model) tidak bisa diakses langsung lewat URL
+
+</div>
+</div>
+
+<div class="tip-box">
+Satu pintu masuk berarti setiap request bisa diproses seragam sebelum sampai ke kode aplikasi &mdash; dasar dari routing, middleware, dan autentikasi terpusat.
+</div>
+
+---
+
 ## Alur Satu Request Laravel
 
 <div class="flow">
@@ -350,7 +400,7 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 </div>
 
 <div class="tip-box" style="margin-top:40px;">
-Setiap permintaan, apa pun alamatnya, selalu masuk lewat satu berkas yang sama: <code>public/index.php</code>. Tidak ada berkas lain yang bisa diakses langsung lewat URL.
+Pola alur ini berulang di setiap fitur Simple POS &mdash; dari halaman POS sederhana hingga endpoint REST API, semua mengikuti jalur yang sama.
 </div>
 
 ---
@@ -368,6 +418,49 @@ Sebelum lanjut, pastikan empat alat berikut sudah terpasang: <code>php -v</code>
 
 ---
 
+## Composer & npm: Manajer Dependensi
+
+<div class="term-box">
+<b>Composer:</b> manajer dependensi PHP &mdash; membaca <code>composer.json</code>, mengunduh paket ke <code>vendor/</code>, lalu membuat <code>vendor/autoload.php</code>.
+</div>
+
+- Berkat <code>autoload.php</code>, setiap class langsung bisa dipakai &mdash; tidak perlu <code>require</code>/<code>include</code> manual seperti PHP polos
+- **npm** adalah rekannya di dunia JavaScript: `package.json` mendaftarkan paket, `node_modules/` menyimpannya &mdash; dipakai Laravel untuk Vite & Tailwind
+- Kedua folder (`vendor/`, `node_modules/`) hasil unduhan, tidak pernah di-commit ke Git
+
+---
+
+## `.env` & Lapisan Konfigurasi
+
+<div class="term-box">
+<b>.env:</b> berkas konfigurasi yang memisahkan kredensial dan pengaturan lingkungan dari kode sumber.
+</div>
+
+- Alur baca konfigurasi: `.env` &rarr; helper `env()` &rarr; `config/*.php` &rarr; helper `config()` yang dipakai kode aplikasi
+- App key di dalamnya dipakai untuk mengenkripsi session dan cookie
+- Pemisahan ini memungkinkan konfigurasi berbeda per lingkungan (lokal, staging, produksi) tanpa mengubah kode
+
+<div class="warn-box">
+Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit &mdash; <code>.gitignore</code> bawaan Laravel sudah mengecualikannya.
+</div>
+
+---
+
+## Artisan & Migrasi
+
+<div class="term-box">
+<b>Artisan:</b> CLI bawaan Laravel untuk tugas pengembangan sehari-hari (migrasi, seeding, membuat boilerplate) &mdash; alat bantu develop, bukan bagian dari aplikasi yang dilayani ke pengguna.
+</div>
+
+<div class="term-box">
+<b>Migrasi:</b> berkas PHP yang mendefinisikan perubahan skema basis data secara terprogram, sehingga skema bisa dibangun ulang secara konsisten di mesin mana pun.
+</div>
+
+- Perlakukan migrasi seperti version control untuk skema: perubahan baru = berkas migrasi baru, jangan mengubah migrasi lama yang sudah dijalankan di tempat lain
+- Opsi `--seed` mengisi tabel dengan data contoh yang realistis untuk latihan dan demonstrasi
+
+---
+
 ## Struktur Folder Laravel = Wujud MVC
 
 | Folder | Peran MVC | Isi |
@@ -375,24 +468,11 @@ Sebelum lanjut, pastikan empat alat berikut sudah terpasang: <code>php -v</code>
 | `routes/web.php` | Controller | Pendaftaran alamat URL |
 | `app/Http/Controllers/` | Controller | Kelas pemroses request |
 | `database/migrations/` | Model | Definisi skema basis data |
-| `resources/views/` | View | Berkas Blade (mulai Bab 3) |
+| `resources/views/` | View | Berkas Blade (Pertemuan 3) |
 | `vendor/` | &mdash; | Paket Composer, tidak di-commit |
 
 <div class="tip-box">
 Struktur ini bukan kebetulan &mdash; ia mewujudkan pola MVC yang sama dengan diagram alur request sebelumnya.
-</div>
-
----
-
-## Konvensi `increment N`
-
-- Repositori Simple POS tumbuh **commit demi commit**, masing-masing diberi label `increment N`
-- Increment 1 = kerangka proyek kosong hasil `composer create-project`
-- Urutan increment mengikuti urutan bab buku ini
-- Membaca riwayat commit = membaca buku ini bab demi bab, dalam bentuk kode
-
-<div class="tip-box">
-Langkah <code>git init</code>, commit pertama, dan penjelasan lengkap konvensi ini ada di buku.
 </div>
 
 ---
@@ -403,7 +483,9 @@ Langkah <code>git init</code>, commit pertama, dan penjelasan lengkap konvensi i
 
 - Laravel dipilih sebagai kerangka kerja Simple POS karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup &mdash; satu berkas, tanpa server terpisah
 
-- Struktur folder Laravel mewujudkan pola **MVC**; konvensi commit `increment N` memetakan pertumbuhan aplikasi bab demi bab, selaras dengan urutan buku
+- **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram
+
+- Struktur folder Laravel mewujudkan pola **MVC**, memisahkan tanggung jawab routing, logika bisnis, dan tampilan secara konsisten
 
 ---
 
@@ -413,6 +495,6 @@ Langkah <code>git init</code>, commit pertama, dan penjelasan lengkap konvensi i
 
 Dokumentasi resmi Laravel &middot; Manual PHP
 
-Kode lengkap: `github.com/dhanifudin/simple-pos`, branch `chapter-01`
+Kode lengkap: `github.com/dhanifudin/simple-pos`
 
 **Pertemuan berikutnya:** HTTP & Arsitektur MVC
