@@ -1,16 +1,15 @@
 # Build slides + jobsheets from source and publish to GitHub Pages.
 #
-# Runs on the same self-hosted macOS runner as release-book.yml. One-time
-# setup on that runner (not automated here -- a persistent machine, not a
-# fresh VM per run):
-#   brew install node pandoc
-#   brew install --cask font-symbola
-#   # MacTeX/BasicTeX with lualatex already present for the book workflow;
-#   # if BasicTeX only: sudo tlmgr install luaotfload fvextra framed newunicodechar
-#   # Google Chrome (or Edge/Chromium) installed, for marp's PDF export
+# Runs on GitHub-hosted `ubuntu-latest` runners -- a fresh VM per run, so
+# every dependency (LaTeX toolchain, emoji font) is installed inline below
+# rather than assumed pre-installed. Slide decks are rendered via the
+# official marpteam/marp-cli Docker image (ubuntu-latest ships Docker by
+# default) instead of `npx @marp-team/marp-cli` directly, since that image
+# bundles its own Chromium for PDF export -- no system browser to manage.
 #
-# Repo Settings -> Pages -> Source must be set to "GitHub Actions" once
-# (requires the repo be public, or GitHub Enterprise, for org repos).
+# One-time manual step: repo Settings -> Pages -> Source must be set to
+# "GitHub Actions" (requires the repo be public, or GitHub Enterprise, for
+# org repos).
 
 name: Deploy Pages (Slides & Jobsheets)
 
@@ -36,43 +35,43 @@ concurrency:
 jobs:
   build:
     name: Build site
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Preflight - verify required tools are installed
+      - name: Install jobsheet toolchain (pandoc + LaTeX + emoji font)
         run: |
-          missing=0
-          for tool in node npx pandoc lualatex; do
-            if ! command -v "$tool" >/dev/null 2>&1; then
-              echo "::error::Missing required tool on this runner: $tool"
-              missing=1
-            fi
-          done
-          if ! fc-list | grep -qiE 'segoe ui emoji|symbola'; then
-            echo "::error::No emoji-capable font found (need Segoe UI Emoji or Symbola)."
-            echo "::error::Install with: brew install --cask font-symbola"
-            missing=1
-          fi
-          if [ "$missing" -eq 1 ]; then
-            echo "::error::Runner is missing prerequisites -- see comments at the top of this workflow file."
-            exit 1
-          fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pandoc texlive-luatex texlive-latex-recommended \
+            texlive-latex-extra texlive-fonts-recommended \
+            fonts-dejavu fonts-symbola
 
       - name: Prepare output directory
         run: |
           rm -rf _site
           mkdir -p _site/slides _site/jobsheets
 
+      - name: Pull Marp CLI image
+        run: docker pull marpteam/marp-cli
+
       - name: Build slide decks
         run: |
+          # marpteam/marp-cli's entrypoint prepends `node` to whatever args
+          # `docker run` is given, expecting the image's default CMD (the
+          # marp-cli.js path) to still be first -- but passing our own args
+          # replaces CMD entirely per normal `docker run` semantics, so the
+          # script path has to be supplied explicitly here (confirmed by
+          # testing locally: omitting it silently no-ops instead of erroring).
           shopt -s nullglob
           for md in slides/bab*.md; do
             slug="$(basename "$md" .md)"
             echo "==> $slug"
-            npx --yes @marp-team/marp-cli "$md" --html -o "_site/slides/${slug}.html"
-            npx --yes @marp-team/marp-cli "$md" --pdf --allow-local-files -o "_site/slides/${slug}.pdf"
+            docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
+              marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --html --allow-local-files -o "_site/slides/${slug}.html"
+            docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
+              marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --pdf --allow-local-files -o "_site/slides/${slug}.pdf"
           done
 
       - name: Build jobsheets
@@ -98,7 +97,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
