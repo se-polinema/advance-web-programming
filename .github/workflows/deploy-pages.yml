@@ -1,0 +1,108 @@
+# Build slides + jobsheets from source and publish to GitHub Pages.
+#
+# Runs on the same self-hosted macOS runner as release-book.yml. One-time
+# setup on that runner (not automated here -- a persistent machine, not a
+# fresh VM per run):
+#   brew install node pandoc
+#   brew install --cask font-symbola
+#   # MacTeX/BasicTeX with lualatex already present for the book workflow;
+#   # if BasicTeX only: sudo tlmgr install luaotfload fvextra framed newunicodechar
+#   # Google Chrome (or Edge/Chromium) installed, for marp's PDF export
+#
+# Repo Settings -> Pages -> Source must be set to "GitHub Actions" once
+# (requires the repo be public, or GitHub Enterprise, for org repos).
+
+name: Deploy Pages (Slides & Jobsheets)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'slides/**'
+      - 'jobsheets/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build site
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preflight - verify required tools are installed
+        run: |
+          missing=0
+          for tool in node npx pandoc lualatex; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::error::Missing required tool on this runner: $tool"
+              missing=1
+            fi
+          done
+          if ! fc-list | grep -qiE 'segoe ui emoji|symbola'; then
+            echo "::error::No emoji-capable font found (need Segoe UI Emoji or Symbola)."
+            echo "::error::Install with: brew install --cask font-symbola"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            echo "::error::Runner is missing prerequisites -- see comments at the top of this workflow file."
+            exit 1
+          fi
+
+      - name: Prepare output directory
+        run: |
+          rm -rf _site
+          mkdir -p _site/slides _site/jobsheets
+
+      - name: Build slide decks
+        run: |
+          shopt -s nullglob
+          for md in slides/bab*.md; do
+            slug="$(basename "$md" .md)"
+            echo "==> $slug"
+            npx --yes @marp-team/marp-cli "$md" --html -o "_site/slides/${slug}.html"
+            npx --yes @marp-team/marp-cli "$md" --pdf --allow-local-files -o "_site/slides/${slug}.pdf"
+          done
+
+      - name: Build jobsheets
+        working-directory: jobsheets
+        run: ./build.sh
+
+      - name: Copy jobsheet outputs
+        run: |
+          cp jobsheets/build/*.pdf _site/jobsheets/
+          cp jobsheets/pertemuan-*.md _site/jobsheets/
+
+      - name: Generate index page
+        run: ./scripts/build-pages-index.sh _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: [self-hosted, macOS, ARM64]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

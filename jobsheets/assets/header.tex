@@ -1,0 +1,49 @@
+% Pandoc LaTeX header include for jobsheet PDFs (lualatex).
+
+% Emoji fallback so callout markers (checkpoint, warning) render instead of
+% showing as tofu boxes: DejaVu Sans (the body font) doesn't cover emoji.
+% Map each emoji codepoint used in the jobsheets to a glyph pulled from a
+% font that does cover it, via newunicodechar (more reliable under lualatex
+% than a blanket fontspec fallback feature).
+%
+% Font choice varies by machine, so fall back down a chain instead of
+% hardcoding one: Segoe UI Emoji (present on this dev machine) -> Symbola
+% (monochrome, installed via `brew install --cask font-symbola` on the
+% self-hosted macOS CI runner -- avoid Apple Color Emoji, its sbix color
+% glyphs render poorly under lualatex) -> DejaVu Sans as a last resort
+% (covers warning-sign ⚠ but not the checkmark ✅, which would tofu there).
+\usepackage{fontspec}
+\IfFontExistsTF{Segoe UI Emoji}
+  {\newfontfamily{\emojifont}{Segoe UI Emoji}}
+  {\IfFontExistsTF{Symbola}
+    {\newfontfamily{\emojifont}{Symbola}}
+    {\newfontfamily{\emojifont}{DejaVu Sans}}}
+\usepackage{newunicodechar}
+\newunicodechar{✅}{{\emojifont ✅}}
+\newunicodechar{⚠}{{\emojifont ⚠}}
+% U+FE0F (variation selector-16, often trailing "⚠️") has no visible glyph
+% of its own — drop it instead of leaving it unmapped.
+\newunicodechar{️}{}
+
+% Style blockquotes (used for "Checkpoint" / "Jika gagal" callouts) as a
+% light-gray left-rule box instead of plain indented italics. \FrameCommand
+% is redefined only inside a local group scoped to \quote, so it doesn't
+% leak into pandoc's own Shaded/snugshade environment used for code blocks
+% (both are built on the framed package and share that command globally).
+\usepackage{framed}
+\usepackage{xcolor}
+\definecolor{calloutrule}{HTML}{94A3B8}
+\definecolor{calloutbg}{HTML}{F8FAFC}
+\renewenvironment{quote}
+  {\begingroup
+   \def\FrameCommand{{\color{calloutrule}\vrule width 3pt}\colorbox{calloutbg}}
+   \setlength{\FrameSep}{8pt}
+   \begin{leftbar}}
+  {\end{leftbar}\endgroup}
+
+% Keep code blocks from overflowing the page width. fvset (rather than
+% redefining the Highlighting environment outright) preserves pandoc's own
+% commandchars setup, which is what lets syntax-highlighting token commands
+% inside code blocks be interpreted instead of printed literally.
+\usepackage{fvextra}
+\fvset{breaklines=true, breakanywhere=true, fontsize=\small}

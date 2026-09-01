@@ -495,6 +495,6 @@ Struktur ini bukan kebetulan &mdash; ia mewujudkan pola MVC yang sama dengan dia
 
 Dokumentasi resmi Laravel &middot; Manual PHP
 
-Kode lengkap: `github.com/dhanifudin/simple-pos`
+Kode lengkap: `github.com/se-polinema/simple-pos`
 
 **Pertemuan berikutnya:** HTTP & Arsitektur MVC
