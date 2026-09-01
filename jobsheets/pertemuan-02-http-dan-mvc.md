@@ -1,4 +1,4 @@
-# Jobsheet Praktikum — Pertemuan 2
+# Jobsheet Praktikum: Pertemuan 2
 ## Route, Controller, dan Mengamati HTTP secara Langsung
 
 | | |
@@ -7,8 +7,8 @@
 | **Pertemuan** | 2 (Minggu 2) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK 1: Mahasiswa mampu memahami konsep dasar web framework serta menerapkan routing, controller, dan pengelolaan basis data dalam pengembangan aplikasi web. |
-| **Kode Awal** | branch `meeting-02-start` di `github.com/se-polinema/simple-pos` |
-| **Kode Akhir** | branch `meeting-02-end` di `github.com/se-polinema/simple-pos` |
+| **Kode Awal** | branch `chapter-01` di `github.com/se-polinema/simple-pos` |
+| **Kode Akhir** | branch `chapter-02` di `github.com/se-polinema/simple-pos` |
 
 ## A. Capaian Praktikum
 
@@ -24,7 +24,7 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
 - **Alat**: sama seperti Pertemuan 1 (PHP 8.2+, Composer, Node.js, Git), ditambah `curl` (sudah tersedia bawaan di macOS/Linux; di Windows tersedia lewat PowerShell modern atau Git Bash).
 - **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari Pertemuan 1. Kalau tertinggal atau proyekmu bermasalah, mulai dari kode awal pertemuan ini:
   ```bash
-  git clone -b meeting-02-start https://github.com/se-polinema/simple-pos.git
+  git clone -b chapter-01 https://github.com/se-polinema/simple-pos.git
   cd simple-pos
   composer install
   npm install
@@ -86,7 +86,7 @@ Sekarang buka alamat yang sengaja tidak terdaftar, mis. `http://127.0.0.1:8000/t
 
 ### Langkah 3: Mengamati HTTP dengan curl
 
-DevTools menampilkan HTTP lewat antarmuka visual; `curl` menampilkannya sebagai teks mentah — cara yang sama dipakai untuk menguji API nantinya.
+DevTools menampilkan HTTP lewat antarmuka visual; `curl` menampilkannya sebagai teks mentah, cara yang sama dipakai untuk menguji API nantinya.
 
 ```bash
 curl -i http://127.0.0.1:8000/halo
@@ -181,7 +181,7 @@ Buka `http://127.0.0.1:8000/pos` dan `http://127.0.0.1:8000/transactions` di bro
 
 > ✅ **Checkpoint:** `/pos` menampilkan teks `Halaman kasir (belum ada tampilan)`; `/transactions` menampilkan teks `Daftar transaksi`.
 
-> ⚠️ **Jika gagal:** pesan error `Target class [TransactionController] does not exist` berarti baris `use App\Http\Controllers\TransactionController;` terlupa atau salah ketik — periksa kembali baris paling atas berkas.
+> ⚠️ **Jika gagal:** pesan error `Target class [TransactionController] does not exist` berarti baris `use App\Http\Controllers\TransactionController;` terlupa atau salah ketik. Periksa kembali baris paling atas berkas.
 
 ### Langkah 7: Memeriksa daftar route
 
@@ -191,7 +191,7 @@ Alih-alih membuka `routes/web.php` satu per satu untuk memastikan route terdafta
 php artisan route:list
 ```
 
-> ✅ **Checkpoint:** tabel menampilkan `GET /pos` dan `POST /pos` sebagai **dua baris terpisah**, meski alamatnya sama persis — keduanya dibedakan oleh method HTTP-nya, satu menampilkan formulir kasir, satu lagi memprosesnya.
+> ✅ **Checkpoint:** tabel menampilkan `GET /pos` dan `POST /pos` sebagai **dua baris terpisah**, meski alamatnya sama persis: keduanya dibedakan oleh method HTTP-nya, satu menampilkan formulir kasir, satu lagi memprosesnya.
 
 ### Langkah 8: Membungkus route dengan middleware `auth`
 
@@ -224,13 +224,13 @@ Route::middleware('auth')->group(function () {
 
 Muat ulang `http://127.0.0.1:8000/pos`.
 
-> ✅ **Checkpoint (ini bukan kesalahan — baca sampai selesai):** halaman menampilkan error `Route [login] not defined.` Ini justru **bukti bahwa middleware bekerja**: sebelum request sampai ke `TransactionController`, middleware `auth` memeriksa apakah pengirim sudah login, mendapati belum, lalu mencoba mengarahkan ke halaman login — yang belum dibuat sampai pertemuan tentang autentikasi nanti. Jalankan `php artisan route:list` sekali lagi dan perhatikan kolom middleware kini menampilkan `auth` di baris `/pos` dan `/transactions`.
+> ✅ **Checkpoint (ini bukan kesalahan, baca sampai selesai):** halaman menampilkan error `Route [login] not defined.` Ini justru **bukti bahwa middleware bekerja**: sebelum request sampai ke `TransactionController`, middleware `auth` memeriksa apakah pengirim sudah login, mendapati belum, lalu mencoba mengarahkan ke halaman login, yang belum dibuat sampai pertemuan tentang autentikasi nanti. Jalankan `php artisan route:list` sekali lagi dan perhatikan kolom middleware kini menampilkan `auth` di baris `/pos` dan `/transactions`.
 
-> ⚠️ **Jika gagal (dalam arti sesungguhnya):** kalau error yang muncul justru `Class "auth" does not exist` atau sejenisnya, periksa penulisan `Route::middleware('auth')` — nama middleware harus persis string `'auth'`, bukan nama class.
+> ⚠️ **Jika gagal (dalam arti sesungguhnya):** kalau error yang muncul justru `Class "auth" does not exist` atau sejenisnya, periksa penulisan `Route::middleware('auth')`: nama middleware harus persis string `'auth'`, bukan nama class.
 
 ### Langkah 9: Controller memproses sebelum merespons
 
-Controller tidak sekadar meneruskan request — ia bisa memproses data terlebih dahulu sebelum mengirim response. Ubah method `create()` di `TransactionController` untuk membuktikannya:
+Controller tidak sekadar meneruskan request: ia bisa memproses data terlebih dahulu sebelum mengirim response. Ubah method `create()` di `TransactionController` untuk membuktikannya:
 
 ```php
 public function create()
@@ -243,13 +243,13 @@ public function create()
 
 Muat ulang `/pos` dua kali dengan jeda beberapa detik.
 
-> ✅ **Checkpoint:** waktu yang ditampilkan berubah setiap reload — bukti bahwa controller menjalankan kode PHP baru setiap kali request masuk, bukan menampilkan halaman statis yang sama.
+> ✅ **Checkpoint:** waktu yang ditampilkan berubah setiap reload, bukti bahwa controller menjalankan kode PHP baru setiap kali request masuk, bukan menampilkan halaman statis yang sama.
 
 ### Langkah 10: Tantangan mandiri
 
 Tambahkan satu route baru `GET /pos/riwayat` pada `routes/web.php`, di dalam group middleware `auth` yang sama seperti route `/pos` lainnya, mengarah ke method baru bernama `riwayat` pada `TransactionController`. Method-nya cukup mengembalikan teks biasa, misalnya `return "Riwayat kasir";`.
 
-> ✅ **Checkpoint:** `php artisan route:list` menampilkan route barumu dengan alamat `pos/riwayat`, method `GET`, dan middleware `auth` — tanpa membuka `/pos/riwayat` di browser (karena akan menampilkan error `Route [login]` yang sama seperti Langkah 8, dan itu diharapkan).
+> ✅ **Checkpoint:** `php artisan route:list` menampilkan route barumu dengan alamat `pos/riwayat`, method `GET`, dan middleware `auth`, tanpa membuka `/pos/riwayat` di browser (karena akan menampilkan error `Route [login]` yang sama seperti Langkah 8, dan itu diharapkan).
 
 ### Langkah 11: Commit `increment 2`
 
@@ -259,7 +259,7 @@ git commit -m "increment 2: route dan controller transaksi"
 git log --oneline
 ```
 
-> ✅ **Checkpoint:** `git log --oneline` menampilkan dua baris — `increment 2: ...` di atas, `increment 1: ...` di bawahnya.
+> ✅ **Checkpoint:** `git log --oneline` menampilkan dua baris: `increment 2: ...` di atas, `increment 1: ...` di bawahnya.
 
 ## D. Tugas dan Deliverable
 

@@ -1,4 +1,4 @@
-# Jobsheet Praktikum — Pertemuan N
+# Jobsheet Praktikum: Pertemuan N
 ## <Judul Topik Pertemuan>
 
 | | |
@@ -7,17 +7,24 @@
 | **Pertemuan** | N (Minggu N) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK X: <salin deskripsi dari `book/docs/rps-reference.md`> |
-| **Kode Awal** | branch `meeting-NN-start` di `github.com/se-polinema/simple-pos` |
-| **Kode Akhir** | branch `meeting-NN-end` di `github.com/se-polinema/simple-pos` |
+| **Kode Awal** | branch `chapter-(NN-1)` di `github.com/se-polinema/simple-pos` (hasil akhir pertemuan sebelumnya) |
+| **Kode Akhir** | branch `chapter-NN` di `github.com/se-polinema/simple-pos` |
 
 <!--
 Catatan penulisan (hapus komentar ini di jobsheet final):
 - Bahasa Indonesia, sapaan "kamu", nada sama seperti materi kelas.
-- Jangan menyebut "buku" atau "Bab N" — pakai framing "Pertemuan N" saja.
+- Jangan menyebut "buku" atau "Bab N". Pakai framing "Pertemuan N" saja.
 - Pertemuan 1 tidak punya baris "Kode Awal" (proyek dibuat dari nol).
+- Repo `se-polinema/simple-pos` punya satu branch kumulatif per chapter
+  (`chapter-01`..`chapter-09` saat ini, masing-masing dibangun di atas
+  chapter sebelumnya, tanpa pasangan start/end terpisah). Nomor Pertemuan
+  dan nomor chapter sama persis hanya sampai Pertemuan 7; setelah itu
+  urutannya menyimpang (lihat tabel pemetaan Minggu->Bab di
+  `book/docs/book-plan.md`) -- jangan asumsikan pertemuan-NN = chapter-NN
+  begitu saja untuk Pertemuan 8 ke atas, dan chapter di atas 09 belum ada.
 - Setiap langkah: narasi singkat "mengapa" sebelum perintah, lalu blok kode,
   lalu Checkpoint, lalu (bila relevan) blok "Jika gagal".
-- Tampilkan ISI PENUH berkas yang diedit, bukan potongan — mahasiswa harus
+- Tampilkan ISI PENUH berkas yang diedit, bukan potongan: mahasiswa harus
   bisa menyalin langsung tanpa menebak bagian yang hilang.
 -->
 
@@ -25,7 +32,7 @@ Catatan penulisan (hapus komentar ini di jobsheet final):
 
 Setelah menyelesaikan jobsheet ini, kamu mampu:
 
-1. <capaian 1 — kata kerja aktif, terukur>
+1. <capaian 1: kata kerja aktif, terukur>
 2. <capaian 2>
 3. <capaian 3>
 
@@ -34,7 +41,7 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
 - **Alat**: <daftar versi minimum yang dibutuhkan>
 - **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari pertemuan sebelumnya. Kalau tertinggal atau proyekmu bermasalah, mulai dari kode awal pertemuan ini:
   ```bash
-  git clone -b meeting-NN-start https://github.com/se-polinema/simple-pos.git
+  git clone -b chapter-(NN-1) https://github.com/se-polinema/simple-pos.git
   cd simple-pos
   ```
 - **Verifikasi cepat** sebelum mulai:

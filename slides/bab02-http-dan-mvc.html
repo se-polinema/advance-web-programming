@@ -1117,7 +1117,7 @@ pre {
 </div>
 </div>
 <div class="warn-box">
-Kalau penyortiran keliru &mdash; mis. permintaan hapus produk diteruskan tanpa memeriksa apakah pengirimnya admin &mdash; aplikasi kehilangan kendali atas siapa yang boleh mengubah apa.
+Kalau penyortiran keliru (mis. permintaan hapus produk diteruskan tanpa memeriksa apakah pengirimnya admin), aplikasi kehilangan kendali atas siapa yang boleh mengubah apa.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="5" data-paginate="true" data-theme="default" data-style="section {
@@ -1394,7 +1394,7 @@ pre {
 </div>
 <ul>
 <li>Setiap request selalu membawa sebuah <strong>method</strong> yang menyatakan maksud permintaan</li>
-<li>Method inilah yang menentukan route mana yang cocok — bukan alamat URL saja</li>
+<li>Method inilah yang menentukan route mana yang cocok, bukan alamat URL saja</li>
 </ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="6" data-paginate="true" data-theme="default" data-style="section {
@@ -1964,14 +1964,14 @@ pre {
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="aturan-main-method-aman--idempoten">Aturan Main Method: Aman &amp; Idempoten</h2>
 <div class="term-box">
-<b>Aman (safe):</b> method yang tidak mengubah apa pun di server &mdash; <code>GET</code>, <code>HEAD</code>. <b>Idempoten:</b> method yang hasilnya sama meski dikirim berulang &mdash; <code>GET</code>, <code>PUT</code>, <code>DELETE</code>; sedangkan <code>POST</code> tidak.
+<b>Aman (safe):</b> method yang tidak mengubah apa pun di server: <code>GET</code>, <code>HEAD</code>. <b>Idempoten:</b> method yang hasilnya sama meski dikirim berulang: <code>GET</code>, <code>PUT</code>, <code>DELETE</code>; sedangkan <code>POST</code> tidak.
 </div>
 <ul>
-<li>Browser &amp; server berasumsi aturan ini dipatuhi — refresh, tombol back, dan cache semuanya bergantung padanya</li>
-<li><code>POST</code> tidak idempoten — inilah alasan pola kirim-lalu-redirect di slide berikutnya diperlukan</li>
+<li>Browser &amp; server berasumsi aturan ini dipatuhi: refresh, tombol back, dan cache semuanya bergantung padanya</li>
+<li><code>POST</code> tidak idempoten, inilah alasan pola kirim-lalu-redirect di slide berikutnya diperlukan</li>
 </ul>
 <div class="warn-box">
-Aturan ketat: <code>GET</code> tidak boleh mengubah data di server. Melanggar aturan ini membuat perilaku aplikasi sulit ditebak &mdash; mis. me-refresh halaman tanpa sengaja menghapus data.
+Aturan ketat: <code>GET</code> tidak boleh mengubah data di server. Melanggar aturan ini membuat perilaku aplikasi sulit ditebak, mis. me-refresh halaman tanpa sengaja menghapus data.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="8" data-paginate="true" data-theme="default" data-style="section {
@@ -2251,7 +2251,7 @@ pre {
   <div class="box">Response</div>
 </div>
 <div class="tip-box" style="margin-top:30px;">
-Response selalu membawa <b>status code</b>, angka tiga digit yang menyatakan hasil permintaan secara ringkas &mdash; sebelum satu byte pun dari isinya dibaca.
+Response selalu membawa <b>status code</b>, angka tiga digit yang menyatakan hasil permintaan secara ringkas, sebelum satu byte pun dari isinya dibaca.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="9" data-paginate="true" data-theme="default" data-style="section {
@@ -2520,7 +2520,7 @@ pre {
 }
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="lima-kelas-status-code">Lima Kelas Status Code</h2>
-<p>Ratusan status code dikelompokkan lewat digit pertamanya — kamu cukup hafal lima kelasnya, bukan setiap kodenya.</p>
+<p>Ratusan status code dikelompokkan lewat digit pertamanya: kamu cukup hafal lima kelasnya, bukan setiap kodenya.</p>
 <table>
 <thead>
 <tr>
@@ -2533,7 +2533,7 @@ pre {
 <tr>
 <td><code>1xx</code></td>
 <td>Informational</td>
-<td>&quot;Diterima, masih diproses&quot; — jarang kamu temui langsung</td>
+<td>&quot;Diterima, masih diproses&quot;, jarang kamu temui langsung</td>
 </tr>
 <tr>
 <td><code>2xx</code></td>
@@ -3139,7 +3139,7 @@ pre {
   <div class="box">GET /transactions/{id}</div>
 </div>
 <div class="tip-box" style="margin-top:30px;">
-Setelah <code>POST /pos</code> berhasil menyimpan transaksi, server tidak langsung mengirim HTML sebagai jawaban &mdash; ia mengirim response 302 berisi header <code>Location</code> yang memerintahkan browser meminta ulang ke alamat lain.
+Setelah <code>POST /pos</code> berhasil menyimpan transaksi, server tidak langsung mengirim HTML sebagai jawaban: ia mengirim response 302 berisi header <code>Location</code> yang memerintahkan browser meminta ulang ke alamat lain.
 </div>
 <ul>
 <li>Pola ini berulang di hampir setiap fitur tulis-data</li>
@@ -3419,19 +3419,19 @@ pre {
 <div>
 <p><strong>Header request</strong> (browser → server)</p>
 <ul>
-<li><code>Content-Type</code> — format data yang dikirim</li>
-<li><code>Accept</code> — format jawaban yang diinginkan</li>
-<li><code>Authorization</code> — token identitas pengirim</li>
-<li><code>Cookie</code> — data sesi yang dikirim balik</li>
+<li><code>Content-Type</code>: format data yang dikirim</li>
+<li><code>Accept</code>: format jawaban yang diinginkan</li>
+<li><code>Authorization</code>: token identitas pengirim</li>
+<li><code>Cookie</code>: data sesi yang dikirim balik</li>
 </ul>
 </div>
 <div>
 <p><strong>Header response</strong> (server → browser)</p>
 <ul>
-<li><code>Content-Type</code> — format isi jawaban</li>
-<li><code>Location</code> — alamat tujuan redirect</li>
-<li><code>Set-Cookie</code> — server menitipkan data sesi</li>
-<li><code>Cache-Control</code> — boleh-tidaknya jawaban disimpan</li>
+<li><code>Content-Type</code>: format isi jawaban</li>
+<li><code>Location</code>: alamat tujuan redirect</li>
+<li><code>Set-Cookie</code>: server menitipkan data sesi</li>
+<li><code>Cache-Control</code>: boleh-tidaknya jawaban disimpan</li>
 </ul>
 </div>
 </div>
@@ -4517,7 +4517,7 @@ pre {
   color: #1d4ed8;
 }
 ;" data-marpit-pagination-total="31" data-size="16:9">
-<h2 id="model--view--controller">Model — View — Controller</h2>
+<h2 id="model-view-dan-controller">Model, View, dan Controller</h2>
 <div class="term-box">
 <b>MVC:</b> Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
 </div>
@@ -4540,7 +4540,7 @@ pre {
 </div>
 </div>
 <div class="warn-box">
-Framework tidak memaksa aturan ini &mdash; query di dalam view tetap bisa jalan. Pola ini adalah disiplin yang dijaga penulis kodenya sendiri.
+Framework tidak memaksa aturan ini: query di dalam view tetap bisa jalan. Pola ini adalah disiplin yang dijaga penulis kodenya sendiri.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="17" data-paginate="true" data-theme="default" data-style="section {
@@ -4819,24 +4819,24 @@ pre {
 <tbody>
 <tr>
 <td><code>routes/web.php</code></td>
-<td>Controller — pendaftaran alamat URL</td>
+<td>Controller: pendaftaran alamat URL</td>
 </tr>
 <tr>
 <td><code>app/Http/Controllers/</code></td>
-<td>Controller — kelas pemroses request</td>
+<td>Controller: kelas pemroses request</td>
 </tr>
 <tr>
 <td><code>app/Models/</code></td>
-<td>Model — representasi data &amp; aturan bisnis</td>
+<td>Model: representasi data &amp; aturan bisnis</td>
 </tr>
 <tr>
 <td><code>resources/views/</code></td>
-<td>View — tampilan yang dilihat pengguna</td>
+<td>View: tampilan yang dilihat pengguna</td>
 </tr>
 </tbody>
 </table>
 <div class="tip-box">
-Struktur folder ini bukan kebetulan &mdash; ia mewujudkan pola MVC secara konsisten sejak proyek pertama kali dibuat.
+Struktur folder ini bukan kebetulan: ia mewujudkan pola MVC secara konsisten sejak proyek pertama kali dibuat.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="18" data-paginate="true" data-theme="default" data-style="section {
@@ -5109,7 +5109,7 @@ pre {
 <b>MVVM (Model-View-ViewModel):</b> menyisipkan ViewModel di antara Model dan View; ViewModel menyimpan state tampilan dan otomatis menyinkronkannya ke View lewat binding dua arah.
 </div>
 <ul>
-<li>Populer pada aplikasi antarmuka <strong>reaktif</strong> — tampilan berubah terus-menerus tanpa reload halaman</li>
+<li>Populer pada aplikasi antarmuka <strong>reaktif</strong>: tampilan berubah terus-menerus tanpa reload halaman</li>
 <li>Lebih relevan untuk framework frontend (mis. Vue) dibanding aplikasi server-rendered seperti Simple POS saat ini</li>
 </ul>
 </section>
@@ -5387,7 +5387,7 @@ pre {
 <li>Ongkos: lapisan abstraksi tambahan yang perlu dirawat</li>
 </ul>
 <div class="warn-box">
-Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang belum sepadan manfaatnya &mdash; MVC bawaan Laravel sudah cukup rapi.
+Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang belum sepadan manfaatnya. MVC bawaan Laravel sudah cukup rapi.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="20" data-paginate="true" data-theme="default" data-style="section {
@@ -6509,7 +6509,7 @@ pre {
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php"><span class="hljs-title class_">Route</span>::<span class="hljs-title function_ invoke__">get</span>(<span class="hljs-string">&#x27;/transactions/{id}&#x27;</span>, [<span class="hljs-title class_">TransactionController</span>::<span class="hljs-variable language_">class</span>, <span class="hljs-string">&#x27;show&#x27;</span>]);
 </code></pre>
 <ul>
-<li><code>/transactions/1</code>, <code>/transactions/2</code>, <code>/transactions/9999</code> — satu route melayani semuanya</li>
+<li><code>/transactions/1</code>, <code>/transactions/2</code>, <code>/transactions/9999</code>: satu route melayani semuanya</li>
 <li>Nilai <code>{id}</code> diterima method <code>show</code> sebagai argumen</li>
 <li>ID yang tidak ada → <strong>404</strong> (lihat kembali tabel status code di Bagian 1)</li>
 </ul>
@@ -6789,9 +6789,9 @@ pre {
     -&gt;<span class="hljs-title function_ invoke__">name</span>(<span class="hljs-string">&#x27;transactions.store&#x27;</span>);
 </code></pre>
 <ul>
-<li><code>GET /pos</code> dan <code>POST /pos</code> adalah <strong>dua route berbeda</strong> meski alamatnya sama — dibedakan oleh method-nya</li>
-<li>Link/redirect ditulis <code>route('pos.create')</code> — alamat berubah dari <code>/pos</code> ke <code>/kasir</code>? Tidak ada pemanggil yang perlu diedit</li>
-<li>Konvensi penamaan: <code>sumber.aksi</code> — <code>transactions.index</code>, <code>transactions.store</code>, dst.</li>
+<li><code>GET /pos</code> dan <code>POST /pos</code> adalah <strong>dua route berbeda</strong> meski alamatnya sama, dibedakan oleh method-nya</li>
+<li>Link/redirect ditulis <code>route('pos.create')</code>. Alamat berubah dari <code>/pos</code> ke <code>/kasir</code>? Tidak ada pemanggil yang perlu diedit</li>
+<li>Konvensi penamaan: <code>sumber.aksi</code>, contoh <code>transactions.index</code>, <code>transactions.store</code>, dst.</li>
 </ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="25" data-paginate="true" data-theme="default" data-style="section {
@@ -7061,7 +7061,7 @@ pre {
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="route-group-aturan-yang-dibagikan-bersama">Route Group: Aturan yang Dibagikan Bersama</h2>
 <div class="term-box">
-<b>Route group:</b> membungkus beberapa route agar berbagi middleware, prefix alamat, atau prefix nama yang sama &mdash; ditulis sekali, berlaku untuk semuanya.
+<b>Route group:</b> membungkus beberapa route agar berbagi middleware, prefix alamat, atau prefix nama yang sama, ditulis sekali, berlaku untuk semuanya.
 </div>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php"><span class="hljs-title class_">Route</span>::<span class="hljs-title function_ invoke__">middleware</span>(<span class="hljs-string">&#x27;auth&#x27;</span>)-&gt;<span class="hljs-title function_ invoke__">group</span>(function () {
     <span class="hljs-title class_">Route</span>::<span class="hljs-title function_ invoke__">get</span>(<span class="hljs-string">&#x27;/pos&#x27;</span>, [<span class="hljs-title class_">TransactionController</span>::<span class="hljs-variable language_">class</span>, <span class="hljs-string">&#x27;create&#x27;</span>])
@@ -7340,7 +7340,7 @@ pre {
 }
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="resource-controller-tujuh-aksi-konvensi">Resource Controller: Tujuh Aksi Konvensi</h2>
-<p>Fitur CRUD apa pun selalu butuh tujuh aksi yang sama — Laravel membakukannya jadi konvensi nama method controller.</p>
+<p>Fitur CRUD apa pun selalu butuh tujuh aksi yang sama. Laravel membakukannya jadi konvensi nama method controller.</p>
 <table class="small">
 <tr><th>Aksi</th><th>Method</th><th>URL</th><th>Tugas</th></tr>
 <tr><td><code>index</code></td><td>GET</td><td><code>/products</code></td><td>Daftar semua produk</td></tr>
@@ -7626,7 +7626,7 @@ pre {
 <li>Konvensi yang sama di setiap fitur membuat siapa pun di tim langsung tahu di mana sebuah aksi berada</li>
 </ul>
 <div class="tip-box">
-Perintah <code>php artisan route:list</code> menampilkan tabel seluruh route yang terdaftar &mdash; method, URL, nama, dan middleware-nya &mdash; tanpa membuka berkas route satu per satu.
+Perintah <code>php artisan route:list</code> menampilkan tabel seluruh route yang terdaftar (method, URL, nama, dan middleware-nya) tanpa membuka berkas route satu per satu.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="28" data-paginate="true" data-theme="default" data-style="section {
@@ -7896,12 +7896,12 @@ pre {
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="single-action-controller">Single-Action Controller</h2>
 <div class="term-box">
-<b>Single-action controller:</b> controller dengan satu method <code>__invoke()</code> untuk satu tugas tunggal &mdash; dipakai ketika sebuah aksi tidak masuk akal digabung ke tujuh aksi resource.
+<b>Single-action controller:</b> controller dengan satu method <code>__invoke()</code> untuk satu tugas tunggal, dipakai ketika sebuah aksi tidak masuk akal digabung ke tujuh aksi resource.
 </div>
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php"><span class="hljs-title class_">Route</span>::<span class="hljs-title function_ invoke__">get</span>(<span class="hljs-string">&#x27;/transactions/{id}/receipt&#x27;</span>, <span class="hljs-title class_">PrintReceiptController</span>::<span class="hljs-variable language_">class</span>);
 </code></pre>
 <ul>
-<li>Mencetak struk transaksi bukan <code>show</code>, bukan <code>update</code> — ia aksi berdiri sendiri</li>
+<li>Mencetak struk transaksi bukan <code>show</code>, bukan <code>update</code>: ia aksi berdiri sendiri</li>
 <li>Route-nya menunjuk class-nya langsung, tanpa nama method</li>
 <li>Tanda kamu membutuhkannya: sebuah aksi terus &quot;dipaksakan&quot; masuk ke method resource yang tidak pas</li>
 </ul>
@@ -8173,13 +8173,13 @@ pre {
 ;" data-marpit-pagination-total="31" data-size="16:9">
 <h2 id="prinsip-thin-controller">Prinsip Thin Controller</h2>
 <div class="term-box">
-<b>Thin controller:</b> controller hanya mengurus alur &mdash; menerima request, memanggil pihak yang tepat, memilih response. Aturan bisnis tinggal di Model (atau lapisan service), bukan di controller.
+<b>Thin controller:</b> controller hanya mengurus alur: menerima request, memanggil pihak yang tepat, memilih response. Aturan bisnis tinggal di Model (atau lapisan service), bukan di controller.
 </div>
 <div class="cols">
 <div>
 <p><strong>Controller gemuk (hindari)</strong></p>
 <ul>
-<li>Hitung total, kurangi stok, validasi, format tampilan — semua di satu method</li>
+<li>Hitung total, kurangi stok, validasi, format tampilan: semua di satu method</li>
 <li>Sulit diuji, sulit dipakai ulang</li>
 </ul>
 </div>
@@ -8192,7 +8192,7 @@ pre {
 </div>
 </div>
 <div class="warn-box">
-Ingat aturan dari Bagian 2: menyentuh data &rarr; Model, mengatur alur &rarr; Controller. Controller gemuk adalah pelanggaran pelan-pelan terhadap MVC &mdash; tiap baris terasa kecil, sampai suatu hari method <code>store</code>-mu 200 baris.
+Ingat aturan dari Bagian 2: menyentuh data &rarr; Model, mengatur alur &rarr; Controller. Controller gemuk adalah pelanggaran pelan-pelan terhadap MVC: tiap baris terasa kecil, sampai suatu hari method <code>store</code>-mu 200 baris.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="30" data-paginate="true" data-theme="default" data-style="section {
@@ -8466,13 +8466,13 @@ pre {
 <p>Request membawa <strong>method</strong> (<code>GET</code>/<code>POST</code>/<code>PATCH</code>/<code>DELETE</code> + <code>PUT</code>/<code>HEAD</code>/<code>OPTIONS</code>); response membawa <strong>status code</strong> yang terbagi lima kelas (<code>1xx</code>–<code>5xx</code>); <strong>header</strong> membawa metadata di kedua arah</p>
 </li>
 <li>
-<p><strong>MVC</strong> memisahkan Model (data), View (tampilan), Controller (alur); <strong>MVVM</strong> untuk antarmuka reaktif; <strong>Clean Architecture</strong> untuk sistem besar — Laravel memetakan MVC langsung ke struktur foldernya</p>
+<p><strong>MVC</strong> memisahkan Model (data), View (tampilan), Controller (alur); <strong>MVVM</strong> untuk antarmuka reaktif; <strong>Clean Architecture</strong> untuk sistem besar. Laravel memetakan MVC langsung ke struktur foldernya</p>
 </li>
 <li>
 <p>Routing modern: <strong>route parameter</strong> (<code>{id}</code>), <strong>named route</strong> (<code>-&gt;name()</code>), <strong>route group</strong> (middleware/prefix bersama), dan <strong><code>Route::resource</code></strong> yang mendaftarkan tujuh aksi sekaligus</p>
 </li>
 <li>
-<p>Organisasi controller: <strong>resource controller</strong> untuk CRUD, <strong>single-action controller</strong> untuk aksi tunggal, dan prinsip <strong>thin controller</strong> — alur di controller, aturan bisnis di Model</p>
+<p>Organisasi controller: <strong>resource controller</strong> untuk CRUD, <strong>single-action controller</strong> untuk aksi tunggal, dan prinsip <strong>thin controller</strong>: alur di controller, aturan bisnis di Model</p>
 </li>
 </ul>
 </section>

@@ -240,10 +240,10 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 ## Apa itu Arsitektur Web?
 
 <div class="term-box">
-<b>Arsitektur web:</b> cara lapisan-lapisan aplikasi (antarmuka, logika bisnis, akses data) diorganisasi dan di-deploy &mdash; satu unit, atau banyak unit terpisah.
+<b>Arsitektur web:</b> cara lapisan-lapisan aplikasi (antarmuka, logika bisnis, akses data) diorganisasi dan di-deploy: satu unit, atau banyak unit terpisah.
 </div>
 
-- Pilihan arsitektur bukan sekadar teknis &mdash; ia menentukan berapa banyak proses deploy, titik gagal, dan komunikasi jaringan yang harus dikelola tim
+- Pilihan arsitektur bukan sekadar teknis: ia menentukan berapa banyak proses deploy, titik gagal, dan komunikasi jaringan yang harus dikelola tim
 - Arsitektur yang "lebih canggih" bukan berarti lebih baik: membangun food court untuk bisnis satu dapur hanya menghabiskan usaha untuk pipa penghubung, bukan fitur
 - Tiga gaya yang akan kita bandingkan: **monolith**, **microservices**, **serverless**
 
@@ -252,7 +252,7 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 ## Monolith
 
 <div class="term-box">
-<b>Monolith:</b> Aplikasi yang seluruh lapisannya &mdash; antarmuka, logika bisnis, akses data &mdash; berjalan dalam satu basis kode dan satu proses deploy.
+<b>Monolith:</b> Aplikasi yang seluruh lapisannya (antarmuka, logika bisnis, akses data) berjalan dalam satu basis kode dan satu proses deploy.
 </div>
 
 - Menambah fitur = menambah kode pada proyek yang sama
@@ -350,7 +350,7 @@ Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena kete
 <b>MVC (Model-View-Controller):</b> Model mengurus data, View mengurus tampilan, Controller mengurus alur permintaan di antara keduanya.
 </div>
 
-- Satu proyek PHP: routing, autentikasi, ORM, template &mdash; siap pakai
+- Satu proyek PHP: routing, autentikasi, ORM, template, siap pakai
 - Dibanding PHP polos: struktur MVC konsisten sejak baris kode pertama
 - Dibanding framework microservices-first: tetap produktif untuk tim 1&ndash;2 orang
 - Ekosistem paket kuat: **Sanctum** (API), **Excel** (impor/ekspor), **Cashier** (pembayaran)
@@ -380,7 +380,7 @@ Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena kete
 </div>
 
 <div class="tip-box">
-Satu pintu masuk berarti setiap request bisa diproses seragam sebelum sampai ke kode aplikasi &mdash; dasar dari routing, middleware, dan autentikasi terpusat.
+Satu pintu masuk berarti setiap request bisa diproses seragam sebelum sampai ke kode aplikasi: dasar dari routing, middleware, dan autentikasi terpusat.
 </div>
 
 ---
@@ -400,7 +400,7 @@ Satu pintu masuk berarti setiap request bisa diproses seragam sebelum sampai ke 
 </div>
 
 <div class="tip-box" style="margin-top:40px;">
-Pola alur ini berulang di setiap fitur Simple POS &mdash; dari halaman POS sederhana hingga endpoint REST API, semua mengikuti jalur yang sama.
+Pola alur ini berulang di setiap fitur Simple POS, dari halaman POS sederhana hingga endpoint REST API, semua mengikuti jalur yang sama.
 </div>
 
 ---
@@ -421,11 +421,11 @@ Sebelum lanjut, pastikan empat alat berikut sudah terpasang: <code>php -v</code>
 ## Composer & npm: Manajer Dependensi
 
 <div class="term-box">
-<b>Composer:</b> manajer dependensi PHP &mdash; membaca <code>composer.json</code>, mengunduh paket ke <code>vendor/</code>, lalu membuat <code>vendor/autoload.php</code>.
+<b>Composer:</b> manajer dependensi PHP yang membaca <code>composer.json</code>, mengunduh paket ke <code>vendor/</code>, lalu membuat <code>vendor/autoload.php</code>.
 </div>
 
-- Berkat <code>autoload.php</code>, setiap class langsung bisa dipakai &mdash; tidak perlu <code>require</code>/<code>include</code> manual seperti PHP polos
-- **npm** adalah rekannya di dunia JavaScript: `package.json` mendaftarkan paket, `node_modules/` menyimpannya &mdash; dipakai Laravel untuk Vite & Tailwind
+- Berkat <code>autoload.php</code>, setiap class langsung bisa dipakai, tidak perlu <code>require</code>/<code>include</code> manual seperti PHP polos
+- **npm** adalah rekannya di dunia JavaScript: `package.json` mendaftarkan paket, `node_modules/` menyimpannya, dipakai Laravel untuk Vite & Tailwind
 - Kedua folder (`vendor/`, `node_modules/`) hasil unduhan, tidak pernah di-commit ke Git
 
 ---
@@ -441,7 +441,7 @@ Sebelum lanjut, pastikan empat alat berikut sudah terpasang: <code>php -v</code>
 - Pemisahan ini memungkinkan konfigurasi berbeda per lingkungan (lokal, staging, produksi) tanpa mengubah kode
 
 <div class="warn-box">
-Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit &mdash; <code>.gitignore</code> bawaan Laravel sudah mengecualikannya.
+Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit. <code>.gitignore</code> bawaan Laravel sudah mengecualikannya.
 </div>
 
 ---
@@ -449,7 +449,7 @@ Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit 
 ## Artisan & Migrasi
 
 <div class="term-box">
-<b>Artisan:</b> CLI bawaan Laravel untuk tugas pengembangan sehari-hari (migrasi, seeding, membuat boilerplate) &mdash; alat bantu develop, bukan bagian dari aplikasi yang dilayani ke pengguna.
+<b>Artisan:</b> CLI bawaan Laravel untuk tugas pengembangan sehari-hari (migrasi, seeding, membuat boilerplate): alat bantu develop, bukan bagian dari aplikasi yang dilayani ke pengguna.
 </div>
 
 <div class="term-box">
@@ -469,10 +469,10 @@ Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit 
 | `app/Http/Controllers/` | Controller | Kelas pemroses request |
 | `database/migrations/` | Model | Definisi skema basis data |
 | `resources/views/` | View | Berkas Blade (Pertemuan 3) |
-| `vendor/` | &mdash; | Paket Composer, tidak di-commit |
+| `vendor/` | - | Paket Composer, tidak di-commit |
 
 <div class="tip-box">
-Struktur ini bukan kebetulan &mdash; ia mewujudkan pola MVC yang sama dengan diagram alur request sebelumnya.
+Struktur ini bukan kebetulan: ia mewujudkan pola MVC yang sama dengan diagram alur request sebelumnya.
 </div>
 
 ---
@@ -481,7 +481,7 @@ Struktur ini bukan kebetulan &mdash; ia mewujudkan pola MVC yang sama dengan dia
 
 - **Monolith** menyatukan seluruh lapisan dalam satu basis kode & satu deploy, cocok untuk skala Simple POS; **microservices** memecahnya dengan ongkos yang sepadan hanya untuk sistem besar; **serverless** cocok untuk beban kerja sporadis
 
-- Laravel dipilih sebagai kerangka kerja Simple POS karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup &mdash; satu berkas, tanpa server terpisah
+- Laravel dipilih sebagai kerangka kerja Simple POS karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup: satu berkas, tanpa server terpisah
 
 - **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram
 
