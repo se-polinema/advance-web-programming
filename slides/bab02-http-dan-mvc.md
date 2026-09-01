@@ -122,6 +122,20 @@ style: |
     position: absolute;
     bottom: 20px;
   }
+  .ref-link {
+    display: inline-block;
+    font-size: 0.62em;
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-left: 4px solid #93c5fd;
+    border-radius: 0 6px 6px 0;
+    padding: 6px 14px;
+    margin-top: 14px;
+  }
+  .ref-link code {
+    background: transparent;
+    color: #1d4ed8;
+  }
 ---
 
 <!-- _class: lead -->
@@ -141,7 +155,9 @@ Siklus Request/Response & Arsitektur Aplikasi Web
 
 2. Membandingkan pola **MVC**, **MVVM**, dan **Clean Architecture**, serta menjelaskan bagaimana Laravel mengimplementasikan MVC
 
-3. Mengenali peran **route**, **controller**, dan **middleware** dalam menangani sebuah permintaan web
+3. Mengenali peran **route**, **controller**, dan **middleware**, termasuk pola routing modern: **route parameter**, **named route**, **route group**, dan **resource routing**
+
+4. Menjelaskan cara mengorganisasi controller: **resource controller**, **single-action controller**, dan prinsip *thin controller*
 
 <div class="tip-box">
 Slide ini membahas konsep. Langkah menulis route, controller, dan middleware secara praktis dibahas terpisah di luar slide ini.
@@ -209,6 +225,21 @@ Kalau penyortiran keliru &mdash; mis. permintaan hapus produk diteruskan tanpa m
 | `PATCH` | Mengubah sebagian data yang sudah ada | Memperbarui stok produk |
 | `DELETE` | Menghapus data | Menghapus produk dari katalog |
 
+Method lain yang perlu kamu kenal: **`PUT`** (mengganti seluruh data sekaligus), **`HEAD`** (seperti `GET` tapi hanya meminta header, tanpa isi), **`OPTIONS`** (menanyakan method apa saja yang diizinkan server).
+
+<div class="ref-link">Daftar lengkap method: <code>developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods</code></div>
+
+---
+
+## Aturan Main Method: Aman & Idempoten
+
+<div class="term-box">
+<b>Aman (safe):</b> method yang tidak mengubah apa pun di server &mdash; <code>GET</code>, <code>HEAD</code>. <b>Idempoten:</b> method yang hasilnya sama meski dikirim berulang &mdash; <code>GET</code>, <code>PUT</code>, <code>DELETE</code>; sedangkan <code>POST</code> tidak.
+</div>
+
+- Browser & server berasumsi aturan ini dipatuhi &mdash; refresh, tombol back, dan cache semuanya bergantung padanya
+- `POST` tidak idempoten &mdash; inilah alasan pola kirim-lalu-redirect di slide berikutnya diperlukan
+
 <div class="warn-box">
 Aturan ketat: <code>GET</code> tidak boleh mengubah data di server. Melanggar aturan ini membuat perilaku aplikasi sulit ditebak &mdash; mis. me-refresh halaman tanpa sengaja menghapus data.
 </div>
@@ -235,7 +266,23 @@ Response selalu membawa <b>status code</b>, angka tiga digit yang menyatakan has
 
 ---
 
-## Status Code
+## Lima Kelas Status Code
+
+Ratusan status code dikelompokkan lewat digit pertamanya &mdash; kamu cukup hafal lima kelasnya, bukan setiap kodenya.
+
+| Kelas | Arti | Intinya |
+|---|---|---|
+| `1xx` | Informational | "Diterima, masih diproses" &mdash; jarang kamu temui langsung |
+| `2xx` | Success | Permintaan berhasil diproses |
+| `3xx` | Redirection | Browser diminta pergi ke alamat lain |
+| `4xx` | Client Error | Kesalahan di sisi pengirim (alamat salah, data tidak valid) |
+| `5xx` | Server Error | Kesalahan di sisi server |
+
+<div class="ref-link">Daftar lengkap: <code>developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status</code></div>
+
+---
+
+## Status Code pada Simple POS
 
 | Kode | Arti | Contoh pada Simple POS |
 |---|---|---|
@@ -244,6 +291,8 @@ Response selalu membawa <b>status code</b>, angka tiga digit yang menyatakan has
 | 404 | Not Found | Membuka `/transactions/9999` untuk ID yang tidak ada |
 | 422 | Unprocessable Entity | Form transaksi dikirim dengan stok tidak mencukupi |
 | 500 | Server Error | Kesalahan tak tertangani di sisi server |
+
+- Perhatikan polanya: 2xx = sukses, 3xx = pindah alamat, 4xx = salah di sisi pengirim, 5xx = salah di sisi server
 
 ---
 
@@ -272,12 +321,28 @@ Setelah <code>POST /pos</code> berhasil menyimpan transaksi, server tidak langsu
 <b>Header:</b> metadata yang menyertai request maupun response, di luar isi utamanya.
 </div>
 
-- `Content-Type` &mdash; memberi tahu format isi: `text/html`, `application/json`, dst.
-- `Authorization` &mdash; membawa token untuk permintaan yang butuh identitas pengirim (dibahas lebih dalam saat topik API)
+<div class="cols">
+<div>
 
-<div class="tip-box">
-Header dibaca sebelum isi diproses &mdash; server bisa menolak atau mengarahkan request hanya berdasarkan header, tanpa membuka isinya.
+**Header request** (browser &rarr; server)
+- `Content-Type` &mdash; format data yang dikirim
+- `Accept` &mdash; format jawaban yang diinginkan
+- `Authorization` &mdash; token identitas pengirim
+- `Cookie` &mdash; data sesi yang dikirim balik
+
 </div>
+<div>
+
+**Header response** (server &rarr; browser)
+- `Content-Type` &mdash; format isi jawaban
+- `Location` &mdash; alamat tujuan redirect
+- `Set-Cookie` &mdash; server menitipkan data sesi
+- `Cache-Control` &mdash; boleh-tidaknya jawaban disimpan
+
+</div>
+</div>
+
+<div class="ref-link">Daftar lengkap header: <code>developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers</code></div>
 
 ---
 
@@ -390,6 +455,15 @@ Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang b
 
 ---
 
+<!-- _class: divider -->
+
+# Bagian 3
+## Routing Modern dan Organisasi Controller
+
+Dari alamat URL sampai controller yang rapi
+
+---
+
 ## Route, Controller, dan Middleware
 
 <div class="term-box">
@@ -400,21 +474,163 @@ Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang b
 <b>Middleware:</b> lapisan yang memeriksa atau mengubah request sebelum sampai ke controller, misalnya memeriksa apakah pengguna sudah login.
 </div>
 
-- Route = alamat + method &rarr; kode yang menanganinya
-- Middleware berdiri **di antara** router dan controller &mdash; request harus lolos dulu sebelum diproses
+<div class="flow">
+  <div class="box">Request</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Route</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Middleware</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Controller</div>
+</div>
+
 - Bagian praktikum akan menulis ketiganya untuk endpoint Simple POS
+
+---
+
+## Route Parameter: Alamat yang Dinamis
+
+<div class="term-box">
+<b>Route parameter:</b> bagian alamat yang ditulis dalam kurung kurawal, mis. <code>{id}</code>, yang nilainya diisi dari URL sesungguhnya dan diteruskan ke controller.
+</div>
+
+```php
+Route::get('/transactions/{id}', [TransactionController::class, 'show']);
+```
+
+- `/transactions/1`, `/transactions/2`, `/transactions/9999` &mdash; satu route melayani semuanya
+- Nilai `{id}` diterima method `show` sebagai argumen
+- ID yang tidak ada &rarr; **404** (lihat kembali tabel status code di Bagian 1)
+
+---
+
+## Named Route: Alamat Boleh Berubah, Nama Tidak
+
+<div class="term-box">
+<b>Named route:</b> label unik yang ditempelkan ke sebuah route lewat <code>-&gt;name()</code>, sehingga bagian lain aplikasi merujuk nama itu, bukan alamat mentahnya.
+</div>
+
+```php
+Route::get('/pos', [TransactionController::class, 'create'])
+    ->name('pos.create');
+Route::post('/pos', [TransactionController::class, 'store'])
+    ->name('transactions.store');
+```
+
+- `GET /pos` dan `POST /pos` adalah **dua route berbeda** meski alamatnya sama &mdash; dibedakan oleh method-nya
+- Link/redirect ditulis `route('pos.create')` &mdash; alamat berubah dari `/pos` ke `/kasir`? Tidak ada pemanggil yang perlu diedit
+- Konvensi penamaan: `sumber.aksi` &mdash; `transactions.index`, `transactions.store`, dst.
+
+---
+
+## Route Group: Aturan yang Dibagikan Bersama
+
+<div class="term-box">
+<b>Route group:</b> membungkus beberapa route agar berbagi middleware, prefix alamat, atau prefix nama yang sama &mdash; ditulis sekali, berlaku untuk semuanya.
+</div>
+
+```php
+Route::middleware('auth')->group(function () {
+    Route::get('/pos', [TransactionController::class, 'create'])
+        ->name('pos.create');
+    Route::post('/pos', [TransactionController::class, 'store'])
+        ->name('transactions.store');
+});
+```
+
+<div class="warn-box">
+Route baru yang lupa dibungkus group middleware yang benar adalah lubang keamanan yang mudah luput: route hapus kategori yang seharusnya khusus admin bisa diakses siapa pun yang tahu alamatnya. Selalu periksa posisi route baru sebelum menganggapnya selesai.
+</div>
+
+---
+
+## Resource Controller: Tujuh Aksi Konvensi
+
+Fitur CRUD apa pun selalu butuh tujuh aksi yang sama &mdash; Laravel membakukannya jadi konvensi nama method controller.
+
+<table class="small">
+<tr><th>Aksi</th><th>Method</th><th>URL</th><th>Tugas</th></tr>
+<tr><td><code>index</code></td><td>GET</td><td><code>/products</code></td><td>Daftar semua produk</td></tr>
+<tr><td><code>create</code></td><td>GET</td><td><code>/products/create</code></td><td>Form tambah produk</td></tr>
+<tr><td><code>store</code></td><td>POST</td><td><code>/products</code></td><td>Simpan produk baru</td></tr>
+<tr><td><code>show</code></td><td>GET</td><td><code>/products/{id}</code></td><td>Detail satu produk</td></tr>
+<tr><td><code>edit</code></td><td>GET</td><td><code>/products/{id}/edit</code></td><td>Form ubah produk</td></tr>
+<tr><td><code>update</code></td><td>PATCH</td><td><code>/products/{id}</code></td><td>Simpan perubahan</td></tr>
+<tr><td><code>destroy</code></td><td>DELETE</td><td><code>/products/{id}</code></td><td>Hapus produk</td></tr>
+</table>
+
+---
+
+## `Route::resource`: Tujuh Route, Satu Baris
+
+```php
+Route::resource('products', ProductController::class);
+```
+
+- Satu baris ini mendaftarkan ke-7 route pada slide sebelumnya sekaligus, lengkap dengan named route (`products.index`, `products.show`, dst.)
+- Butuh sebagian saja? `->only(['index', 'show'])`
+- Konvensi yang sama di setiap fitur membuat siapa pun di tim langsung tahu di mana sebuah aksi berada
+
+<div class="tip-box">
+Perintah <code>php artisan route:list</code> menampilkan tabel seluruh route yang terdaftar &mdash; method, URL, nama, dan middleware-nya &mdash; tanpa membuka berkas route satu per satu.
+</div>
+
+---
+
+## Single-Action Controller
+
+<div class="term-box">
+<b>Single-action controller:</b> controller dengan satu method <code>__invoke()</code> untuk satu tugas tunggal &mdash; dipakai ketika sebuah aksi tidak masuk akal digabung ke tujuh aksi resource.
+</div>
+
+```php
+Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
+```
+
+- Mencetak struk transaksi bukan `show`, bukan `update` &mdash; ia aksi berdiri sendiri
+- Route-nya menunjuk class-nya langsung, tanpa nama method
+- Tanda kamu membutuhkannya: sebuah aksi terus "dipaksakan" masuk ke method resource yang tidak pas
+
+---
+
+## Prinsip Thin Controller
+
+<div class="term-box">
+<b>Thin controller:</b> controller hanya mengurus alur &mdash; menerima request, memanggil pihak yang tepat, memilih response. Aturan bisnis tinggal di Model (atau lapisan service), bukan di controller.
+</div>
+
+<div class="cols">
+<div>
+
+**Controller gemuk (hindari)**
+- Hitung total, kurangi stok, validasi, format tampilan &mdash; semua di satu method
+- Sulit diuji, sulit dipakai ulang
+
+</div>
+<div>
+
+**Controller tipis (tujuan)**
+- `store` hanya memvalidasi input, menyerahkan perhitungan ke Model, lalu redirect
+- Logika stok bisa dipakai ulang dari mana pun
+
+</div>
+</div>
+
+<div class="warn-box">
+Ingat aturan dari Bagian 2: menyentuh data &rarr; Model, mengatur alur &rarr; Controller. Controller gemuk adalah pelanggaran pelan-pelan terhadap MVC &mdash; tiap baris terasa kecil, sampai suatu hari method <code>store</code>-mu 200 baris.
+</div>
 
 ---
 
 ## Rangkuman
 
-- Setiap request HTTP membawa **method** (`GET`/`POST`/`PATCH`/`DELETE`) dan setiap response membawa **status code** tiga digit yang menyatakan hasil sebelum isinya dibaca
+- Request membawa **method** (`GET`/`POST`/`PATCH`/`DELETE` + `PUT`/`HEAD`/`OPTIONS`); response membawa **status code** yang terbagi lima kelas (`1xx`&ndash;`5xx`); **header** membawa metadata di kedua arah
 
-- **MVC** memisahkan Model (data & aturan bisnis), View (tampilan), dan Controller (penyortir request); **MVVM** cocok untuk antarmuka reaktif, **Clean Architecture** cocok untuk sistem besar dengan aturan bisnis kompleks
+- **MVC** memisahkan Model (data), View (tampilan), Controller (alur); **MVVM** untuk antarmuka reaktif; **Clean Architecture** untuk sistem besar &mdash; Laravel memetakan MVC langsung ke struktur foldernya
 
-- Laravel memetakan MVC langsung ke `routes/`, `app/Http/Controllers/`, `app/Models/`, dan `resources/views/`
+- Routing modern: **route parameter** (`{id}`), **named route** (`->name()`), **route group** (middleware/prefix bersama), dan **`Route::resource`** yang mendaftarkan tujuh aksi sekaligus
 
-- **Route**, **Controller**, dan **Middleware** bekerja berurutan: request dicocokkan lewat route, disaring middleware, baru diproses controller
+- Organisasi controller: **resource controller** untuk CRUD, **single-action controller** untuk aksi tunggal, dan prinsip **thin controller** &mdash; alur di controller, aturan bisnis di Model
 
 ---
 
@@ -422,7 +638,7 @@ Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang b
 
 # Referensi & Diskusi
 
-Dokumentasi resmi Laravel &middot; Disertasi Fielding (2000) tentang REST
+Dokumentasi resmi Laravel &middot; MDN Web Docs (developer.mozilla.org) &middot; Disertasi Fielding (2000) tentang REST
 
 Kode lengkap: `github.com/se-polinema/simple-pos`
 

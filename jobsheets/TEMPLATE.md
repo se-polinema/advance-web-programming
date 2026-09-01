@@ -7,8 +7,8 @@
 | **Pertemuan** | N (Minggu N) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK X: <salin deskripsi dari `book/docs/rps-reference.md`> |
-| **Kode Awal** | branch `pertemuan-NN-start` di `github.com/se-polinema/simple-pos` |
-| **Kode Akhir** | branch `pertemuan-NN-end` di `github.com/se-polinema/simple-pos` |
+| **Kode Awal** | branch `meeting-NN-start` di `github.com/se-polinema/simple-pos` |
+| **Kode Akhir** | branch `meeting-NN-end` di `github.com/se-polinema/simple-pos` |
 
 <!--
 Catatan penulisan (hapus komentar ini di jobsheet final):
@@ -34,7 +34,7 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
 - **Alat**: <daftar versi minimum yang dibutuhkan>
 - **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari pertemuan sebelumnya. Kalau tertinggal atau proyekmu bermasalah, mulai dari kode awal pertemuan ini:
   ```bash
-  git clone -b pertemuan-NN-start https://github.com/se-polinema/simple-pos.git
+  git clone -b meeting-NN-start https://github.com/se-polinema/simple-pos.git
   cd simple-pos
   ```
 - **Verifikasi cepat** sebelum mulai:

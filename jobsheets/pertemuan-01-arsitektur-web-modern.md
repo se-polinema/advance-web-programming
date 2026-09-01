@@ -7,7 +7,7 @@
 | **Pertemuan** | 1 (Minggu 1) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK 1: Mahasiswa mampu memahami konsep dasar web framework serta menerapkan routing, controller, dan pengelolaan basis data dalam pengembangan aplikasi web. |
-| **Kode Akhir** | branch `pertemuan-01-end` di `github.com/se-polinema/simple-pos` (untuk membandingkan hasil akhirmu) |
+| **Kode Akhir** | branch `meeting-01-end` di `github.com/se-polinema/simple-pos` (untuk membandingkan hasil akhirmu) |
 
 ## A. Capaian Praktikum
 

@@ -7,8 +7,8 @@
 | **Pertemuan** | 2 (Minggu 2) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK 1: Mahasiswa mampu memahami konsep dasar web framework serta menerapkan routing, controller, dan pengelolaan basis data dalam pengembangan aplikasi web. |
-| **Kode Awal** | branch `pertemuan-02-start` di `github.com/se-polinema/simple-pos` |
-| **Kode Akhir** | branch `pertemuan-02-end` di `github.com/se-polinema/simple-pos` |
+| **Kode Awal** | branch `meeting-02-start` di `github.com/se-polinema/simple-pos` |
+| **Kode Akhir** | branch `meeting-02-end` di `github.com/se-polinema/simple-pos` |
 
 ## A. Capaian Praktikum
 
@@ -24,7 +24,7 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
 - **Alat**: sama seperti Pertemuan 1 (PHP 8.2+, Composer, Node.js, Git), ditambah `curl` (sudah tersedia bawaan di macOS/Linux; di Windows tersedia lewat PowerShell modern atau Git Bash).
 - **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari Pertemuan 1. Kalau tertinggal atau proyekmu bermasalah, mulai dari kode awal pertemuan ini:
   ```bash
-  git clone -b pertemuan-02-start https://github.com/se-polinema/simple-pos.git
+  git clone -b meeting-02-start https://github.com/se-polinema/simple-pos.git
   cd simple-pos
   composer install
   npm install
