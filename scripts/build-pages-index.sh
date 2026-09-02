@@ -5,13 +5,16 @@
 # Usage: ./scripts/build-pages-index.sh [SITE_DIR]
 #
 # Run from the repo root, after:
-#   - slides/bab*.md have been rendered into $SITE_DIR/slides/*.{html,pdf}
+#   - slides/id/bab*.md and slides/en/bab*.md have been rendered into
+#     $SITE_DIR/slides/{id,en}/*.{html,pdf}
 #   - jobsheets/pertemuan-*.md have been rendered into
 #     $SITE_DIR/jobsheets/*.pdf, with the source .md copied alongside
 #
-# Titles are read from the original Markdown sources (slides/*.md,
-# jobsheets/pertemuan-*.md), not from the built output, so this only needs
-# plain grep/sed -- no HTML parsing.
+# Titles are read from the original Markdown sources (slides/id/*.md,
+# jobsheets/pertemuan-*.md; the Indonesian deck is the title source of
+# record, English is link-only, see EN_SLIDE_HTML/EN_SLIDE_PDF below), not
+# from the built output, so this only needs plain grep/sed -- no HTML
+# parsing.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -38,18 +41,28 @@ jobsheet_title() {
   sed -n '2p' "$1" | sed -E 's/^## //'
 }
 
-declare -A TITLES SLIDE_HTML SLIDE_PDF JOB_PDF JOB_MD
+declare -A TITLES SLIDE_HTML SLIDE_PDF EN_SLIDE_HTML EN_SLIDE_PDF JOB_PDF JOB_MD
 NUMS=""
 
-for f in slides/bab*.md; do
+for f in slides/id/bab*.md; do
   [ -f "$f" ] || continue
   n="$(pertemuan_num "$f")"
   [ -z "$n" ] && continue
   slug="$(basename "$f" .md)"
   t="$(slide_title "$f")"
   [ -n "$t" ] && TITLES["$n"]="$t"
-  [ -f "$SITE_DIR/slides/$slug.html" ] && SLIDE_HTML["$n"]="slides/$slug.html"
-  [ -f "$SITE_DIR/slides/$slug.pdf" ] && SLIDE_PDF["$n"]="slides/$slug.pdf"
+  [ -f "$SITE_DIR/slides/id/$slug.html" ] && SLIDE_HTML["$n"]="slides/id/$slug.html"
+  [ -f "$SITE_DIR/slides/id/$slug.pdf" ] && SLIDE_PDF["$n"]="slides/id/$slug.pdf"
+  NUMS="$NUMS $n"
+done
+
+for f in slides/en/bab*.md; do
+  [ -f "$f" ] || continue
+  n="$(pertemuan_num "$f")"
+  [ -z "$n" ] && continue
+  slug="$(basename "$f" .md)"
+  [ -f "$SITE_DIR/slides/en/$slug.html" ] && EN_SLIDE_HTML["$n"]="slides/en/$slug.html"
+  [ -f "$SITE_DIR/slides/en/$slug.pdf" ] && EN_SLIDE_PDF["$n"]="slides/en/$slug.pdf"
   NUMS="$NUMS $n"
 done
 
@@ -81,6 +94,13 @@ for n in $SORTED_NUMS; do
     [ -n "${SLIDE_PDF[$n]:-}" ] && slide_links="$slide_links<a class=\"btn\" href=\"${SLIDE_PDF[$n]}\">Unduh PDF</a>"
   fi
 
+  en_slide_links="<span class=\"muted\">not yet available</span>"
+  if [ -n "${EN_SLIDE_HTML[$n]:-}" ] || [ -n "${EN_SLIDE_PDF[$n]:-}" ]; then
+    en_slide_links=""
+    [ -n "${EN_SLIDE_HTML[$n]:-}" ] && en_slide_links="$en_slide_links<a class=\"btn\" href=\"${EN_SLIDE_HTML[$n]}\">View</a>"
+    [ -n "${EN_SLIDE_PDF[$n]:-}" ] && en_slide_links="$en_slide_links<a class=\"btn\" href=\"${EN_SLIDE_PDF[$n]}\">Download PDF</a>"
+  fi
+
   job_links="<span class=\"muted\">belum tersedia</span>"
   if [ -n "${JOB_PDF[$n]:-}" ] || [ -n "${JOB_MD[$n]:-}" ]; then
     job_links=""
@@ -93,6 +113,7 @@ for n in $SORTED_NUMS; do
       <td class=\"num\">$padded</td>
       <td>$title</td>
       <td class=\"links\">$slide_links</td>
+      <td class=\"links\">$en_slide_links</td>
       <td class=\"links\">$job_links</td>
     </tr>"
 done
@@ -103,7 +124,7 @@ cat > "$OUT" <<HTML
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pemrograman Web Lanjut — Materi Kuliah</title>
+<title>Pemrograman Web Lanjut: Materi Kuliah</title>
 <style>
   :root { color-scheme: light dark; }
   body {
@@ -153,14 +174,15 @@ cat > "$OUT" <<HTML
 <body>
 <header>
   <h1>Pemrograman Web Lanjut</h1>
-  <p class="subtitle">SIB245007 &middot; D-IV Sistem Informasi Bisnis &mdash; Slide dan jobsheet praktikum, per pertemuan.</p>
+  <p class="subtitle">SIB245007 &middot; D-IV Sistem Informasi Bisnis. Slide dan jobsheet praktikum, per pertemuan.</p>
 </header>
 
 <table>
   <tr>
     <th>Pertemuan</th>
     <th>Materi</th>
-    <th>Slide</th>
+    <th>Slide (ID)</th>
+    <th>Slide (EN)</th>
     <th>Jobsheet</th>
   </tr>$rows
 </table>

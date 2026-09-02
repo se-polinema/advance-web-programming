@@ -51,7 +51,7 @@ jobs:
       - name: Prepare output directory
         run: |
           rm -rf _site
-          mkdir -p _site/slides _site/jobsheets
+          mkdir -p _site/slides/id _site/slides/en _site/jobsheets
 
       - name: Pull Marp CLI image
         run: docker pull marpteam/marp-cli
@@ -65,13 +65,15 @@ jobs:
           # script path has to be supplied explicitly here (confirmed by
           # testing locally: omitting it silently no-ops instead of erroring).
           shopt -s nullglob
-          for md in slides/bab*.md; do
-            slug="$(basename "$md" .md)"
-            echo "==> $slug"
-            docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
-              marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --html --allow-local-files -o "_site/slides/${slug}.html"
-            docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
-              marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --pdf --allow-local-files -o "_site/slides/${slug}.pdf"
+          for lang in id en; do
+            for md in "slides/$lang"/bab*.md; do
+              slug="$(basename "$md" .md)"
+              echo "==> $lang/$slug"
+              docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
+                marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --html --allow-local-files -o "_site/slides/$lang/${slug}.html"
+              docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node \
+                marpteam/marp-cli /home/marp/.cli/marp-cli.js "$md" --pdf --allow-local-files -o "_site/slides/$lang/${slug}.pdf"
+            done
           done
 
       - name: Build jobsheets
