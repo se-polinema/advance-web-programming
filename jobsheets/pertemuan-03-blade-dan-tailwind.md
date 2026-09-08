@@ -58,7 +58,7 @@ git push -u origin chapter-02:main
 
 Di halaman GitHub repositori itu, buka **Settings &rarr; Collaborators**, lalu tambahkan setiap anggota kelompok, ditambah dosen atau asisten yang menilai.
 
-> ✅ **Checkpoint:** halaman repositori di GitHub menampilkan commit `increment 2: ...` sebagai commit teratas, dan setiap anggota sudah menerima serta menyetujui undangan collaborator.
+> ✅ **Checkpoint:** halaman repositori di GitHub menampilkan commit `fix: routes/web.php hanya merujuk controller yang sudah ada di titik ini` sebagai commit teratas, dan setiap anggota sudah menerima serta menyetujui undangan collaborator.
 
 > ⚠️ **Jika gagal:** error `403` saat push berarti undangan collaborator belum disetujui, atau alamat `origin` salah ketik.
 

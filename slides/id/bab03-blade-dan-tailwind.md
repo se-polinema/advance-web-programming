@@ -584,4 +584,4 @@ Dokumentasi resmi Laravel (Blade, Vite) &middot; Tailwind CSS (tailwindcss.com) 
 
 Kode lengkap: `github.com/se-polinema/simple-pos`
 
-**Pertemuan berikutnya:** Desain Basis Data & Migration (skema, migration, seeding)
+**Pertemuan berikutnya:** Desain Basis Data, Migrasi, dan Seeding

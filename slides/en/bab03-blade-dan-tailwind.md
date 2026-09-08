@@ -584,4 +584,4 @@ Official Laravel documentation (Blade, Vite) &middot; Tailwind CSS (tailwindcss.
 
 Full code: `github.com/se-polinema/simple-pos`
 
-**Next meeting:** Database Design & Migration (schema, migrations, seeding)
+**Next meeting:** Database Design, Migrations, and Seeding
