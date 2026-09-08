@@ -153,9 +153,9 @@ Ekosistem Frontend, Templating di Server, dan Interaktivitas Ringan
 
 1. Membandingkan pola **MPA** dan **SPA**, serta menjelaskan posisi Blade dan Alpine.js sebagai pendekatan hibrida
 
-2. Menyusun layout Blade dan sebuah halaman dengan **Tailwind CSS** lewat **Vite**, memakai `npm run dev` untuk hot reload
+2. Memahami konsep **template engine** dan pendekatan **utility-first CSS**, serta bagaimana keduanya bekerja sama menyusun tampilan halaman
 
-3. Mengimplementasikan keranjang belanja dinamis dengan **Alpine.js**, tanpa reload halaman, dengan server tetap sebagai sumber kebenaran
+3. Menjelaskan cara **Alpine.js** menambahkan interaktivitas sisi klien tanpa reload halaman, dengan server tetap sebagai sumber kebenaran
 
 <div class="tip-box">
 Slide ini membahas konsep. Langkah membangun layout, halaman kasir, dan keranjang belanja dikerjakan di jobsheet praktikum, kali ini secara berkelompok.
@@ -275,6 +275,31 @@ Memindahkan seluruh aplikasi ke SPA hanya demi satu komponen kecil adalah ongkos
 ## Blade, Tailwind, dan Vite
 
 Merender halaman dari server
+
+---
+
+## Konsep Template Engine: Cetakan + Data &rarr; HTML
+
+<div class="term-box">
+<b>Template engine:</b> alat yang menggabungkan sebuah cetakan (template) berisi placeholder dengan data sesungguhnya, menghasilkan dokumen akhir yang siap ditampilkan.
+</div>
+
+<div class="flow">
+  <div class="box">Template (placeholder)</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">+ Data</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Template Engine</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">HTML Akhir</div>
+</div>
+
+- Contoh sederhana: template `<h1>Halo, {{ $nama }}</h1>` + data `$nama = "Rani"` &rarr; hasil `<h1>Halo, Rani</h1>`
+- Konsep yang sama dipakai lintas bahasa: Blade (Laravel/PHP), Jinja (Python), EJS (JavaScript), Twig (PHP)
+
+<div class="tip-box">
+Blade adalah salah satu implementasi konsep ini di ekosistem Laravel, bukan konsep itu sendiri.
+</div>
 
 ---
 

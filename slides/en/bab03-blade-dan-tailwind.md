@@ -153,9 +153,9 @@ The Frontend Landscape, Server-Side Templating, and Light Interactivity
 
 1. Compare the **MPA** and **SPA** patterns, and explain where Blade and Alpine.js sit as a hybrid approach
 
-2. Build a Blade layout and a page with **Tailwind CSS** through **Vite**, using `npm run dev` for hot reload
+2. Understand the **template engine** concept and the **utility-first CSS** approach, and how the two work together to build a page's layout
 
-3. Implement a dynamic shopping cart with **Alpine.js**, with no page reload, while the server stays the source of truth
+3. Explain how **Alpine.js** adds client-side interactivity with no page reload, while the server stays the source of truth
 
 <div class="tip-box">
 This slide deck covers concepts. Building the layout, the cashier page, and the cart happens in the practicum jobsheet, this time as a group.
@@ -275,6 +275,31 @@ Moving the entire application to a full SPA just for one small component is an a
 ## Blade, Tailwind, and Vite
 
 Rendering a page from the server
+
+---
+
+## The Template Engine Concept: Template + Data &rarr; HTML
+
+<div class="term-box">
+<b>Template engine:</b> a tool that merges a template containing placeholders with real data, producing a final document ready to display.
+</div>
+
+<div class="flow">
+  <div class="box">Template (placeholder)</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">+ Data</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Template Engine</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Final HTML</div>
+</div>
+
+- A simple example: template `<h1>Hello, {{ $name }}</h1>` + data `$name = "Rani"` &rarr; result `<h1>Hello, Rani</h1>`
+- The same concept appears across languages: Blade (Laravel/PHP), Jinja (Python), EJS (JavaScript), Twig (PHP)
+
+<div class="tip-box">
+Blade is one implementation of this concept in the Laravel ecosystem, not the concept itself.
+</div>
 
 ---
 
