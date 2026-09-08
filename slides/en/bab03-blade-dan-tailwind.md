@@ -364,10 +364,17 @@ Nearly every page in a web application shares the same skeleton: a tab title, a 
 
 ---
 
-## `{{ }}` vs `{!! !!}`
+## `{{ }}` and `{!! !!}`: Printing Data into HTML
 
-- `{{ $article->title }}` is Blade's output syntax, automatically escaping HTML
-- A character like `<` in an article title can't be abused to inject foreign markup
+<div class="term-box">
+<b>{{ }}:</b> Blade's syntax for printing a variable or PHP expression's value into HTML, automatically escaping HTML characters.
+</div>
+
+<div class="term-box">
+<b>{!! !!}:</b> Blade's syntax for printing a variable's value with no escaping at all; its content is printed as-is, as raw HTML.
+</div>
+
+- Example: `{{ $article->title }}` prints the article's title, automatically safe from a character like `<` that could otherwise be abused to inject foreign markup
 
 <div class="warn-box">
 Data coming from user input, including an article title typed into a form, must always be printed through <code>{{ }}</code>, never <code>{!! !!}</code>. The second syntax skips escaping entirely and opens a cross-site scripting hole the moment its content ever came from untrusted input.

@@ -364,10 +364,17 @@ Hampir setiap halaman aplikasi web berbagi kerangka yang sama: judul tab, menu n
 
 ---
 
-## `{{ }}` vs `{!! !!}`
+## `{{ }}` dan `{!! !!}`: Menampilkan Data ke HTML
 
-- `{{ $article->title }}` adalah sintaks output Blade, otomatis melakukan escaping HTML
-- Karakter seperti `<` dalam judul artikel tidak bisa disalahgunakan untuk menyuntikkan markup asing
+<div class="term-box">
+<b>{{ }}:</b> sintaks Blade untuk menampilkan nilai sebuah variabel atau ekspresi PHP ke dalam HTML, otomatis melakukan escaping karakter HTML.
+</div>
+
+<div class="term-box">
+<b>{!! !!}:</b> sintaks Blade yang juga menampilkan nilai sebuah variabel, tapi tanpa escaping sama sekali; isinya dicetak apa adanya sebagai HTML mentah.
+</div>
+
+- Contoh: `{{ $article->title }}` menampilkan judul artikel, otomatis aman dari karakter seperti `<` yang bisa disalahgunakan untuk menyuntikkan markup asing
 
 <div class="warn-box">
 Data yang berasal dari input pengguna, termasuk judul artikel yang diketik lewat form, selalu wajib ditampilkan lewat <code>{{ }}</code>, bukan <code>{!! !!}</code>. Sintaks kedua melewati escaping sama sekali dan membuka celah <i>cross-site scripting</i> kalau isinya pernah datang dari input yang tidak dipercaya.

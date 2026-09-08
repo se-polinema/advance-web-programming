@@ -4184,10 +4184,15 @@ pre {
   color: #1d4ed8;
 }
 ;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="vs--"><code>{{ }}</code> vs <code>{!! !!}</code></h2>
+<h2 id="dan---menampilkan-data-ke-html"><code>{{ }}</code> dan <code>{!! !!}</code>: Menampilkan Data ke HTML</h2>
+<div class="term-box">
+<b>{{ }}:</b> sintaks Blade untuk menampilkan nilai sebuah variabel atau ekspresi PHP ke dalam HTML, otomatis melakukan escaping karakter HTML.
+</div>
+<div class="term-box">
+<b>{!! !!}:</b> sintaks Blade yang juga menampilkan nilai sebuah variabel, tapi tanpa escaping sama sekali; isinya dicetak apa adanya sebagai HTML mentah.
+</div>
 <ul>
-<li><code>{{ $article-&gt;title }}</code> adalah sintaks output Blade, otomatis melakukan escaping HTML</li>
-<li>Karakter seperti <code>&lt;</code> dalam judul artikel tidak bisa disalahgunakan untuk menyuntikkan markup asing</li>
+<li>Contoh: <code>{{ $article-&gt;title }}</code> menampilkan judul artikel, otomatis aman dari karakter seperti <code>&lt;</code> yang bisa disalahgunakan untuk menyuntikkan markup asing</li>
 </ul>
 <div class="warn-box">
 Data yang berasal dari input pengguna, termasuk judul artikel yang diketik lewat form, selalu wajib ditampilkan lewat <code>{{ }}</code>, bukan <code>{!! !!}</code>. Sintaks kedua melewati escaping sama sekali dan membuka celah <i>cross-site scripting</i> kalau isinya pernah datang dari input yang tidak dipercaya.

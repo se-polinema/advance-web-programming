@@ -272,11 +272,11 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h1 id="advanced-web-programming">Advanced Web Programming</h1>
 <h2 id="sib245007--d-iv-sistem-informasi-bisnis">SIB245007  |  D-IV Sistem Informasi Bisnis</h2>
-<p>Meeting 3: <strong>Frontend &amp; Templating (Blade, Tailwind, Alpine)</strong></p>
-<p>The Frontend Landscape, Server-Side Templating, and Light Interactivity</p>
+<p>Meeting 4: <strong>Database Design, Migrations, and Seeding</strong></p>
+<p>Schema, Schema Change History, and Query Speed</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="2" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -542,21 +542,21 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h2 id="what-youll-learn">What You'll Learn</h2>
 <ol>
 <li>
-<p>Compare the <strong>MPA</strong> and <strong>SPA</strong> patterns, and explain where Blade and Alpine.js sit as a hybrid approach</p>
+<p>Explain the <strong>schema</strong> concept and table relationships through <strong>foreign keys</strong></p>
 </li>
 <li>
-<p>Understand the <strong>template engine</strong> concept and the <strong>utility-first CSS</strong> approach, and how the two work together to build a page's layout</p>
+<p>Understand <strong>migrations</strong> as a replayable history of schema changes, and <strong>seeders</strong> for filling in large amounts of initial data</p>
 </li>
 <li>
-<p>Explain how <strong>Alpine.js</strong> adds client-side interactivity with no page reload, while the server stays the source of truth</p>
+<p>Explain the <strong>index</strong> concept and how to verify its impact on query speed</p>
 </li>
 </ol>
 <div class="tip-box">
-This slide deck covers concepts. Building the layout, the cashier page, and the cart happens in the practicum jobsheet, this time as a group.
+This slide deck covers concepts. Designing the schema, writing migrations, and seeders for Simple POS happens in the practicum jobsheet.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="3" data-paginate="true" data-class="divider" data-theme="default" data-style="section {
@@ -823,9 +823,9 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h1 id="part-1">Part 1</h1>
-<h2 id="the-frontend-landscape-mpa-vs-spa">The Frontend Landscape: MPA vs SPA</h2>
+<h2 id="schema-and-table-relationships">Schema and Table Relationships</h2>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="4" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -1091,26 +1091,28 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="a-glass-display-case-vs-an-attentive-clerk">A Glass Display Case vs. an Attentive Clerk</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="a-warehouse-with-a-catalog-vs-without-one">A Warehouse With a Catalog vs. Without One</h2>
 <div class="cols">
 <div>
-<p><strong>Glass display case</strong></p>
+<p><strong>A warehouse with a card catalog</strong></p>
 <ul>
-<li>Never changes until the owner walks over and rearranges it</li>
-<li>A customer who wants to know how much stock is left has to call over a clerk and wait</li>
+<li>Every item sits on a labeled shelf</li>
+<li>The catalog records which shelf holds what</li>
+<li>Looking for an item: read the catalog, go straight to the right shelf</li>
 </ul>
 </div>
 <div>
-<p><strong>Attentive clerk</strong></p>
+<p><strong>A warehouse without one</strong></p>
 <ul>
-<li>The moment a customer lifts an item, the clerk already knows</li>
-<li>Recalculates the running total on the spot, ready to undo that pick without the customer starting over</li>
+<li>The item is still there, somewhere</li>
+<li>Searching means walking every shelf one by one</li>
+<li>In a large warehouse, this eats a lot of time</li>
 </ul>
 </div>
 </div>
-<div class="warn-box">
-A page built purely with Blade, with no JavaScript touching it, behaves like the glass display case: every time a user adds one item to a cart, the entire page reloads. An application with high interaction volume doesn't have time for dozens of reloads in a single session.
+<div class="tip-box">
+A database table's schema is the shelf layout itself; an index is the card catalog. Without the right index, the database engine can still find the data, just by scanning the entire table one row at a time.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="5" data-paginate="true" data-theme="default" data-style="section {
@@ -1377,23 +1379,14 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="mpa-reload-the-whole-page">MPA: Reload the Whole Page</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="schema-a-tables-structural-design">Schema: A Table's Structural Design</h2>
 <div class="term-box">
-<b>Multi-page application (MPA):</b> every time a user follows a link or submits a form, the browser discards the old HTML, requests a new one, and renders it from scratch.
-</div>
-<div class="flow">
-  <div class="box">Click</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Request</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Full HTML</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Re-render</div>
+<b>Schema:</b> the design of a table's structure: column names, data types, and constraints (nullable, default, unique) that apply to every row in it.
 </div>
 <ul>
-<li>Simple to reason about and easy to debug: every request gets back a complete HTML answer</li>
-<li>Feels sluggish for small, frequently repeated interactions, e.g. adding one product to a cart</li>
+<li>A schema gets sketched on paper before a single migration file gets written</li>
+<li>Every column has a data type (number, text, date) and constraints that keep the data valid</li>
 </ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="6" data-paginate="true" data-theme="default" data-style="section {
@@ -1660,15 +1653,18 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="spa-javascript-takes-over">SPA: JavaScript Takes Over</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="foreign-key-keeping-relationships-consistent">Foreign Key: Keeping Relationships Consistent</h2>
 <div class="term-box">
-<b>Single-page application (SPA):</b> one HTML page loads once at the start, and every change after that is handled by JavaScript in the browser through hidden requests, updating only part of the DOM with no reload.
+<b>Foreign Key:</b> a column on one table pointing to the <code>id</code> of a row on another table, guaranteeing a row can never point at a parent row that doesn't exist.
+</div>
+<div class="flow">
+  <div class="box">authors (one)</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">articles (many)</div>
 </div>
 <ul>
-<li>React, Vue, and Angular are libraries built specifically around this pattern</li>
-<li>Fits very frequent interaction and complex state</li>
-<li>The cost: build complexity and state split across two places (client and server)</li>
+<li>One <code>authors</code> row has many <code>articles</code>; every <code>articles</code> row stores an <code>author_id</code> pointing back to its author</li>
 </ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="7" data-paginate="true" data-theme="default" data-style="section {
@@ -1935,22 +1931,35 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="a-spectrum-not-two-poles">A Spectrum, Not Two Poles</h2>
-<div class="flow">
-  <div class="box">Pure MPA</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Server-rendered + a little JavaScript</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Pure SPA</div>
-</div>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="example-schema-a-one-to-many-relationship">Example Schema: A One-to-Many Relationship</h2>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Main Columns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>authors</code></td>
+<td><code>id</code>, <code>name</code></td>
+</tr>
+<tr>
+<td><code>articles</code></td>
+<td><code>id</code>, <code>author_id</code> (fk), <code>title</code>, <code>published_at</code></td>
+</tr>
+<tr>
+<td><code>comments</code></td>
+<td><code>id</code>, <code>article_id</code> (fk), <code>body</code></td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li>Most real applications sit in the middle, not at either end</li>
-<li>The ecosystem has names for this middle ground: <strong>Livewire</strong> (Laravel), <strong>Hotwire</strong> (Rails), <strong>htmx</strong></li>
+<li>One <code>authors</code> row has many <code>articles</code></li>
+<li>One <code>articles</code> row has many <code>comments</code></li>
+<li>The relationships are simple enough to sketch on paper before writing any code</li>
 </ul>
-<div class="tip-box">
-In this approach, the server stays the source of truth; JavaScript's only job is speeding up the one part that would otherwise feel slow if it had to reload in full.
-</div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="8" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -2216,34 +2225,16 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="comparing-three-patterns">Comparing Three Patterns</h2>
-<table>
-<thead>
-<tr>
-<th>Pattern</th>
-<th>Render Source</th>
-<th>Fits</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Pure MPA</td>
-<td>Server, full HTML per navigation</td>
-<td>Pages with infrequent interaction, where SEO matters</td>
-</tr>
-<tr>
-<td>Pure SPA</td>
-<td>Client, JavaScript renders the DOM</td>
-<td>Applications with very frequent interaction, complex state</td>
-</tr>
-<tr>
-<td>Blade + Alpine.js</td>
-<td>Server for structure, client for local interaction</td>
-<td>Apps with mostly static pages, a small part needing reactivity</td>
-</tr>
-</tbody>
-</table>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="values-that-are-stored-not-recomputed">Values That Are Stored, Not Recomputed</h2>
+<ul>
+<li>Some columns deliberately store a value as of one point in time, instead of recomputing it every time it's read</li>
+<li>Example: a comment count at the moment an article was published, or a price as it stood when a transaction happened</li>
+<li>That value has to stay exactly what it was at that moment, even if the source data changes later</li>
+</ul>
+<div class="tip-box">
+The validation & security meeting later covers why a value like this must still be recalculated on the server when it's saved, not just trusted from input.
+</div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="9" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -2509,16 +2500,20 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="when-blade--alpinejs-is-enough">When Blade + Alpine.js Is Enough</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="writing-a-migration-for-a-table">Writing a Migration for a Table</h2>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php"><span class="hljs-title class_">Schema</span>::<span class="hljs-title function_ invoke__">create</span>(<span class="hljs-string">&#x27;articles&#x27;</span>, function (Blueprint <span class="hljs-variable">$table</span>) {
+    <span class="hljs-variable">$table</span>-&gt;<span class="hljs-title function_ invoke__">id</span>();
+    <span class="hljs-variable">$table</span>-&gt;<span class="hljs-title function_ invoke__">foreignId</span>(<span class="hljs-string">&#x27;author_id&#x27;</span>)-&gt;<span class="hljs-title function_ invoke__">constrained</span>();
+    <span class="hljs-variable">$table</span>-&gt;<span class="hljs-keyword">string</span>(<span class="hljs-string">&#x27;title&#x27;</span>);
+    <span class="hljs-variable">$table</span>-&gt;<span class="hljs-title function_ invoke__">timestamps</span>();
+});
+</code></pre>
 <ul>
-<li>Pages that rarely change within a single work session (e.g. lists, reports): plain server rendering through Blade is already fast enough</li>
-<li>The part that needs repeated interactivity without a reload (e.g. a shopping cart): Alpine.js fills that gap</li>
-<li>No need to force the whole application into a different architecture just for this one small part</li>
+<li><code>foreignId('author_id')</code> creates an <code>author_id</code> column as an unsigned big integer</li>
+<li><code>-&gt;constrained()</code> adds a foreign key pointing to <code>authors.id</code>, following Laravel's naming convention</li>
+<li>This constraint protects data integrity, but doesn't necessarily mean the column already has an index (see Part 3)</li>
 </ul>
-<div class="warn-box">
-Moving the entire application to a full SPA just for one small component is an architectural cost that doesn't pay off.
-</div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="10" data-paginate="true" data-class="divider" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -2784,10 +2779,10 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h1 id="part-2">Part 2</h1>
-<h2 id="blade-tailwind-and-vite">Blade, Tailwind, and Vite</h2>
-<p>Rendering a page from the server</p>
+<h2 id="migrations-and-seeding">Migrations and Seeding</h2>
+<p>Schema change history, and filling in initial data</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="11" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -3053,26 +3048,22 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="the-template-engine-concept-template--data-%E2%86%92-html">The Template Engine Concept: Template + Data → HTML</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="migrations-a-replayable-schema-history">Migrations: A Replayable Schema History</h2>
 <div class="term-box">
-<b>Template engine:</b> a tool that merges a template containing placeholders with real data, producing a final document ready to display.
+<b>Migration:</b> a PHP file describing a structural change to a table (creating, altering, or dropping columns) programmatically, so the database schema has a history that can be replayed on any other machine.
 </div>
 <div class="flow">
-  <div class="box">Template (placeholder)</div>
+  <div class="box">Migration 1: create table</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">+ Data</div>
+  <div class="box">Migration 2: add column</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Template Engine</div>
+  <div class="box">Migration 3: add index</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Final HTML</div>
+  <div class="box">Current schema</div>
 </div>
-<ul>
-<li>A simple example: template <code>&lt;h1&gt;Hello, {{ $name }}&lt;/h1&gt;</code> + data <code>$name = &quot;Rani&quot;</code> → result <code>&lt;h1&gt;Hello, Rani&lt;/h1&gt;</code></li>
-<li>The same concept appears across languages: Blade (Laravel/PHP), Jinja (Python), EJS (JavaScript), Twig (PHP)</li>
-</ul>
-<div class="tip-box">
-Blade is one implementation of this concept in the Laravel ecosystem, not the concept itself.
+<div class="tip-box" style="margin-top:30px;">
+Similar to a git commit history for code: a migration is a commit history for the database schema, run in order according to its filename timestamp.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="12" data-paginate="true" data-theme="default" data-style="section {
@@ -3339,16 +3330,13 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="blade-laravels-templating-engine">Blade: Laravel's Templating Engine</h2>
-<div class="term-box">
-<b>Blade:</b> Laravel's built-in templating engine, rendering HTML on the server using directive syntax like <code>@if</code> and <code>@foreach</code> directly inside <code>.blade.php</code> files.
-</div>
-<div class="term-box">
-<b>Directive:</b> a Blade instruction starting with <code>@</code>, such as <code>@extends</code>, <code>@section</code>, and <code>@yield</code>, compiled by Laravel into plain PHP before it runs.
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="the-golden-rule-dont-edit-add-a-new-one">The Golden Rule: Don't Edit, Add a New One</h2>
+<div class="warn-box">
+If the schema needs to change, create a new migration, don't edit an old migration that's already run. An old migration edited after it has run leaves the schema history on another machine out of sync with the history on yours.
 </div>
 <ul>
-<li>Blade isn't a new language, just a concise way to write PHP inside a template</li>
+<li>Treat migrations like version control for the schema: a new change always means a new migration file</li>
 </ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="13" data-paginate="true" data-theme="default" data-style="section {
@@ -3615,22 +3603,14 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="layout-write-the-skeleton-once">Layout: Write the Skeleton Once</h2>
-<p>Nearly every page in a web application shares the same skeleton: a tab title, a navigation menu, and a content area that changes. A Blade layout avoids repeating that skeleton in every file.</p>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php">&lt;!-- resources/views/layouts/app.blade.php --&gt;
-&lt;!DOCTYPE html&gt;
-&lt;html lang=<span class="hljs-string">&quot;en&quot;</span>&gt;
-&lt;head&gt;
-    &lt;title&gt;@<span class="hljs-keyword">yield</span>(<span class="hljs-string">&#x27;title&#x27;</span>, <span class="hljs-string">&#x27;App Name&#x27;</span>)&lt;/title&gt;
-    @<span class="hljs-title function_ invoke__">vite</span>([<span class="hljs-string">&#x27;resources/css/app.css&#x27;</span>, <span class="hljs-string">&#x27;resources/js/app.js&#x27;</span>])
-&lt;/head&gt;
-&lt;body&gt;
-    &lt;x-nav /&gt;
-    &lt;main&gt;@<span class="hljs-keyword">yield</span>(<span class="hljs-string">&#x27;content&#x27;</span>)&lt;/main&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-</code></pre>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="seeders-filling-in-initial-data">Seeders: Filling in Initial Data</h2>
+<div class="term-box">
+<b>Seeder:</b> a PHP class that fills a table with initial or test data, run through <code>db:seed</code> or as part of <code>migrate:fresh --seed</code>.
+</div>
+<ul>
+<li>Useful for sample data during development, and realistic-scale test data for practicing performance work</li>
+</ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="14" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -3896,28 +3876,42 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="a-page-fills-the-layouts-hole">A Page Fills the Layout's Hole</h2>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php">&lt;!-- resources/views/articles/index.blade.php --&gt;
-@<span class="hljs-keyword">extends</span>(<span class="hljs-string">&#x27;layouts.app&#x27;</span>)
-
-@<span class="hljs-title function_ invoke__">section</span>(<span class="hljs-string">&#x27;title&#x27;</span>, <span class="hljs-string">&#x27;Article List&#x27;</span>)
-
-@<span class="hljs-title function_ invoke__">section</span>(<span class="hljs-string">&#x27;content&#x27;</span>)
-    &lt;h1 <span class="hljs-class"><span class="hljs-keyword">class</span>=&quot;<span class="hljs-title">text</span>-<span class="hljs-title">lg</span> <span class="hljs-title">font</span>-<span class="hljs-title">semibold</span> <span class="hljs-title">mb</span>-4&quot;&gt;<span class="hljs-title">Article</span> <span class="hljs-title">List</span>&lt;/<span class="hljs-title">h1</span>&gt;
-    &lt;<span class="hljs-title">div</span> <span class="hljs-title">class</span>=&quot;<span class="hljs-title">grid</span> <span class="hljs-title">grid</span>-<span class="hljs-title">cols</span>-3 <span class="hljs-title">gap</span>-4&quot;&gt;
-        @<span class="hljs-title">foreach</span> ($<span class="hljs-title">articles</span> <span class="hljs-title">as</span> $<span class="hljs-title">article</span>)
-            &lt;<span class="hljs-title">div</span> <span class="hljs-title">class</span>=&quot;<span class="hljs-title">border</span> <span class="hljs-title">rounded</span>-<span class="hljs-title">md</span> <span class="hljs-title">p</span>-3&quot;&gt;
-                &lt;<span class="hljs-title">p</span> <span class="hljs-title">class</span>=&quot;<span class="hljs-title">font</span>-<span class="hljs-title">medium</span>&quot;&gt;</span>{{ <span class="hljs-variable">$article</span>-&gt;title }}&lt;/p&gt;
-            &lt;/div&gt;
-        @<span class="hljs-keyword">endforeach</span>
-    &lt;/div&gt;
-@endsection
-</code></pre>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="seeding-at-scale-row-by-row-vs-bulk-insert">Seeding at Scale: Row-by-Row vs. Bulk Insert</h2>
+<div class="cols">
+<div>
+<p><strong><code>Model::create()</code> in a loop</strong></p>
 <ul>
-<li>The page never rewrites <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, or the navigation menu</li>
+<li>One <code>INSERT</code> query per row</li>
+<li>Overhead: building an Eloquent object, firing model events</li>
+<li>Slow for hundreds or thousands of rows</li>
 </ul>
-<div class="ref-link">Full list of Blade directives: <code>laravel.com/docs/blade</code></div>
+</div>
+<div>
+<p><strong><code>DB::table()-&gt;insert()</code> in batches</strong></p>
+<ul>
+<li>One <code>INSERT</code> statement for many rows at once</li>
+<li>Far fewer round-trips to the database</li>
+<li><code>array_chunk()</code> splits the batch because some database engines cap the number of rows per <code>INSERT</code></li>
+</ul>
+</div>
+</div>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-php"><span class="hljs-variable">$articles</span> = [];
+<span class="hljs-keyword">foreach</span> (<span class="hljs-variable">$authorIds</span> <span class="hljs-keyword">as</span> <span class="hljs-variable">$authorId</span>) {
+    <span class="hljs-keyword">for</span> (<span class="hljs-variable">$i</span> = <span class="hljs-number">0</span>; <span class="hljs-variable">$i</span> &lt; <span class="hljs-number">30</span>; <span class="hljs-variable">$i</span>++) {
+        <span class="hljs-variable">$articles</span>[] = [
+            <span class="hljs-string">&#x27;author_id&#x27;</span> =&gt; <span class="hljs-variable">$authorId</span>,
+            <span class="hljs-string">&#x27;title&#x27;</span> =&gt; <span class="hljs-title function_ invoke__">fake</span>()-&gt;<span class="hljs-title function_ invoke__">sentence</span>(),
+            <span class="hljs-string">&#x27;created_at&#x27;</span> =&gt; <span class="hljs-title function_ invoke__">now</span>(),
+            <span class="hljs-string">&#x27;updated_at&#x27;</span> =&gt; <span class="hljs-title function_ invoke__">now</span>(),
+        ];
+    }
+}
+
+<span class="hljs-keyword">foreach</span> (<span class="hljs-title function_ invoke__">array_chunk</span>(<span class="hljs-variable">$articles</span>, <span class="hljs-number">50</span>) <span class="hljs-keyword">as</span> <span class="hljs-variable">$chunk</span>) {
+    DB::<span class="hljs-title function_ invoke__">table</span>(<span class="hljs-string">&#x27;articles&#x27;</span>)-&gt;<span class="hljs-title function_ invoke__">insert</span>(<span class="hljs-variable">$chunk</span>);
+}
+</code></pre>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="15" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -4183,25 +4177,13 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="and---printing-data-into-html"><code>{{ }}</code> and <code>{!! !!}</code>: Printing Data into HTML</h2>
-<div class="term-box">
-<b>{{ }}:</b> Blade's syntax for printing a variable or PHP expression's value into HTML, automatically escaping HTML characters.
-</div>
-<div class="term-box">
-<b>{!! !!}:</b> Blade's syntax for printing a variable's value with no escaping at all; its content is printed as-is, as raw HTML.
-</div>
-<ul>
-<li>Example: <code>{{ $article-&gt;title }}</code> prints the article's title, automatically safe from a character like <code>&lt;</code> that could otherwise be abused to inject foreign markup</li>
-</ul>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="consistency-across-tables-dbtransaction">Consistency Across Tables: <code>DB::transaction()</code></h2>
 <div class="warn-box">
-Data coming from user input, including an article title typed into a form, must always be printed through <code>{{ }}</code>, never <code>{!! !!}</code>. The second syntax skips escaping entirely and opens a cross-site scripting hole the moment its content ever came from untrusted input.
+When one operation touches more than one table that must stay consistent with each other (e.g. saving an order along with its line items), wrap it in a single <code>DB::transaction(function () { ... })</code>. If the process fails partway through, every change inside that block rolls back together, so the data never ends up half-saved.
 </div>
-<ul>
-<li>The full security discussion arrives in the validation &amp; security meeting</li>
-</ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="16" data-paginate="true" data-theme="default" data-style="section {
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="16" data-paginate="true" data-class="divider" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -4333,7 +4315,7 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-" lang="en-US" data-marpit-pagination="16" style="--paginate:true;--theme:default;--style:section {
+" lang="en-US" class="divider" data-marpit-pagination="16" style="--paginate:true;--class:divider;--theme:default;--style:section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -4465,15 +4447,10 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="component-a-piece-you-reuse">Component: A Piece You Reuse</h2>
-<div class="term-box">
-<b>Component:</b> a reusable piece of Blade shared across pages, such as a product card or a button, registered as its own file and invoked through an <code>&lt;x-component-name&gt;</code> tag.
-</div>
-<ul>
-<li><code>&lt;x-nav /&gt;</code> in the layout above is a component</li>
-<li>An article card or a button are natural next candidates</li>
-</ul>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h1 id="part-3">Part 3</h1>
+<h2 id="indexes-and-query-speed">Indexes and Query Speed</h2>
+<p>Proving the impact with EXPLAIN QUERY PLAN</p>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="17" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -4739,21 +4716,27 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="vite-the-frontend-build-tool">Vite: The Frontend Build Tool</h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="index-a-data-structure-for-fast-lookups">Index: A Data Structure for Fast Lookups</h2>
 <div class="term-box">
-<b>Vite:</b> the frontend build tool Laravel ships with by default, running a dev server with hot reload through <code>npm run dev</code> during development, and bundling/minifying every CSS & JavaScript file into production assets through <code>npm run build</code>.
+<b>Index:</b> an additional data structure the database engine builds over one or more columns, speeding up lookups on that column without scanning the entire table.
 </div>
-<div class="flow">
-  <div class="box">app.css / app.js</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Vite</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Tags via @vite</div>
-</div>
+<div class="cols">
+<div>
+<p><strong>Without an index (SCAN)</strong></p>
 <ul>
-<li><code>@vite([...])</code> replaces manual <code>&lt;script&gt;</code>/<code>&lt;link&gt;</code> tags</li>
+<li>The database engine checks every row one by one</li>
+<li>Time grows linearly as the table grows</li>
 </ul>
+</div>
+<div>
+<p><strong>With an index (SEARCH)</strong></p>
+<ul>
+<li>The database engine jumps straight to the relevant rows</li>
+<li>Barely affected by table size</li>
+</ul>
+</div>
+</div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="18" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -5019,16 +5002,13 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="three-files-behind-vite">Three Files Behind <code>@vite</code></h2>
-<ol>
-<li><code>resources/css/app.css</code>: the first line is <code>@import 'tailwindcss';</code>, no separate <code>tailwind.config.js</code> file</li>
-<li><code>vite.config.js</code>: registers the <code>laravel()</code> and <code>tailwindcss()</code> plugins</li>
-<li><code>package.json</code>: lists both packages as <code>devDependencies</code></li>
-</ol>
-<div class="tip-box">
-All three have been in your project since Meeting 1. This meeting you start actually using them.
-</div>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="constrained-doesnt-always-mean-theres-an-index"><code>constrained()</code> Doesn't Always Mean There's an Index</h2>
+<ul>
+<li>On some database engines (e.g. MySQL), <code>foreignId()-&gt;constrained()</code> automatically creates an index as a side effect</li>
+<li>On SQLite, <code>constrained()</code> only adds a foreign key constraint, not an index</li>
+<li>The constraint protects data integrity (rejecting inserts that point at a nonexistent row), but doesn't speed up lookups</li>
+</ul>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="19" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -5294,18 +5274,20 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="two-terminals-artisan-serve--npm-run-dev">Two Terminals: <code>artisan serve</code> + <code>npm run dev</code></h2>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="proving-it-with-explain-query-plan">Proving It With <code>EXPLAIN QUERY PLAN</code></h2>
 <ul>
-<li>Vite runs as a dev server separate from <code>php artisan serve</code>, in a second terminal</li>
-<li>What to expect: <code>VITE vX.X.X ready</code> followed by a local address</li>
-<li>Editing <code>app.css</code> or a Blade file shows up instantly, with no manual refresh (hot reload)</li>
+<li><code>EXPLAIN QUERY PLAN</code>: a SQLite command that shows the strategy the database engine will use to run a query, without actually running it</li>
 </ul>
-<div class="warn-box">
-If <code>npm run dev</code> stops, the <code>@vite</code> directive on a page that reloads will fail to find the dev server and throw a <code>ViteManifestNotFoundException</code>.
-</div>
+<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">sqlite3 database/database.sqlite \
+  <span class="hljs-string">&quot;EXPLAIN QUERY PLAN SELECT * FROM articles WHERE author_id = 3;&quot;</span>
+</code></pre>
+<ul>
+<li><strong>Before an index</strong>: the result includes <code>SCAN articles</code></li>
+<li><strong>After an index is added</strong>: the result changes to <code>SEARCH articles USING INDEX articles_author_id_index</code></li>
+</ul>
 <div class="tip-box">
-<code>composer run dev</code> runs artisan serve, npm run dev, and other processes together in one terminal. Start with two separate terminals first, so it's clear which process fails.
+If the <code>sqlite3</code> command isn't found, the alternative path is <code>php artisan tinker</code> with <code>DB::select("EXPLAIN QUERY PLAN ...")</code>.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="20" data-paginate="true" data-theme="default" data-style="section {
@@ -5572,16 +5554,13 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="tailwind-utility-first-css">Tailwind: Utility-First CSS</h2>
-<ul>
-<li>Utility classes attach directly to elements, instead of separate CSS rules in another file</li>
-<li>Example: <code>class=&quot;bg-slate-900 text-white rounded-md px-4 py-2&quot;</code> for a dark, rounded button with padding</li>
-<li>One class equals one small styling decision, easy to guess and easy to remove</li>
-</ul>
-<div class="ref-link">Full utility-class reference: <code>tailwindcss.com/docs</code> (don't memorize it, look it up when you need it)</div>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="an-index-isnt-premature-optimization">An Index Isn't Premature Optimization</h2>
+<div class="warn-box">
+On a table with a few dozen rows, the difference between SCAN and SEARCH is barely noticeable. On a table with thousands of rows, SCAN means every row gets examined on every single query, and that time grows linearly as the table grows. An index isn't premature optimization here; it's a fix for a performance bug that's already real the moment data approaches production scale.
+</div>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="21" data-paginate="true" data-class="divider" data-theme="default" data-style="section {
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="21" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -5713,7 +5692,7 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-" lang="en-US" class="divider" data-marpit-pagination="21" style="--paginate:true;--class:divider;--theme:default;--style:section {
+" lang="en-US" data-marpit-pagination="21" style="--paginate:true;--theme:default;--style:section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -5845,10 +5824,13 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h1 id="part-3">Part 3</h1>
-<h2 id="light-interactivity-with-alpinejs">Light Interactivity with Alpine.js</h2>
-<p>A shopping cart with no page reload</p>
+;" data-marpit-pagination-total="23" data-size="16:9">
+<h2 id="applying-this-to-simple-pos">Applying This to Simple POS</h2>
+<ul>
+<li>You'll apply the schema, migration, and index concepts directly to the Simple POS case study in the practicum jobsheet</li>
+<li>Designing the category-product-transaction tables, writing a seeder at hundreds-to-thousands-row scale, and proving the index with <code>EXPLAIN QUERY PLAN</code></li>
+</ul>
+<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-04</code></div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="22" data-paginate="true" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -6114,1983 +6096,24 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="alpinejs-state-inside-the-markup">Alpine.js: State Inside the Markup</h2>
-<div class="term-box">
-<b>Alpine.js:</b> a lightweight JavaScript library adding state and interactivity directly through HTML attributes (<code>x-data</code>, <code>x-model</code>, <code>@click</code>), installed through npm like any other JavaScript dependency.
-</div>
-<ul>
-<li>Not a mini SPA framework, but a complement to a page Blade already renders</li>
-<li>Any element inside an <code>x-data</code>, including its children, can read and change that state through other Alpine attributes</li>
-</ul>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="23" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="23" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="the-core-mechanism-x-data">The Core Mechanism: <code>x-data</code></h2>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-html"><span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">x-data</span>=<span class="hljs-string">&quot;{ cart: [] }&quot;</span>&gt;</span>
-  <span class="hljs-tag">&lt;<span class="hljs-name">button</span> @<span class="hljs-attr">click</span>=<span class="hljs-string">&quot;cart.push({ id: 1, price: 15000 })&quot;</span>&gt;</span>
-    Add
-  <span class="hljs-tag">&lt;/<span class="hljs-name">button</span>&gt;</span>
-  <span class="hljs-tag">&lt;<span class="hljs-name">span</span> <span class="hljs-attr">x-text</span>=<span class="hljs-string">&quot;cart.length&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">span</span>&gt;</span> items in cart
-<span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
-</code></pre>
-<ul>
-<li><code>cart</code> starts as an empty array, the Add button pushes one new object on every click</li>
-<li><code>x-text=&quot;cart.length&quot;</code> updates the number automatically, with no line of code explicitly telling the DOM to refresh</li>
-<li>Alpine watches <code>cart</code> for changes and keeps the display in sync on its own</li>
-</ul>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="24" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="24" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="alpine-attributes-youll-use">Alpine Attributes You'll Use</h2>
-<table>
-<thead>
-<tr>
-<th>Attribute</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>x-data</code></td>
-<td>Declares local state</td>
-</tr>
-<tr>
-<td><code>@click</code></td>
-<td>Runs code when an element is clicked</td>
-</tr>
-<tr>
-<td><code>x-text</code></td>
-<td>Displays a reactive value</td>
-</tr>
-<tr>
-<td><code>x-for</code></td>
-<td>Repeats an element for each item</td>
-</tr>
-<tr>
-<td><code>x-model</code></td>
-<td>Binds an input to state</td>
-</tr>
-</tbody>
-</table>
-<div class="ref-link">Full attribute list: <code>alpinejs.dev</code></div>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="25" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="25" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="installed-via-npm-not-a-cdn">Installed via npm, Not a CDN</h2>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-bash">npm install alpinejs
-</code></pre>
-<pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-js"><span class="hljs-comment">// resources/js/app.js</span>
-<span class="hljs-keyword">import</span> <span class="hljs-title class_">Alpine</span> <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;alpinejs&#x27;</span>;
-
-<span class="hljs-variable language_">window</span>.<span class="hljs-property">Alpine</span> = <span class="hljs-title class_">Alpine</span>;
-<span class="hljs-title class_">Alpine</span>.<span class="hljs-title function_">start</span>();
-</code></pre>
-<ul>
-<li><code>app.js</code> is already loaded by <code>@vite</code> in the layout, no new <code>&lt;script&gt;</code> tag needed</li>
-<li>The bundler's load order automatically sidesteps the problem the <code>defer</code> attribute used to solve on a CDN tag</li>
-</ul>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="26" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="26" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="interactivity-pattern-click-to-update-state">Interactivity Pattern: Click to Update State</h2>
-<div class="flow">
-  <div class="box">Click item</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">addToCart(id, name, price)</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">cart changes</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">x-for + x-text update</div>
-</div>
-<ul>
-<li><code>x-data</code> wraps the relevant list of items, defining <code>cart</code>, <code>addToCart</code>, and <code>subtotal()</code></li>
-<li><code>subtotal()</code> uses <code>reduce</code> to sum up the prices</li>
-</ul>
-<div class="tip-box" style="margin-top:30px;">
-Proof there's no reload: the address bar and tab favicon never flicker.
-</div>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="27" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="27" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="the-golden-rule-the-server-recalculates">The Golden Rule: The Server Recalculates</h2>
-<div class="warn-box">
-The subtotal Alpine computes client-side exists purely for display. Every time the form gets submitted, the server recalculates the total from the data in the database, not from whatever number Alpine displayed in the browser. Anything coming from the browser can still be tampered with before it reaches the server.
-</div>
-<div class="tip-box">
-A useful rule of thumb: cosmetic logic (showing a subtotal, highlighting a just-added item) is safe to keep in Alpine. Business decisions (the final total, data validity) must be recalculated on the server.
-</div>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="28" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="28" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
-<h2 id="the-grown-up-version-alpinedata">The Grown-Up Version: <code>Alpine.data</code></h2>
-<ul>
-<li>An inline <code>x-data</code> object is enough to learn the mechanism</li>
-<li>In the Simple POS case study you build in the jobsheet, the cart registers itself through <code>Alpine.data('posCart', ...)</code> in <code>app.js</code>, complete with SKU scanning, discounts, and <code>sessionStorage</code></li>
-<li>Same concept, different scale</li>
-</ul>
-<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-03</code></div>
-</section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="29" data-paginate="true" data-theme="default" data-style="section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-" lang="en-US" data-marpit-pagination="29" style="--paginate:true;--theme:default;--style:section {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  padding: 56px 72px;
-  justify-content: center;
-}
-section.lead {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%);
-  color: #fff;
-  justify-content: center;
-}
-section.lead h1, section.lead h2, section.lead p {
-  color: #fff;
-}
-section.divider {
-  background: #1d4ed8;
-  color: #fff;
-}
-section.divider h1 {
-  color: #fff;
-  font-size: 2.2em;
-}
-section.divider p {
-  color: #bfdbfe;
-}
-h1 {
-  color: #1d4ed8;
-  font-size: 1.6em;
-}
-h2 {
-  color: #1d4ed8;
-}
-table {
-  font-size: 0.72em;
-  width: 100%;
-}
-table.small {
-  font-size: 0.75em;
-}
-th, td {
-  padding: 4px 10px;
-}
-th {
-  background: #1d4ed8;
-  color: #fff;
-}
-code {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-pre {
-  font-size: 0.68em;
-}
-.term-box {
-  border-left: 6px solid #1d4ed8;
-  background: #eff6ff;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.82em;
-}
-.term-box b {
-  color: #1d4ed8;
-}
-.tip-box {
-  border-left: 6px solid #16a34a;
-  background: #f0fdf4;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.warn-box {
-  border-left: 6px solid #dc2626;
-  background: #fef2f2;
-  padding: 10px 18px;
-  margin: 10px 0;
-  font-size: 0.8em;
-}
-.cols {
-  display: flex;
-  gap: 24px;
-}
-.cols &gt; div {
-  flex: 1;
-}
-.flow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  flex-wrap: wrap;
-}
-.flow .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: 0.85em;
-}
-.flow .arrow {
-  font-size: 1.4em;
-  color: #1d4ed8;
-}
-.stack .box {
-  background: #1d4ed8;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  text-align: center;
-  margin: 4px 0;
-  font-weight: bold;
-}
-.footnote {
-  font-size: 0.55em;
-  color: #64748b;
-  position: absolute;
-  bottom: 20px;
-}
-.ref-link {
-  display: inline-block;
-  font-size: 0.62em;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border-left: 4px solid #93c5fd;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 14px;
-  margin-top: 14px;
-}
-.ref-link code {
-  background: transparent;
-  color: #1d4ed8;
-}
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h2 id="summary">Summary</h2>
 <ul>
 <li>
-<p>An MPA reloads the whole page on every navigation, an SPA renders everything client-side, and Blade + Alpine.js take a middle path: the server still renders the structure, Alpine only adds reactivity where it's needed</p>
+<p>A table's schema is defined through migrations; a migration is a history of changes that can be replayed on another machine, and the golden rule is: add a new migration, never edit an old one</p>
 </li>
 <li>
-<p>A Blade layout through <code>@extends</code>/<code>@section</code>/<code>@yield</code> avoids repeating HTML skeleton code; <code>@vite</code> loads Tailwind CSS and JavaScript through Vite, with <code>npm run dev</code> giving hot reload</p>
+<p>Foreign keys keep one-to-many relationships between tables consistent; seeders fill in initial data, and large-scale seeding uses <code>DB::table()-&gt;insert()</code> in batches, far more efficient than <code>Model::create()</code> one row at a time</p>
 </li>
 <li>
-<p>Tailwind works through utility classes attached to elements; <code>{{ }}</code> escapes automatically, <code>{!! !!}</code> does not and opens an XSS hole</p>
+<p>An index speeds up lookups on frequently filtered columns; a foreign key constraint doesn't automatically mean there's an index, depending on the database engine in use</p>
 </li>
 <li>
-<p>Alpine.js is installed through npm; <code>x-data</code> declares state right in the markup, <code>@click</code> and <code>x-text</code> read and change it reactively, and a client-computed subtotal must still be re-verified on the server</p>
+<p><code>EXPLAIN QUERY PLAN</code> proves an index's impact directly: from <code>SCAN</code> (scanning every row) to <code>SEARCH</code> (jumping to the relevant rows)</p>
 </li>
 </ul>
 </section>
-</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="30" data-paginate="true" data-class="lead" data-theme="default" data-style="section {
+</foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="23" data-paginate="true" data-class="lead" data-theme="default" data-style="section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -8222,7 +6245,7 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-" lang="en-US" class="lead" data-marpit-pagination="30" style="--paginate:true;--class:lead;--theme:default;--style:section {
+" lang="en-US" class="lead" data-marpit-pagination="23" style="--paginate:true;--class:lead;--theme:default;--style:section {
   font-family: 'Helvetica Neue', Arial, sans-serif;
   padding: 56px 72px;
   justify-content: center;
@@ -8354,11 +6377,11 @@ pre {
   background: transparent;
   color: #1d4ed8;
 }
-;" data-marpit-pagination-total="30" data-size="16:9">
+;" data-marpit-pagination-total="23" data-size="16:9">
 <h1 id="references--discussion">References &amp; Discussion</h1>
-<p>Official Laravel documentation (Blade, Vite) · Tailwind CSS (tailwindcss.com) · Alpine.js (alpinejs.dev)</p>
+<p>Official Laravel documentation (Migrations, Query Builder, Seeding)</p>
 <p>Full code: <code>github.com/se-polinema/simple-pos</code></p>
-<p><strong>Next meeting:</strong> Database Design &amp; Migration (schema, migrations, seeding)</p>
+<p><strong>Next meeting:</strong> ORM &amp; Data Relations</p>
 </section>
 <script>!function(){"use strict";const t={h1:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"1"},style:"display: block; font-size: 2em; margin-block-start: 0.67em; margin-block-end: 0.67em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h2:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"2"},style:"display: block; font-size: 1.5em; margin-block-start: 0.83em; margin-block-end: 0.83em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h3:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"3"},style:"display: block; font-size: 1.17em; margin-block-start: 1em; margin-block-end: 1em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h4:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"4"},style:"display: block; margin-block-start: 1.33em; margin-block-end: 1.33em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h5:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"5"},style:"display: block; font-size: 0.83em; margin-block-start: 1.67em; margin-block-end: 1.67em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},h6:{proto:()=>HTMLHeadingElement,attrs:{role:"heading","aria-level":"6"},style:"display: block; font-size: 0.67em; margin-block-start: 2.33em; margin-block-end: 2.33em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: bold;"},span:{proto:()=>HTMLSpanElement},pre:{proto:()=>HTMLElement,style:"display: block; font-family: monospace; white-space: pre; margin: 1em 0; --marp-auto-scaling-white-space: pre;"}},e="data-marp-auto-scaling-wrapper",i="data-marp-auto-scaling-svg",n="data-marp-auto-scaling-container";class s extends HTMLElement{container;containerSize;containerObserver;svg;svgComputedStyle;svgPreserveAspectRatio="xMinYMid meet";wrapper;wrapperSize;wrapperObserver;constructor(){super();const t=t=>([e])=>{const{width:i,height:n}=e.contentRect;this[t]={width:i,height:n},this.updateSVGRect()};this.attachShadow({mode:"open"}),this.containerObserver=new ResizeObserver(t("containerSize")),this.wrapperObserver=new ResizeObserver((...e)=>{t("wrapperSize")(...e),this.flushSvgDisplay()})}static get observedAttributes(){return["data-downscale-only"]}connectedCallback(){this.shadowRoot.innerHTML=`\n<style>\n  svg[${i}] { display: block; width: 100%; height: auto; vertical-align: top; }\n  span[${n}] { display: table; white-space: var(--marp-auto-scaling-white-space, nowrap); width: max-content; }\n</style>\n<div ${e}>\n  <svg part="svg" ${i}>\n    <foreignObject><span ${n}><slot></slot></span></foreignObject>\n  </svg>\n</div>\n    `.split(/\n\s*/).join(""),this.wrapper=this.shadowRoot.querySelector(`div[${e}]`)??void 0;const t=this.svg;this.svg=this.wrapper?.querySelector(`svg[${i}]`)??void 0,this.svg!==t&&(this.svgComputedStyle=this.svg?window.getComputedStyle(this.svg):void 0),this.container=this.svg?.querySelector(`span[${n}]`)??void 0,this.observe()}disconnectedCallback(){this.svg=void 0,this.svgComputedStyle=void 0,this.wrapper=void 0,this.container=void 0,this.observe()}attributeChangedCallback(){this.observe()}flushSvgDisplay(){const{svg:t}=this;t&&(t.style.display="inline",requestAnimationFrame(()=>{t.style.display=""}))}observe(){this.containerObserver.disconnect(),this.wrapperObserver.disconnect(),this.wrapper&&this.wrapperObserver.observe(this.wrapper),this.container&&this.containerObserver.observe(this.container),this.svgComputedStyle&&this.observeSVGStyle(this.svgComputedStyle)}observeSVGStyle(t){const e=()=>{const i=(()=>{const e=t.getPropertyValue("--preserve-aspect-ratio");if(e)return e.trim();return`x${(({textAlign:t,direction:e})=>{if(t.endsWith("left"))return"Min";if(t.endsWith("right"))return"Max";if("start"===t||"end"===t){let i="rtl"===e;return"end"===t&&(i=!i),i?"Max":"Min"}return"Mid"})(t)}YMid meet`})();i!==this.svgPreserveAspectRatio&&(this.svgPreserveAspectRatio=i,this.updateSVGRect()),t===this.svgComputedStyle&&requestAnimationFrame(e)};e()}updateSVGRect(){let t=Math.ceil(this.containerSize?.width??0);const e=Math.ceil(this.containerSize?.height??0);void 0!==this.dataset.downscaleOnly&&(t=Math.max(t,this.wrapperSize?.width??0));const i=this.svg?.querySelector(":scope > foreignObject");if(i?.setAttribute("width",`${t}`),i?.setAttribute("height",`${e}`),this.svg&&(this.svg.setAttribute("viewBox",`0 0 ${t} ${e}`),this.svg.setAttribute("preserveAspectRatio",this.svgPreserveAspectRatio),this.svg.style.height=t<=0||e<=0?"0":""),this.container){const t=this.svgPreserveAspectRatio.toLowerCase();this.container.style.marginLeft=t.startsWith("xmid")||t.startsWith("xmax")?"auto":"0",this.container.style.marginRight=t.startsWith("xmi")?"auto":"0"}}}const r=(t,{attrs:e={},style:i})=>class extends t{constructor(...t){super(...t);for(const[t,i]of Object.entries(e))this.hasAttribute(t)||this.setAttribute(t,i);this._shadow()}static get observedAttributes(){return["data-auto-scaling"]}connectedCallback(){this._update()}attributeChangedCallback(){this._update()}_shadow(){if(!this.shadowRoot)try{this.attachShadow({mode:"open"})}catch(t){if(!(t instanceof Error&&"NotSupportedError"===t.name))throw t}return this.shadowRoot}_update(){const t=this._shadow();if(t){const e=i?`<style>:host { ${i} }</style>`:"";let n="<slot></slot>";const{autoScaling:s}=this.dataset;if(void 0!==s){n=`<marp-auto-scaling exportparts="svg:auto-scaling" ${"downscale-only"===s?"data-downscale-only":""}>${n}</marp-auto-scaling>`}t.innerHTML=e+n}}};let o;const a=()=>o??(o=!!document.createElement("div",{is:"marp-auto-scaling"}).outerHTML.startsWith("<div is"),o),l=Symbol();let c;const d="marpitSVGPolyfill:setZoomFactor,",h=Symbol(),g=Symbol();const p=()=>{const t="Apple Computer, Inc."===navigator.vendor,e=t?[v]:[],i={then:e=>(t?(async()=>{if(void 0===c){const t=document.createElement("canvas");t.width=10,t.height=10;const e=t.getContext("2d"),i=new Image(10,10),n=new Promise(t=>{i.addEventListener("load",()=>t())});i.crossOrigin="anonymous",i.src="data:image/svg+xml;charset=utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%201%201%22%3E%3CforeignObject%20width%3D%221%22%20height%3D%221%22%20requiredExtensions%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml%22%3E%3Cdiv%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxhtml%22%20style%3D%22width%3A%201px%3B%20height%3A%201px%3B%20background%3A%20red%3B%20position%3A%20relative%22%3E%3C%2Fdiv%3E%3C%2FforeignObject%3E%3C%2Fsvg%3E",await n,e.drawImage(i,0,0),c=e.getImageData(5,5,1,1).data[3]<128}return c})().then(t=>{null==e||e(t?[v]:[])}):null==e||e([]),i)};return Object.assign(e,i)};let m,u;function v(t){const e="object"==typeof t&&t.target||document,i="object"==typeof t?t.zoom:t;window[g]||(Object.defineProperty(window,g,{configurable:!0,value:!0}),document.body.style.zoom=1.0001,document.body.offsetHeight,document.body.style.zoom=1,window.addEventListener("message",({data:t,origin:e})=>{if(e===window.origin)try{if(t&&"string"==typeof t&&t.startsWith(d)){const[,e]=t.split(","),i=Number.parseFloat(e);Number.isNaN(i)||(u=i)}}catch(t){console.error(t)}}));let n=!1;Array.from(e.querySelectorAll("svg[data-marpit-svg]"),t=>{var e,s,r,o;t.style.transform||(t.style.transform="translateZ(0)");const a=i||u||t.currentScale||1;m!==a&&(m=a,n=a);const l=t.getBoundingClientRect(),{length:c}=t.children;for(let i=0;i<c;i+=1){const n=t.children[i];if(n.getScreenCTM){const t=n.getScreenCTM();if(t){const i=null!==(s=null===(e=n.x)||void 0===e?void 0:e.baseVal.value)&&void 0!==s?s:0,c=null!==(o=null===(r=n.y)||void 0===r?void 0:r.baseVal.value)&&void 0!==o?o:0,d=n.children.length;for(let e=0;e<d;e+=1){const s=n.children[e];if("SECTION"===s.tagName){const{style:e}=s;e.transformOrigin||(e.transformOrigin=`${-i}px ${-c}px`),e.transform=`scale(${a}) matrix(${t.a}, ${t.b}, ${t.c}, ${t.d}, ${t.e-l.left}, ${t.f-l.top}) translateZ(0.0001px)`;break}}}}}}),!1!==n&&Array.from(e.querySelectorAll("iframe"),({contentWindow:t})=>{null==t||t.postMessage(`${d}${n}`,"null"===window.origin?"*":window.origin)})}function w({once:t=!1,target:e=document}={}){const i=function(t=document){if(t[h])return t[h];let e=!0;const i=()=>{e=!1,delete t[h]};Object.defineProperty(t,h,{configurable:!0,value:i});let n=[],s=!1;(async()=>{try{n=await p()}finally{s=!0}})();const r=()=>{for(const e of n)e({target:t});s&&0===n.length||e&&window.requestAnimationFrame(r)};return r(),i}(e);return t?(i(),()=>{}):i}m=1,u=void 0;const b=Symbol(),y=(e=document)=>{if("undefined"==typeof window)throw new Error("Marp Core's browser script is valid only in browser context.");if(((e=document)=>{const i=window[l];i||customElements.define("marp-auto-scaling",s);for(const n of Object.keys(t)){const s=`marp-${n}`,o=t[n].proto();a()&&o!==HTMLElement?i||customElements.define(s,r(o,{style:t[n].style}),{extends:n}):(i||customElements.define(s,r(HTMLElement,t[n])),e.querySelectorAll(`${n}[is="${s}"]`).forEach(t=>{t.outerHTML=t.outerHTML.replace(new RegExp(`^<${n}`,"i"),`<${s}`).replace(new RegExp(`</${n}>$`,"i"),`</${s}>`)}))}window[l]=!0})(e),e[b])return e[b];const i=w({target:e}),n=()=>{i(),delete e[b]},o=Object.assign(n,{cleanup:n,update:()=>y(e)});return Object.defineProperty(e,b,{configurable:!0,value:o}),o},f=document.currentScript;y(f?f.getRootNode():document)}();
 </script></foreignObject></svg></div><script>/*!! License: https://unpkg.com/@marp-team/marp-cli@4.5.1/lib/bespoke.js.LICENSE.txt */
