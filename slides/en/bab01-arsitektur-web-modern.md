@@ -225,9 +225,9 @@ Meetings 1&ndash;10 build the technical foundation in Laravel; Meetings 11&ndash
 
 ## What You'll Learn
 
-1. Comparing **monolith**, **microservices**, and **serverless** architectures to explain why Laravel was chosen as Simple POS's framework
+1. Comparing **monolith**, **microservices**, and **serverless** architectures to understand the basis for choosing a web application's architecture
 
-2. Understanding why **Laravel 13** with **SQLite** as a zero-setup database was chosen for Simple POS
+2. Understanding why **Laravel 13** with **SQLite** as a zero-setup database was chosen for the Simple POS project you'll build across the semester
 
 3. Recognizing the Laravel project folder structure (`routes/`, `app/Http/Controllers/`, `database/migrations/`) as an embodiment of the **MVC** pattern
 
@@ -272,7 +272,7 @@ This slide covers concepts. Installation steps, project setup, and full hands-on
 - Each service: different language, different deploy schedule, scales independently
 - **The price:** 8 services = 8 deploy processes + 8 failure points + network calls between services
 - Worth it for **large teams** running systems at millions-of-users scale
-- For Simple POS: the cost far outweighs the benefit
+- For a small-scale application: the cost far outweighs the benefit
 
 ---
 
@@ -300,7 +300,7 @@ The two architectures we just defined, in an everyday analogy:
 </div>
 
 <div class="tip-box">
-Simple POS is built as a <b>monolith</b> (the family restaurant) not out of limitation, but because the scale fits: a shop with one or two cashiers doesn't need ten separate services.
+An application is built as a <b>monolith</b> (the family restaurant) not out of limitation, but because the scale fits: a shop with one or two cashiers doesn't need ten separate services.
 </div>
 
 ---
@@ -315,7 +315,7 @@ Simple POS is built as a <b>monolith</b> (the family restaurant) not out of limi
 - There's a **cold start** delay when a function hasn't been called in a while
 - Billing is per execution, not per hour a server stays on
 - Good fit: spiky workloads (e.g. image processing on upload)
-- Poor fit: Simple POS, which needs a consistent database connection
+- Poor fit: an application that needs a consistent database connection
 
 ---
 
@@ -323,7 +323,7 @@ Simple POS is built as a <b>monolith</b> (the family restaurant) not out of limi
 
 | Architecture | Deployment | Initial Complexity | Best For |
 |---|---|---|---|
-| **Monolith** | Single unit | Low | Simple POS, MVPs, small teams |
+| **Monolith** | Single unit | Low | Small-scale apps, MVPs, small teams |
 | **Microservices** | Many independent units | High | Large-scale systems, large teams |
 | **Serverless** | Function per event | Medium | Sporadic workloads |
 
@@ -400,7 +400,7 @@ A single entry point means every request can be processed uniformly before reach
 </div>
 
 <div class="tip-box" style="margin-top:40px;">
-This flow pattern repeats across every Simple POS feature, from the simple POS page to REST API endpoints, all following the same path.
+This flow pattern repeats across every Laravel feature, from a simple page to REST API endpoints, all following the same path.
 </div>
 
 ---
@@ -479,9 +479,9 @@ This structure isn't an accident: it embodies the same MVC pattern as the reques
 
 ## Summary
 
-- **Monolith** unifies every layer in one codebase and one deploy, a fit for Simple POS's scale; **microservices** splits it apart at a cost that's only worth it for large systems; **serverless** suits sporadic workloads
+- **Monolith** unifies every layer in one codebase and one deploy, a fit for small-to-medium scale applications; **microservices** splits it apart at a cost that's only worth it for large systems; **serverless** suits sporadic workloads
 
-- Laravel is Simple POS's framework because its structure stays consistent from the start (MVC) and it's productive for small teams; **SQLite** is the database because it's zero-setup: one file, no separate server
+- Laravel is chosen as a framework because its structure stays consistent from the start (MVC) and it's productive for small teams; **SQLite** is the database because it's zero-setup: one file, no separate server
 
 - **Composer**/npm manage dependencies; **.env** separates configuration from code; **Artisan** & **migrations** build the database schema programmatically
 

@@ -186,7 +186,7 @@ Slide ini membahas konsep. Langkah menulis route, controller, dan middleware sec
 </div>
 <div>
 
-**Request ke Simple POS**
+**Request ke Aplikasi Web**
 - Masuk lewat satu pintu
 - Disortir berdasarkan alamat & jenisnya
 - Diteruskan ke bagian yang tepat untuk diproses
@@ -196,7 +196,7 @@ Slide ini membahas konsep. Langkah menulis route, controller, dan middleware sec
 </div>
 
 <div class="warn-box">
-Kalau penyortiran keliru (mis. permintaan hapus produk diteruskan tanpa memeriksa apakah pengirimnya admin), aplikasi kehilangan kendali atas siapa yang boleh mengubah apa.
+Kalau penyortiran keliru (mis. permintaan hapus data diteruskan tanpa memeriksa apakah pengirimnya admin), aplikasi kehilangan kendali atas siapa yang boleh mengubah apa.
 </div>
 
 ---
@@ -218,12 +218,12 @@ Kalau penyortiran keliru (mis. permintaan hapus produk diteruskan tanpa memeriks
 
 ## Method HTTP
 
-| Method | Maksud | Contoh pada Simple POS |
+| Method | Maksud | Contoh Penerapan |
 |---|---|---|
-| `GET` | Meminta data, **tanpa mengubah** apa pun di server | Menampilkan halaman `/transactions` |
-| `POST` | Mengirim data baru | Menyimpan transaksi kasir baru |
-| `PATCH` | Mengubah sebagian data yang sudah ada | Memperbarui stok produk |
-| `DELETE` | Menghapus data | Menghapus produk dari katalog |
+| `GET` | Meminta data, **tanpa mengubah** apa pun di server | Menampilkan daftar data |
+| `POST` | Mengirim data baru | Menyimpan data baru |
+| `PATCH` | Mengubah sebagian data yang sudah ada | Memperbarui sebagian data |
+| `DELETE` | Menghapus data | Menghapus data dari sistem |
 
 Method lain yang perlu kamu kenal: **`PUT`** (mengganti seluruh data sekaligus), **`HEAD`** (seperti `GET` tapi hanya meminta header, tanpa isi), **`OPTIONS`** (menanyakan method apa saja yang diizinkan server).
 
@@ -282,14 +282,14 @@ Ratusan status code dikelompokkan lewat digit pertamanya: kamu cukup hafal lima 
 
 ---
 
-## Status Code pada Simple POS
+## Status Code pada Aplikasi Web
 
-| Kode | Arti | Contoh pada Simple POS |
+| Kode | Arti | Contoh Penerapan |
 |---|---|---|
-| 200 | OK | Halaman `/transactions` berhasil ditampilkan |
-| 302 | Redirect | Setelah `/pos` disimpan, diarahkan ke halaman detail |
-| 404 | Not Found | Membuka `/transactions/9999` untuk ID yang tidak ada |
-| 422 | Unprocessable Entity | Form transaksi dikirim dengan stok tidak mencukupi |
+| 200 | OK | Halaman daftar data berhasil ditampilkan |
+| 302 | Redirect | Setelah form disimpan, diarahkan ke halaman detail |
+| 404 | Not Found | Membuka halaman detail untuk ID yang tidak ada |
+| 422 | Unprocessable Entity | Form dikirim dengan data tidak valid |
 | 500 | Server Error | Kesalahan tak tertangani di sisi server |
 
 - Perhatikan polanya: 2xx = sukses, 3xx = pindah alamat, 4xx = salah di sisi pengirim, 5xx = salah di sisi server
@@ -299,15 +299,15 @@ Ratusan status code dikelompokkan lewat digit pertamanya: kamu cukup hafal lima 
 ## Pola 302: Kirim-lalu-Redirect
 
 <div class="flow">
-  <div class="box">POST /pos</div>
+  <div class="box">POST /articles</div>
   <div class="arrow">&rarr;</div>
   <div class="box">302 + Location</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">GET /transactions/{id}</div>
+  <div class="box">GET /articles/{id}</div>
 </div>
 
 <div class="tip-box" style="margin-top:30px;">
-Setelah <code>POST /pos</code> berhasil menyimpan transaksi, server tidak langsung mengirim HTML sebagai jawaban: ia mengirim response 302 berisi header <code>Location</code> yang memerintahkan browser meminta ulang ke alamat lain.
+Setelah <code>POST /articles</code> berhasil menyimpan data, server tidak langsung mengirim HTML sebagai jawaban: ia mengirim response 302 berisi header <code>Location</code> yang memerintahkan browser meminta ulang ke alamat lain.
 </div>
 
 - Pola ini berulang di hampir setiap fitur tulis-data
@@ -426,7 +426,7 @@ Struktur folder ini bukan kebetulan: ia mewujudkan pola MVC secara konsisten sej
 </div>
 
 - Populer pada aplikasi antarmuka **reaktif**: tampilan berubah terus-menerus tanpa reload halaman
-- Lebih relevan untuk framework frontend (mis. Vue) dibanding aplikasi server-rendered seperti Simple POS saat ini
+- Lebih relevan untuk framework frontend (mis. Vue) dibanding aplikasi server-rendered pada umumnya
 
 ---
 
@@ -440,7 +440,7 @@ Struktur folder ini bukan kebetulan: ia mewujudkan pola MVC secara konsisten sej
 - Ongkos: lapisan abstraksi tambahan yang perlu dirawat
 
 <div class="warn-box">
-Untuk aplikasi seskala Simple POS, isolasi seketat ini menambah abstraksi yang belum sepadan manfaatnya. MVC bawaan Laravel sudah cukup rapi.
+Untuk aplikasi skala kecil-menengah, isolasi seketat ini menambah abstraksi yang belum sepadan manfaatnya. MVC bawaan Laravel sudah cukup rapi.
 </div>
 
 ---
@@ -484,7 +484,7 @@ Dari alamat URL sampai controller yang rapi
   <div class="box">Controller</div>
 </div>
 
-- Bagian praktikum akan menulis ketiganya untuk endpoint Simple POS
+- Bagian praktikum akan menerapkan ketiganya pada studi kasus Simple POS
 
 ---
 
@@ -495,10 +495,10 @@ Dari alamat URL sampai controller yang rapi
 </div>
 
 ```php
-Route::get('/transactions/{id}', [TransactionController::class, 'show']);
+Route::get('/articles/{id}', [ArticleController::class, 'show']);
 ```
 
-- `/transactions/1`, `/transactions/2`, `/transactions/9999`: satu route melayani semuanya
+- `/articles/1`, `/articles/2`, `/articles/9999`: satu route melayani semuanya
 - Nilai `{id}` diterima method `show` sebagai argumen
 - ID yang tidak ada &rarr; **404** (lihat kembali tabel status code di Bagian 1)
 
@@ -511,15 +511,15 @@ Route::get('/transactions/{id}', [TransactionController::class, 'show']);
 </div>
 
 ```php
-Route::get('/pos', [TransactionController::class, 'create'])
-    ->name('pos.create');
-Route::post('/pos', [TransactionController::class, 'store'])
-    ->name('transactions.store');
+Route::get('/login', [LoginController::class, 'create'])
+    ->name('login.create');
+Route::post('/login', [LoginController::class, 'store'])
+    ->name('login.store');
 ```
 
-- `GET /pos` dan `POST /pos` adalah **dua route berbeda** meski alamatnya sama, dibedakan oleh method-nya
-- Link/redirect ditulis `route('pos.create')`. Alamat berubah dari `/pos` ke `/kasir`? Tidak ada pemanggil yang perlu diedit
-- Konvensi penamaan: `sumber.aksi`, contoh `transactions.index`, `transactions.store`, dst.
+- `GET /login` dan `POST /login` adalah **dua route berbeda** meski alamatnya sama, dibedakan oleh method-nya
+- Link/redirect ditulis `route('login.create')`. Alamat berubah dari `/login` ke `/masuk`? Tidak ada pemanggil yang perlu diedit
+- Konvensi penamaan: `sumber.aksi`, contoh `articles.index`, `articles.store`, dst.
 
 ---
 
@@ -531,15 +531,15 @@ Route::post('/pos', [TransactionController::class, 'store'])
 
 ```php
 Route::middleware('auth')->group(function () {
-    Route::get('/pos', [TransactionController::class, 'create'])
-        ->name('pos.create');
-    Route::post('/pos', [TransactionController::class, 'store'])
-        ->name('transactions.store');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+    Route::get('/settings', [SettingController::class, 'edit'])
+        ->name('settings.edit');
 });
 ```
 
 <div class="warn-box">
-Route baru yang lupa dibungkus group middleware yang benar adalah lubang keamanan yang mudah luput: route hapus kategori yang seharusnya khusus admin bisa diakses siapa pun yang tahu alamatnya. Selalu periksa posisi route baru sebelum menganggapnya selesai.
+Route baru yang lupa dibungkus group middleware yang benar adalah lubang keamanan yang mudah luput: route hapus data yang seharusnya khusus admin bisa diakses siapa pun yang tahu alamatnya. Selalu periksa posisi route baru sebelum menganggapnya selesai.
 </div>
 
 ---
@@ -550,13 +550,13 @@ Fitur CRUD apa pun selalu butuh tujuh aksi yang sama. Laravel membakukannya jadi
 
 <table class="small">
 <tr><th>Aksi</th><th>Method</th><th>URL</th><th>Tugas</th></tr>
-<tr><td><code>index</code></td><td>GET</td><td><code>/products</code></td><td>Daftar semua produk</td></tr>
-<tr><td><code>create</code></td><td>GET</td><td><code>/products/create</code></td><td>Form tambah produk</td></tr>
-<tr><td><code>store</code></td><td>POST</td><td><code>/products</code></td><td>Simpan produk baru</td></tr>
-<tr><td><code>show</code></td><td>GET</td><td><code>/products/{id}</code></td><td>Detail satu produk</td></tr>
-<tr><td><code>edit</code></td><td>GET</td><td><code>/products/{id}/edit</code></td><td>Form ubah produk</td></tr>
-<tr><td><code>update</code></td><td>PATCH</td><td><code>/products/{id}</code></td><td>Simpan perubahan</td></tr>
-<tr><td><code>destroy</code></td><td>DELETE</td><td><code>/products/{id}</code></td><td>Hapus produk</td></tr>
+<tr><td><code>index</code></td><td>GET</td><td><code>/articles</code></td><td>Daftar semua artikel</td></tr>
+<tr><td><code>create</code></td><td>GET</td><td><code>/articles/create</code></td><td>Form tambah artikel</td></tr>
+<tr><td><code>store</code></td><td>POST</td><td><code>/articles</code></td><td>Simpan artikel baru</td></tr>
+<tr><td><code>show</code></td><td>GET</td><td><code>/articles/{id}</code></td><td>Detail satu artikel</td></tr>
+<tr><td><code>edit</code></td><td>GET</td><td><code>/articles/{id}/edit</code></td><td>Form ubah artikel</td></tr>
+<tr><td><code>update</code></td><td>PATCH</td><td><code>/articles/{id}</code></td><td>Simpan perubahan</td></tr>
+<tr><td><code>destroy</code></td><td>DELETE</td><td><code>/articles/{id}</code></td><td>Hapus artikel</td></tr>
 </table>
 
 ---
@@ -564,10 +564,10 @@ Fitur CRUD apa pun selalu butuh tujuh aksi yang sama. Laravel membakukannya jadi
 ## `Route::resource`: Tujuh Route, Satu Baris
 
 ```php
-Route::resource('products', ProductController::class);
+Route::resource('articles', ArticleController::class);
 ```
 
-- Satu baris ini mendaftarkan ke-7 route pada slide sebelumnya sekaligus, lengkap dengan named route (`products.index`, `products.show`, dst.)
+- Satu baris ini mendaftarkan ke-7 route pada slide sebelumnya sekaligus, lengkap dengan named route (`articles.index`, `articles.show`, dst.)
 - Butuh sebagian saja? `->only(['index', 'show'])`
 - Konvensi yang sama di setiap fitur membuat siapa pun di tim langsung tahu di mana sebuah aksi berada
 
@@ -584,10 +584,10 @@ Perintah <code>php artisan route:list</code> menampilkan tabel seluruh route yan
 </div>
 
 ```php
-Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
+Route::get('/articles/{id}/pdf', ExportArticlePdfController::class);
 ```
 
-- Mencetak struk transaksi bukan `show`, bukan `update`: ia aksi berdiri sendiri
+- Mengekspor artikel sebagai PDF bukan `show`, bukan `update`: ia aksi berdiri sendiri
 - Route-nya menunjuk class-nya langsung, tanpa nama method
 - Tanda kamu membutuhkannya: sebuah aksi terus "dipaksakan" masuk ke method resource yang tidak pas
 
@@ -603,7 +603,7 @@ Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
 <div>
 
 **Controller gemuk (hindari)**
-- Hitung total, kurangi stok, validasi, format tampilan: semua di satu method
+- Hitung total, validasi input, kirim notifikasi, format tampilan: semua di satu method
 - Sulit diuji, sulit dipakai ulang
 
 </div>
@@ -611,7 +611,7 @@ Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
 
 **Controller tipis (tujuan)**
 - `store` hanya memvalidasi input, menyerahkan perhitungan ke Model, lalu redirect
-- Logika stok bisa dipakai ulang dari mana pun
+- Logika bisnis bisa dipakai ulang dari mana pun
 
 </div>
 </div>

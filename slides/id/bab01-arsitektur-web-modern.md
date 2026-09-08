@@ -225,9 +225,9 @@ Pertemuan 1&ndash;10 membangun fondasi teknis Laravel; Pertemuan 11&ndash;17 men
 
 ## Yang Akan Kamu Pelajari
 
-1. Membandingkan arsitektur **monolith**, **microservices**, dan **serverless** untuk menjelaskan alasan Laravel dipilih sebagai kerangka kerja Simple POS
+1. Membandingkan arsitektur **monolith**, **microservices**, dan **serverless** untuk memahami dasar pemilihan arsitektur sebuah aplikasi web
 
-2. Memahami alasan **Laravel 13** dengan **SQLite** sebagai basis data zero-setup dipilih untuk Simple POS
+2. Memahami alasan **Laravel 13** dengan **SQLite** sebagai basis data zero-setup dipilih untuk proyek Simple POS yang akan kamu bangun sepanjang semester
 
 3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) sebagai perwujudan pola **MVC**
 
@@ -272,7 +272,7 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 - Setiap layanan: bahasa berbeda, jadwal deploy berbeda, skala sendiri-sendiri
 - **Harganya:** 8 layanan = 8 proses deploy + 8 titik gagal + komunikasi jaringan antar-layanan
 - Sepadan untuk **tim besar** dengan sistem berskala jutaan pengguna
-- Untuk Simple POS: ongkos jauh melebihi manfaatnya
+- Untuk aplikasi skala kecil: ongkos jauh melebihi manfaatnya
 
 ---
 
@@ -300,7 +300,7 @@ Dua arsitektur yang baru saja kita definisikan, dalam analogi sehari-hari:
 </div>
 
 <div class="tip-box">
-Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena keterbatasan, tapi karena skalanya cocok: satu warung dengan satu-dua kasir tidak butuh sepuluh layanan terpisah.
+Sebuah aplikasi dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena keterbatasan, tapi karena skalanya cocok: satu warung dengan satu-dua kasir tidak butuh sepuluh layanan terpisah.
 </div>
 
 ---
@@ -315,7 +315,7 @@ Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena kete
 - Ada jeda **cold start** saat fungsi lama tidak dipanggil
 - Biaya dihitung per eksekusi, bukan per jam server menyala
 - Cocok: beban kerja naik-turun tajam (mis. proses gambar saat upload)
-- Kurang cocok: Simple POS yang butuh koneksi basis data konsisten
+- Kurang cocok: aplikasi yang butuh koneksi basis data konsisten
 
 ---
 
@@ -323,7 +323,7 @@ Simple POS dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena kete
 
 | Arsitektur | Deployment | Kompleksitas Awal | Cocok Untuk |
 |---|---|---|---|
-| **Monolith** | Satu unit | Rendah | Simple POS, MVP, tim kecil |
+| **Monolith** | Satu unit | Rendah | Aplikasi skala kecil, MVP, tim kecil |
 | **Microservices** | Banyak unit independen | Tinggi | Sistem skala besar, tim besar |
 | **Serverless** | Fungsi per event | Sedang | Beban kerja sporadis |
 
@@ -400,7 +400,7 @@ Satu pintu masuk berarti setiap request bisa diproses seragam sebelum sampai ke 
 </div>
 
 <div class="tip-box" style="margin-top:40px;">
-Pola alur ini berulang di setiap fitur Simple POS, dari halaman POS sederhana hingga endpoint REST API, semua mengikuti jalur yang sama.
+Pola alur ini berulang di setiap fitur aplikasi Laravel, dari halaman sederhana hingga endpoint REST API, semua mengikuti jalur yang sama.
 </div>
 
 ---
@@ -479,9 +479,9 @@ Struktur ini bukan kebetulan: ia mewujudkan pola MVC yang sama dengan diagram al
 
 ## Rangkuman
 
-- **Monolith** menyatukan seluruh lapisan dalam satu basis kode & satu deploy, cocok untuk skala Simple POS; **microservices** memecahnya dengan ongkos yang sepadan hanya untuk sistem besar; **serverless** cocok untuk beban kerja sporadis
+- **Monolith** menyatukan seluruh lapisan dalam satu basis kode & satu deploy, cocok untuk aplikasi skala kecil-menengah; **microservices** memecahnya dengan ongkos yang sepadan hanya untuk sistem besar; **serverless** cocok untuk beban kerja sporadis
 
-- Laravel dipilih sebagai kerangka kerja Simple POS karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup: satu berkas, tanpa server terpisah
+- Laravel dipilih sebagai kerangka kerja karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup: satu berkas, tanpa server terpisah
 
 - **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram
 

@@ -186,7 +186,7 @@ This slide covers concepts. The practical steps for writing routes, controllers,
 </div>
 <div>
 
-**A request to Simple POS**
+**A request to a web application**
 - Comes in through one door
 - Sorted by its address & type
 - Forwarded to the right handler for processing
@@ -196,7 +196,7 @@ This slide covers concepts. The practical steps for writing routes, controllers,
 </div>
 
 <div class="warn-box">
-If the sorting goes wrong (e.g. a delete-product request gets forwarded without checking whether the sender is an admin), the application loses control over who's allowed to change what.
+If the sorting goes wrong (e.g. a delete-data request gets forwarded without checking whether the sender is an admin), the application loses control over who's allowed to change what.
 </div>
 
 ---
@@ -218,12 +218,12 @@ If the sorting goes wrong (e.g. a delete-product request gets forwarded without 
 
 ## HTTP Methods
 
-| Method | Meaning | Example on Simple POS |
+| Method | Meaning | Typical Use |
 |---|---|---|
-| `GET` | Requesting data, **without changing** anything server-side | Rendering the `/transactions` page |
-| `POST` | Submitting new data | Saving a new cashier transaction |
-| `PATCH` | Updating part of existing data | Updating product stock |
-| `DELETE` | Removing data | Removing a product from the catalog |
+| `GET` | Requesting data, **without changing** anything server-side | Listing data |
+| `POST` | Submitting new data | Saving new data |
+| `PATCH` | Updating part of existing data | Updating part of a record |
+| `DELETE` | Removing data | Deleting a record |
 
 Other methods worth knowing: **`PUT`** (replacing all of the data at once), **`HEAD`** (like `GET` but only asking for headers, no body), **`OPTIONS`** (asking which methods the server allows).
 
@@ -282,14 +282,14 @@ Hundreds of status codes are grouped by their first digit: you only need to memo
 
 ---
 
-## Status Codes on Simple POS
+## Status Codes on a Web Application
 
-| Code | Meaning | Example on Simple POS |
+| Code | Meaning | Typical Use |
 |---|---|---|
-| 200 | OK | The `/transactions` page renders successfully |
-| 302 | Redirect | After `/pos` saves, the browser is sent to the detail page |
-| 404 | Not Found | Opening `/transactions/9999` for an ID that doesn't exist |
-| 422 | Unprocessable Entity | The transaction form is submitted with insufficient stock |
+| 200 | OK | A list page renders successfully |
+| 302 | Redirect | After a form saves, the browser is sent to the detail page |
+| 404 | Not Found | Opening a detail page for an ID that doesn't exist |
+| 422 | Unprocessable Entity | A form is submitted with invalid data |
 | 500 | Server Error | An unhandled error on the server side |
 
 - Notice the pattern: 2xx = success, 3xx = address change, 4xx = sender-side mistake, 5xx = server-side mistake
@@ -299,15 +299,15 @@ Hundreds of status codes are grouped by their first digit: you only need to memo
 ## The 302 Pattern: Save-then-Redirect
 
 <div class="flow">
-  <div class="box">POST /pos</div>
+  <div class="box">POST /articles</div>
   <div class="arrow">&rarr;</div>
   <div class="box">302 + Location</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">GET /transactions/{id}</div>
+  <div class="box">GET /articles/{id}</div>
 </div>
 
 <div class="tip-box" style="margin-top:30px;">
-After <code>POST /pos</code> successfully saves a transaction, the server doesn't send HTML back right away: it sends a 302 response with a <code>Location</code> header telling the browser to request another address instead.
+After <code>POST /articles</code> successfully saves data, the server doesn't send HTML back right away: it sends a 302 response with a <code>Location</code> header telling the browser to request another address instead.
 </div>
 
 - This pattern repeats across almost every data-writing feature
@@ -426,7 +426,7 @@ This folder structure isn't an accident: it embodies the same MVC pattern as the
 </div>
 
 - Popular in **reactive** interface applications: the display keeps changing without a page reload
-- More relevant to frontend frameworks (e.g. Vue) than to server-rendered applications like Simple POS today
+- More relevant to frontend frameworks (e.g. Vue) than to server-rendered applications in general
 
 ---
 
@@ -440,7 +440,7 @@ This folder structure isn't an accident: it embodies the same MVC pattern as the
 - Cost: an extra abstraction layer that needs maintaining
 
 <div class="warn-box">
-For an application at Simple POS's scale, isolation this strict adds abstraction that isn't yet worth its cost. Laravel's built-in MVC is already clean enough.
+For a small-to-medium scale application, isolation this strict adds abstraction that isn't yet worth its cost. Laravel's built-in MVC is already clean enough.
 </div>
 
 ---
@@ -484,7 +484,7 @@ From URLs to clean controllers
   <div class="box">Controller</div>
 </div>
 
-- The hands-on practicum will write all three for Simple POS endpoints
+- The hands-on practicum will apply all three to the Simple POS case study
 
 ---
 
@@ -495,10 +495,10 @@ From URLs to clean controllers
 </div>
 
 ```php
-Route::get('/transactions/{id}', [TransactionController::class, 'show']);
+Route::get('/articles/{id}', [ArticleController::class, 'show']);
 ```
 
-- `/transactions/1`, `/transactions/2`, `/transactions/9999`: one route serves them all
+- `/articles/1`, `/articles/2`, `/articles/9999`: one route serves them all
 - The `{id}` value is received by the `show` method as an argument
 - A missing ID &rarr; **404** (see the status code table back in Part 1)
 
@@ -511,15 +511,15 @@ Route::get('/transactions/{id}', [TransactionController::class, 'show']);
 </div>
 
 ```php
-Route::get('/pos', [TransactionController::class, 'create'])
-    ->name('pos.create');
-Route::post('/pos', [TransactionController::class, 'store'])
-    ->name('transactions.store');
+Route::get('/login', [LoginController::class, 'create'])
+    ->name('login.create');
+Route::post('/login', [LoginController::class, 'store'])
+    ->name('login.store');
 ```
 
-- `GET /pos` and `POST /pos` are **two different routes** even though the address is the same, distinguished by their method
-- Links/redirects are written as `route('pos.create')`. Address changes from `/pos` to `/checkout`? No caller needs editing
-- Naming convention: `source.action`, e.g. `transactions.index`, `transactions.store`, etc.
+- `GET /login` and `POST /login` are **two different routes** even though the address is the same, distinguished by their method
+- Links/redirects are written as `route('login.create')`. Address changes from `/login` to `/signin`? No caller needs editing
+- Naming convention: `source.action`, e.g. `articles.index`, `articles.store`, etc.
 
 ---
 
@@ -531,15 +531,15 @@ Route::post('/pos', [TransactionController::class, 'store'])
 
 ```php
 Route::middleware('auth')->group(function () {
-    Route::get('/pos', [TransactionController::class, 'create'])
-        ->name('pos.create');
-    Route::post('/pos', [TransactionController::class, 'store'])
-        ->name('transactions.store');
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+    Route::get('/settings', [SettingController::class, 'edit'])
+        ->name('settings.edit');
 });
 ```
 
 <div class="warn-box">
-A new route that forgets to be wrapped in the right middleware group is an easy-to-miss security hole: a delete-category route meant only for admins becomes accessible to anyone who knows the address. Always check a new route's position before considering it done.
+A new route that forgets to be wrapped in the right middleware group is an easy-to-miss security hole: a delete-data route meant only for admins becomes accessible to anyone who knows the address. Always check a new route's position before considering it done.
 </div>
 
 ---
@@ -550,13 +550,13 @@ Any CRUD feature always needs the same seven actions. Laravel standardizes them 
 
 <table class="small">
 <tr><th>Action</th><th>Method</th><th>URL</th><th>Task</th></tr>
-<tr><td><code>index</code></td><td>GET</td><td><code>/products</code></td><td>List all products</td></tr>
-<tr><td><code>create</code></td><td>GET</td><td><code>/products/create</code></td><td>Add-product form</td></tr>
-<tr><td><code>store</code></td><td>POST</td><td><code>/products</code></td><td>Save a new product</td></tr>
-<tr><td><code>show</code></td><td>GET</td><td><code>/products/{id}</code></td><td>A single product's detail</td></tr>
-<tr><td><code>edit</code></td><td>GET</td><td><code>/products/{id}/edit</code></td><td>Edit-product form</td></tr>
-<tr><td><code>update</code></td><td>PATCH</td><td><code>/products/{id}</code></td><td>Save changes</td></tr>
-<tr><td><code>destroy</code></td><td>DELETE</td><td><code>/products/{id}</code></td><td>Delete a product</td></tr>
+<tr><td><code>index</code></td><td>GET</td><td><code>/articles</code></td><td>List all articles</td></tr>
+<tr><td><code>create</code></td><td>GET</td><td><code>/articles/create</code></td><td>Add-article form</td></tr>
+<tr><td><code>store</code></td><td>POST</td><td><code>/articles</code></td><td>Save a new article</td></tr>
+<tr><td><code>show</code></td><td>GET</td><td><code>/articles/{id}</code></td><td>A single article's detail</td></tr>
+<tr><td><code>edit</code></td><td>GET</td><td><code>/articles/{id}/edit</code></td><td>Edit-article form</td></tr>
+<tr><td><code>update</code></td><td>PATCH</td><td><code>/articles/{id}</code></td><td>Save changes</td></tr>
+<tr><td><code>destroy</code></td><td>DELETE</td><td><code>/articles/{id}</code></td><td>Delete an article</td></tr>
 </table>
 
 ---
@@ -564,10 +564,10 @@ Any CRUD feature always needs the same seven actions. Laravel standardizes them 
 ## `Route::resource`: Seven Routes, One Line
 
 ```php
-Route::resource('products', ProductController::class);
+Route::resource('articles', ArticleController::class);
 ```
 
-- This one line registers all 7 routes from the previous slide at once, complete with named routes (`products.index`, `products.show`, etc.)
+- This one line registers all 7 routes from the previous slide at once, complete with named routes (`articles.index`, `articles.show`, etc.)
 - Only need some of them? `->only(['index', 'show'])`
 - The same convention across every feature means anyone on the team instantly knows where an action lives
 
@@ -584,10 +584,10 @@ The <code>php artisan route:list</code> command shows a table of every registere
 </div>
 
 ```php
-Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
+Route::get('/articles/{id}/pdf', ExportArticlePdfController::class);
 ```
 
-- Printing a transaction receipt isn't `show`, isn't `update`: it's a standalone action
+- Exporting an article as a PDF isn't `show`, isn't `update`: it's a standalone action
 - Its route points straight at the class, with no method name
 - A sign you need one: an action keeps getting "forced" into a resource method that doesn't fit
 
@@ -603,7 +603,7 @@ Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
 <div>
 
 **Fat controller (avoid)**
-- Calculate totals, deduct stock, validate, format output: all in one method
+- Calculate totals, validate input, send notifications, format output: all in one method
 - Hard to test, hard to reuse
 
 </div>
@@ -611,7 +611,7 @@ Route::get('/transactions/{id}/receipt', PrintReceiptController::class);
 
 **Thin controller (the goal)**
 - `store` only validates input, hands the calculation off to the Model, then redirects
-- The stock logic can be reused from anywhere
+- The business logic can be reused from anywhere
 
 </div>
 </div>
