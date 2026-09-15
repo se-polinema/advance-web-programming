@@ -62,9 +62,11 @@ Buat branch baru dari `main` terbaru, misalnya `categories-products-migration`:
 git checkout main
 git pull
 git checkout -b categories-products-migration
-php artisan make:migration create_categories_table
+php artisan make:model Category -m
 php artisan make:migration create_products_table
 ```
+
+`make:model Category -m` membuat model `Category` sekaligus berkas migrasinya dalam satu perintah; model ini dipakai nanti oleh seeder di Langkah 4. Model `Product` sengaja belum dibuat sekarang, itu bagian dari Langkah 5.
 
 Isi metode `up()` migrasi `categories`:
 
@@ -159,7 +161,7 @@ git pull
 git checkout -b seeder-and-index
 ```
 
-Ganti isi `database/seeders/DatabaseSeeder.php` menjadi (sesuaikan `$categoryIds` dan `$userIds` dengan hasil `User::factory()`/kategori yang sudah ada di proyekmu sejak pertemuan sebelumnya):
+Ganti isi `database/seeders/DatabaseSeeder.php` menjadi:
 
 ```php
 <?php
@@ -175,11 +177,14 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        $user = User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+        ]);
+
         $categoryIds = collect(['Makanan', 'Minuman', 'Snack', 'Lainnya'])
             ->map(fn (string $name) => Category::create(['name' => $name])->id)
             ->all();
-
-        $userId = User::factory()->create()->id;
 
         $products = [];
         foreach ($categoryIds as $categoryId) {
@@ -199,19 +204,19 @@ class DatabaseSeeder extends Seeder
             DB::table('products')->insert($chunk);
         }
 
-        $productIds = DB::table('products')->pluck('id')->all();
+        $productPrices = DB::table('products')->pluck('price', 'id');
+        $productIds = $productPrices->keys()->all();
 
         for ($t = 0; $t < 2500; $t++) {
-            DB::transaction(function () use ($userId, $productIds) {
+            DB::transaction(function () use ($user, $productIds, $productPrices) {
                 $itemCount = fake()->numberBetween(1, 4);
                 $total = 0;
                 $details = [];
 
                 for ($i = 0; $i < $itemCount; $i++) {
                     $productId = fake()->randomElement($productIds);
-                    $price = DB::table('products')->where('id', $productId)->value('price');
                     $qty = fake()->numberBetween(1, 3);
-                    $subtotal = $price * $qty;
+                    $subtotal = $productPrices[$productId] * $qty;
                     $total += $subtotal;
 
                     $details[] = [
@@ -222,7 +227,7 @@ class DatabaseSeeder extends Seeder
                 }
 
                 $transactionId = DB::table('transactions')->insertGetId([
-                    'user_id' => $userId,
+                    'user_id' => $user->id,
                     'total' => $total,
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -241,7 +246,7 @@ class DatabaseSeeder extends Seeder
 }
 ```
 
-`DB::table()->insert()` melewati lapisan Eloquent sama sekali: ia menyusun satu pernyataan `INSERT` yang menulis banyak baris sekaligus, jauh lebih sedikit round-trip ke basis data dibanding memanggil `Model::create()` satu per satu di dalam loop 300 kali. `array_chunk()` membagi array besar menjadi kelompok-kelompok kecil sebelum di-insert, karena sebagian mesin basis data punya batas jumlah baris atau parameter dalam satu pernyataan `INSERT`. `DB::transaction()` membungkus insert `transactions` dan `transaction_details`-nya: kalau prosesnya gagal di tengah jalan, seluruh perubahan dalam blok itu dibatalkan bersama, sehingga basis data tidak pernah berakhir dengan transaksi yang tercatat tapi detailnya hilang separuh.
+Baris `User::factory()->create(['name' => 'Test User', ...])` di atas persis dengan pengguna yang sudah dibuat seeder sejak Pertemuan 1, hanya dipindah ke sini supaya seluruh isi berkas terlihat lengkap. `DB::table()->insert()` melewati lapisan Eloquent sama sekali: ia menyusun satu pernyataan `INSERT` yang menulis banyak baris sekaligus, jauh lebih sedikit round-trip ke basis data dibanding memanggil `Model::create()` satu per satu di dalam loop 300 kali. `array_chunk()` membagi array besar menjadi kelompok-kelompok kecil sebelum di-insert, karena sebagian mesin basis data punya batas jumlah baris atau parameter dalam satu pernyataan `INSERT`. Harga produk diambil sekali di awal lewat `pluck('price', 'id')` menjadi array asosiatif, bukan di-query ulang untuk setiap item transaksi, konsisten dengan alasan bulk insert dipakai: makin sedikit round-trip ke basis data, makin cepat seeder berjalan. `DB::transaction()` membungkus insert `transactions` dan `transaction_details`-nya: kalau prosesnya gagal di tengah jalan, seluruh perubahan dalam blok itu dibatalkan bersama, sehingga basis data tidak pernah berakhir dengan transaksi yang tercatat tapi detailnya hilang separuh.
 
 ```bash
 php artisan migrate:fresh --seed
@@ -364,7 +369,7 @@ Bagi tugas berikut di antara anggota, supaya setiap anggota tercatat minimal sat
 
 - Tambahkan index pada kolom `transaction_details.product_id` lewat migrasi baru, lalu buktikan dengan `EXPLAIN QUERY PLAN` pada query yang mencari seluruh detail transaksi untuk satu produk tertentu.
 - Tambahkan kolom baru `sku` (string, unik, nullable) pada tabel `products` lewat migrasi baru, bukan dengan mengubah migrasi lama yang sudah pernah dijalankan.
-- Buat Model `Category` beserta relasi `hasMany` ke `Product` (dipakai penuh pada pertemuan ORM & relasi berikutnya, cukup didefinisikan dulu di sini).
+- Tambahkan kolom `is_active` (boolean, default `true`) pada tabel `products` lewat migrasi baru, lalu ubah seeder supaya sekitar 10% produk dibuat dengan `is_active` bernilai `false`.
 - Tulis satu query listing baru (misalnya transaksi dalam rentang tanggal tertentu) lewat `php artisan tinker`, lalu jalankan `EXPLAIN QUERY PLAN` pada query itu untuk memeriksa apakah ia sudah memakai index yang ada.
 - Ubah jumlah produk yang ditampilkan `TransactionController::create()` dari `take(12)` menjadi menampilkan seluruh produk yang `stock`-nya di atas 0.
 
@@ -391,14 +396,12 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 - Screenshot halaman `/pos` menampilkan produk hasil seeding (bukan lagi data hardcoded).
 - Output `git log --pretty="%h %an %s"` yang menunjukkan minimal satu commit per anggota.
 - Tabel pembagian tugas: nama anggota | langkah/tugas yang dikerjakan | hash commit.
-- **Tugas mandiri (dikerjakan dan dikumpulkan masing-masing anggota):** jelaskan dengan kata-katamu sendiri, dalam 3-5 kalimat: (a) mengapa `transactions.total` disimpan alih-alih dihitung ulang setiap kali dibaca, (b) mengapa bulk insert (`DB::table()->insert()` + `array_chunk()`) dipilih ketimbang `Model::create()` satu per satu untuk seeding skala besar, dan (c) apa yang sebenarnya ditambahkan `constrained()` pada SQLite, dan kenapa itu tidak cukup untuk mempercepat query.
 
 ## E. Kriteria Penilaian
 
 | Komponen | Bobot | Kriteria Lengkap (100%) | Kriteria Minimum |
 |---|---:|---|---|
-| Langkah kerja tuntas (kelompok) | 30% | Langkah 1-7 selesai, seeder berjalan dengan jumlah baris benar, `/pos` menampilkan data dari database | Sebagian besar langkah selesai, seeder dan `/pos` berfungsi |
-| Checkpoint terverifikasi (kelompok) | 20% | Screenshot `EXPLAIN QUERY PLAN` sebelum/sesudah, tabel pembagian tugas, dan git log lengkap dan benar | Sebagian checkpoint terbukti |
+| Langkah kerja tuntas (kelompok) | 40% | Langkah 1-7 selesai, seeder berjalan dengan jumlah baris benar, `/pos` menampilkan data dari database | Sebagian besar langkah selesai, seeder dan `/pos` berfungsi |
+| Checkpoint terverifikasi (kelompok) | 25% | Screenshot `EXPLAIN QUERY PLAN` sebelum/sesudah, tabel pembagian tugas, dan git log lengkap dan benar | Sebagian checkpoint terbukti |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna atas nama tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
-| Tugas mandiri (individu) | 15% | Ketiga penjelasan tepat dan berdiri sendiri | Jawaban ada meski belum lengkap |
 | Kerapian repositori dan commit | 10% | Pesan `increment 4` persis, migrasi baru (bukan edit migrasi lama), tanpa menyertakan `vendor/`/`node_modules/`/`.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
