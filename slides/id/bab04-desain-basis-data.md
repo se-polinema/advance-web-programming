@@ -280,7 +280,7 @@ Menghitung snapshot tidak berarti server percaya begitu saja angka kiriman clien
 <div>
 
 **Basis data NoSQL (dokumen/key-value)**
-- Skema lentur: tiap dokumen boleh punya bentuk berbeda
+- Bersifat schemaless: tiap dokumen boleh punya bentuk berbeda
 - Lebih mudah diskalakan secara horizontal ke banyak server
 - Unggul saat struktur data cair (berubah-ubah) atau volumenya masif
 
@@ -288,7 +288,7 @@ Menghitung snapshot tidak berarti server percaya begitu saja angka kiriman clien
 </div>
 
 <div class="tip-box">
-Keduanya bukan lawan yang saling meniadakan: banyak sistem produksi memakai basis data relasional untuk data transaksional, dan NoSQL untuk keperluan lain seperti log atau cache. Buku dan jobsheet ini fokus ke relasional karena Simple POS butuh transaksi yang konsisten.
+Keduanya saling melengkapi, bukan bersaing: relasional untuk transaksi, NoSQL untuk keperluan lain. Simple POS pakai relasional karena butuh transaksi konsisten.
 </div>
 
 ---
@@ -606,7 +606,7 @@ Sintaksnya berbeda-beda, tapi konsepnya sama: skema basis data adalah kode yang 
 
 ## Rangkuman (1/2)
 
-- Skema yang baik menyimpan tiap fakta satu kali dengan tipe data dan batasan yang tepat; basis data relasional cocok untuk data transaksional seperti Simple POS, NoSQL untuk struktur data yang lentur atau skala masif
+- Skema yang baik menyimpan tiap fakta satu kali dengan tipe data dan batasan yang tepat; basis data relasional cocok untuk data transaksional seperti Simple POS, NoSQL untuk struktur data yang schemaless atau skala masif
 
 - Migration adalah riwayat skema yang bisa dijalankan ulang: `up()` menerapkan perubahan, `down()` membalikkannya, dan skema berevolusi lewat migration baru, bukan mengedit yang lama
 

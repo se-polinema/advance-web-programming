@@ -2795,14 +2795,14 @@ pre {
 <div>
 <p><strong>Basis data NoSQL (dokumen/key-value)</strong></p>
 <ul>
-<li>Skema lentur: tiap dokumen boleh punya bentuk berbeda</li>
+<li>Bersifat schemaless: tiap dokumen boleh punya bentuk berbeda</li>
 <li>Lebih mudah diskalakan secara horizontal ke banyak server</li>
 <li>Unggul saat struktur data cair (berubah-ubah) atau volumenya masif</li>
 </ul>
 </div>
 </div>
 <div class="tip-box">
-Keduanya bukan lawan yang saling meniadakan: banyak sistem produksi memakai basis data relasional untuk data transaksional, dan NoSQL untuk keperluan lain seperti log atau cache. Buku dan jobsheet ini fokus ke relasional karena Simple POS butuh transaksi yang konsisten.
+Keduanya saling melengkapi, bukan bersaing: relasional untuk transaksi, NoSQL untuk keperluan lain. Simple POS pakai relasional karena butuh transaksi konsisten.
 </div>
 </section>
 </foreignObject></svg><svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720"><section id="11" data-paginate="true" data-class="divider" data-theme="default" data-style="section {
@@ -8636,7 +8636,7 @@ pre {
 <h2 id="rangkuman-12">Rangkuman (1/2)</h2>
 <ul>
 <li>
-<p>Skema yang baik menyimpan tiap fakta satu kali dengan tipe data dan batasan yang tepat; basis data relasional cocok untuk data transaksional seperti Simple POS, NoSQL untuk struktur data yang lentur atau skala masif</p>
+<p>Skema yang baik menyimpan tiap fakta satu kali dengan tipe data dan batasan yang tepat; basis data relasional cocok untuk data transaksional seperti Simple POS, NoSQL untuk struktur data yang schemaless atau skala masif</p>
 </li>
 <li>
 <p>Migration adalah riwayat skema yang bisa dijalankan ulang: <code>up()</code> menerapkan perubahan, <code>down()</code> membalikkannya, dan skema berevolusi lewat migration baru, bukan mengedit yang lama</p>
