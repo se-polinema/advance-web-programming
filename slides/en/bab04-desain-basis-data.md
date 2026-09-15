@@ -151,11 +151,15 @@ Schema, Schema Change History, and Query Speed
 
 ## What You'll Learn
 
-1. Explain the **schema** concept and table relationships through **foreign keys**
+1. Design a database schema and its **foreign key** relationships, along with design principles that keep data consistent and efficient
 
-2. Understand **migrations** as a replayable history of schema changes, and **seeders** for filling in large amounts of initial data
+2. Master a **migration**'s lifecycle (`make:migration`, `up()`/`down()`, `migrate`, `rollback`) as a replayable history of schema evolution
 
-3. Explain the **index** concept and how to verify its impact on query speed
+3. Fill in data through **seeders** and **factories**, including large-scale bulk inserts
+
+4. Build an **index** strategy and prove its impact with `EXPLAIN QUERY PLAN`
+
+5. Place this approach on the bigger map: SQL vs. NoSQL, and Laravel's schema builder compared with other ecosystems
 
 <div class="tip-box">
 This slide deck covers concepts. Designing the schema, writing migrations, and seeders for Simple POS happens in the practicum jobsheet.
@@ -208,6 +212,18 @@ A database table's schema is the shelf layout itself; an index is the card catal
 
 ---
 
+## Designing a Good Schema
+
+- **One fact, one place**: if a customer's name lives in five different tables, fixing one typo means chasing five rows at once, and all five can end up disagreeing with each other
+- Pick the most specific data type available (a number for numbers, a date for dates), not `string` for everything, so the database itself rejects invalid data
+- Constraints (`nullable`, `default`, `unique`) are a fence at the database level: they apply to every row that comes in, from any path, not only through one form that happens to validate it
+
+<div class="tip-box">
+A deliberate exception: a <b>snapshot</b> column (a value frozen at one moment, covered in full after the example schema below) intentionally stores a copy of a value, not for the sake of "one place", but because that value has to freeze at a particular moment.
+</div>
+
+---
+
 ## Foreign Key: Keeping Relationships Consistent
 
 <div class="term-box">
@@ -232,38 +248,47 @@ A database table's schema is the shelf layout itself; an index is the card catal
 | `articles` | `id`, `author_id` (fk), `title`, `published_at` |
 | `comments` | `id`, `article_id` (fk), `body` |
 
-- One `authors` row has many `articles`
-- One `articles` row has many `comments`
-- The relationships are simple enough to sketch on paper before writing any code
+- The `authors`→`articles` relationship is already covered; the `comments` table adds one more level: one `articles` row has many `comments`
+- A diagram like this is called a simple **ERD** (Entity-Relationship Diagram), used to validate a design before writing a migration
 
 ---
 
-## Values That Are Stored, Not Recomputed
+## Snapshot Columns: Values Frozen in Time
 
-- Some columns deliberately store a value as of one point in time, instead of recomputing it every time it's read
-- Example: a comment count at the moment an article was published, or a price as it stood when a transaction happened
-- That value has to stay exactly what it was at that moment, even if the source data changes later
+- A **snapshot** column computes its value **once**, at the moment the row is created (e.g. when an article is published, when a transaction happens), instead of recomputing it every time the row is **read** later
+- Example: a comment count is recorded when an article is published; the per-item price on a transaction stays what it was at that moment, even if the product's catalog price changes afterward
+- This value deliberately doesn't change even if its source data changes later, that's why it's called a **snapshot**: a picture of the past, not the present
 
 <div class="tip-box">
-The validation & security meeting later covers why a value like this must still be recalculated on the server when it's saved, not just trusted from input.
+Computing a snapshot column doesn't mean the server can just trust whatever number the client (browser/app) sends. The validation & security meeting later covers why the server must compute this value itself before saving it, regardless of what the client submitted.
 </div>
 
 ---
 
-## Writing a Migration for a Table
+## SQL vs. NoSQL: When a Schema Still Wins
 
-```php
-Schema::create('articles', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('author_id')->constrained();
-    $table->string('title');
-    $table->timestamps();
-});
-```
+<div class="cols">
+<div>
 
-- `foreignId('author_id')` creates an `author_id` column as an unsigned big integer
-- `->constrained()` adds a foreign key pointing to `authors.id`, following Laravel's naming convention
-- This constraint protects data integrity, but doesn't necessarily mean the column already has an index (see Part 3)
+**Relational databases (SQL)**
+- A strict schema: columns, types, and FK relationships are decided up front
+- ACID transactions keep several tables consistent at once
+- The default choice for business applications with structured, interconnected data, like Simple POS
+
+</div>
+<div>
+
+**NoSQL databases (document/key-value)**
+- A flexible schema: every document can take a different shape
+- Easier to scale out horizontally across many servers
+- Shines when the data's shape shifts constantly, or the volume is massive
+
+</div>
+</div>
+
+<div class="tip-box">
+The two aren't mutually exclusive: many systems pick relational for transactions and NoSQL elsewhere. This book stays relational, since Simple POS needs consistent transactions.
+</div>
 
 ---
 
@@ -298,23 +323,131 @@ Similar to a git commit history for code: a migration is a commit history for th
 
 ---
 
-## The Golden Rule: Don't Edit, Add a New One
+## Creating a New Migration
 
-<div class="warn-box">
-If the schema needs to change, create a new migration, don't edit an old migration that's already run. An old migration edited after it has run leaves the schema history on another machine out of sync with the history on yours.
-</div>
+```bash
+php artisan make:migration create_articles_table
+```
 
-- Treat migrations like version control for the schema: a new change always means a new migration file
+- This command creates a new, timestamped file under `database/migrations/`, e.g. `2026_08_20_122440_create_articles_table.php`
+- That file holds two methods: `up()` (the change being applied) and `down()` (how to undo it)
+- Schema code goes inside `up()`; the full example is on the `up()` and `down()` slide after this
 
 ---
 
-## Seeders: Filling in Initial Data
+## Running Migrations
+
+```bash
+php artisan migrate
+```
+
+- Runs every migration that hasn't run yet, in order by its filename timestamp
+- `php artisan migrate:status` shows which migrations have and haven't run, useful before running `migrate` on a fresh server
+
+<div class="tip-box">
+A migration only ever runs once. One already recorded as run is skipped on later <code>migrate</code> calls, unless it's rolled back first.
+</div>
+
+---
+
+## `up()` and `down()`: Forward and Back
+
+```php
+public function up(): void
+{
+    Schema::create('articles', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->timestamps();
+    });
+}
+
+public function down(): void
+{
+    Schema::dropIfExists('articles');
+}
+```
+
+- `down()` is the exact inverse of `up()`: if `up()` creates a table, `down()` drops it
+- `php artisan migrate:rollback` runs `down()` for the last migration batch, useful when a new migration turns out to be wrong
+
+---
+
+## Why a Correct `down()` Is Worth Writing
+
+- An honest `down()`, one that truly reverses `up()`, makes it safe to try a schema experiment and back out of it without a trace
+- Without a correct `down()`, the only way back is editing the schema by hand, the exact thing migrations exist to avoid
+
+<div class="warn-box">
+<code>php artisan migrate:fresh</code> runs <code>down()</code> on every migration, then <code>up()</code> again from scratch, a convenient shortcut during development. Never run it against a production database: every row of data is gone, not just the schema.
+</div>
+
+---
+
+## Writing a Migration for a Table
+
+```php
+Schema::create('articles', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('author_id')->constrained();
+    $table->string('title');
+    $table->timestamps();
+});
+```
+
+- `foreignId('author_id')` creates an `author_id` column as an unsigned big integer
+- `->constrained()` adds a foreign key pointing to `authors.id`, following Laravel's naming convention
+- This constraint protects data integrity, but doesn't necessarily mean the column already has an index (see Part 3)
+
+<div class="tip-box">
+The plural, snake_case table name (<code>articles</code>) isn't a coincidence: the upcoming ORM &amp; Data Relations meeting shows the singular model <code>Article</code> mapping to it through the same convention <code>constrained()</code> relies on above.
+</div>
+
+---
+
+## A Schema Evolves Through New Migrations
+
+A requirement shows up after `articles` is already in use: it now needs a subtitle column. Don't edit the old migration that already ran, create a new one instead:
+
+```bash
+php artisan make:migration add_subtitle_to_articles_table
+```
+
+```php
+public function up(): void
+{
+    Schema::table('articles', function (Blueprint $table) {
+        $table->string('subtitle')->nullable();
+    });
+}
+```
+
+- `Schema::table()` (not `Schema::create()`) alters a table that already exists, here adding a column
+
+---
+
+## The Golden Rule: A New Migration, Never an Edit
+
+- A database design is rarely right on the first try: the schema grows alongside the features, and migrations are the neatly recorded mechanism for that evolution
+- The pattern repeats forever: need a new column, write a new migration; need to drop one, write another new migration that drops it
+
+<div class="warn-box">
+An old migration edited after it has run leaves the schema history on another machine out of sync with the history on yours, that other machine has no idea anything changed, because the migration is already recorded as "already run". If the schema needs to change, a new migration is always the answer, not editing an old one.
+</div>
+
+---
+
+## Seeders and Factories: Filling in Initial Data
 
 <div class="term-box">
 <b>Seeder:</b> a PHP class that fills a table with initial or test data, run through <code>db:seed</code> or as part of <code>migrate:fresh --seed</code>.
 </div>
 
-- Useful for sample data during development, and realistic-scale test data for practicing performance work
+<div class="term-box">
+<b>Factory:</b> a blueprint for generating one realistic fake row of data for a Model, e.g. <code>User::factory()->create()</code> creates one new `users` row with sensible random values.
+</div>
+
+- A seeder usually orchestrates: it calls a factory for data that needs per-Model uniqueness (e.g. users), and does a direct bulk insert for large volumes (see the next slide)
 
 ---
 
@@ -401,6 +534,15 @@ Proving the impact with EXPLAIN QUERY PLAN
 
 ---
 
+## Index Strategy: Which Columns Deserve One?
+
+- Strong candidates: columns that show up often in `WHERE`, `JOIN`, or `ORDER BY`, foreign keys almost always qualify
+- An index isn't free: every `INSERT`/`UPDATE` on that table also rewrites the index's structure, and an index takes up extra storage
+- So don't index every column "just in case": measure first with `EXPLAIN QUERY PLAN` (covered in full after the next slide), then add only the indexes that prove necessary
+- If two columns are always filtered together (e.g. `category_id` and `is_active`), a composite index on both can outperform two separate single-column indexes
+
+---
+
 ## `constrained()` Doesn't Always Mean There's an Index
 
 - On some database engines (e.g. MySQL), `foreignId()->constrained()` automatically creates an index as a side effect
@@ -435,6 +577,20 @@ On a table with a few dozen rows, the difference between SCAN and SEARCH is bare
 
 ---
 
+## Schema Builders Across Ecosystems
+
+| Ecosystem | How the Schema Is Defined | Migrations |
+|---|---|---|
+| Laravel (Eloquent) | Imperative PHP schema builder (`Schema::create()`) | Migration files written by hand, run via `artisan migrate` |
+| Prisma (Node.js) | A declarative schema in one `schema.prisma` file | Migrations auto-generated from the schema diff |
+| SQLAlchemy + Alembic (Python) | Python models (one class per table) | Semi-automatic migrations via Alembic, diffing models against the current schema |
+
+<div class="tip-box">
+The syntax differs, but the concept is the same: a database schema is code with a history that can be replayed on another machine. Once migrations click in Laravel, moving to another ecosystem is mostly a matter of syntax.
+</div>
+
+---
+
 ## Applying This to Simple POS
 
 - You'll apply the schema, migration, and index concepts directly to the Simple POS case study in the practicum jobsheet
@@ -444,15 +600,19 @@ On a table with a few dozen rows, the difference between SCAN and SEARCH is bare
 
 ---
 
-## Summary
+## Summary (1/2)
 
-- A table's schema is defined through migrations; a migration is a history of changes that can be replayed on another machine, and the golden rule is: add a new migration, never edit an old one
+- A good schema stores each fact once, with the right data types and constraints; a relational database suits transactional data like Simple POS's, while NoSQL suits data whose shape keeps shifting or whose scale is massive
 
-- Foreign keys keep one-to-many relationships between tables consistent; seeders fill in initial data, and large-scale seeding uses `DB::table()->insert()` in batches, far more efficient than `Model::create()` one row at a time
+- A migration is a replayable schema history: `up()` applies a change, `down()` reverses it, and a schema evolves through new migrations, never by editing an old one
 
-- An index speeds up lookups on frequently filtered columns; a foreign key constraint doesn't automatically mean there's an index, depending on the database engine in use
+---
 
-- `EXPLAIN QUERY PLAN` proves an index's impact directly: from `SCAN` (scanning every row) to `SEARCH` (jumping to the relevant rows)
+## Summary (2/2)
+
+- Seeders fill in initial data, factories mint fake data per Model; large-scale seeding uses `DB::table()->insert()` in batches, far more efficient than `Model::create()` one row at a time
+
+- An index speeds up lookups (`SCAN` to `SEARCH`, proven with `EXPLAIN QUERY PLAN`), but it isn't free: pick candidates from `WHERE`/`JOIN`/`ORDER BY` columns, don't index everything
 
 ---
 
