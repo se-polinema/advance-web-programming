@@ -82,13 +82,13 @@ jobs:
 
       - name: Copy jobsheet outputs
         run: |
+          # PDF only -- the Markdown source stays out of the published
+          # site (it's still readable in the repo for anyone who wants it).
           cp jobsheets/build/*.pdf _site/jobsheets/
-          cp jobsheets/pertemuan-*.md _site/jobsheets/
           shopt -s nullglob
           en_pdfs=(jobsheets/build/en/*.pdf)
           if [ "${#en_pdfs[@]}" -gt 0 ]; then
             cp jobsheets/build/en/*.pdf _site/jobsheets/en/
-            cp jobsheets/en/pertemuan-*.md _site/jobsheets/en/
           fi
 
       - name: Generate index page

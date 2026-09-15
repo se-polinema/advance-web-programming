@@ -8,9 +8,10 @@
 #   - slides/id/bab*.md and slides/en/bab*.md have been rendered into
 #     $SITE_DIR/slides/{id,en}/*.{html,pdf}
 #   - jobsheets/pertemuan-*.md have been rendered into
-#     $SITE_DIR/jobsheets/*.pdf, with the source .md copied alongside
+#     $SITE_DIR/jobsheets/*.pdf (PDF only, the Markdown source isn't
+#     published)
 #   - jobsheets/en/pertemuan-*.md (if any exist) have been rendered into
-#     $SITE_DIR/jobsheets/en/*.pdf, with the source .md copied alongside
+#     $SITE_DIR/jobsheets/en/*.pdf (PDF only, same as above)
 #
 # Titles are read from the original Markdown sources (slides/id/*.md,
 # jobsheets/pertemuan-*.md; the Indonesian deck is the title source of
@@ -43,7 +44,7 @@ jobsheet_title() {
   sed -n '2p' "$1" | sed -E 's/^## //'
 }
 
-declare -A TITLES SLIDE_HTML SLIDE_PDF EN_SLIDE_HTML EN_SLIDE_PDF JOB_PDF JOB_MD EN_JOB_PDF EN_JOB_MD
+declare -A TITLES SLIDE_HTML SLIDE_PDF EN_SLIDE_HTML EN_SLIDE_PDF JOB_PDF EN_JOB_PDF
 NUMS=""
 
 for f in slides/id/bab*.md; do
@@ -78,7 +79,6 @@ for f in jobsheets/pertemuan-*.md; do
     TITLES["$n"]="$t"
   fi
   [ -f "$SITE_DIR/jobsheets/$slug.pdf" ] && JOB_PDF["$n"]="jobsheets/$slug.pdf"
-  [ -f "$SITE_DIR/jobsheets/$slug.md" ] && JOB_MD["$n"]="jobsheets/$slug.md"
   NUMS="$NUMS $n"
 done
 
@@ -88,7 +88,6 @@ for f in jobsheets/en/pertemuan-*.md; do
   [ -z "$n" ] && continue
   slug="$(basename "$f" .md)"
   [ -f "$SITE_DIR/jobsheets/en/$slug.pdf" ] && EN_JOB_PDF["$n"]="jobsheets/en/$slug.pdf"
-  [ -f "$SITE_DIR/jobsheets/en/$slug.md" ] && EN_JOB_MD["$n"]="jobsheets/en/$slug.md"
   NUMS="$NUMS $n"
 done
 
@@ -114,17 +113,13 @@ for n in $SORTED_NUMS; do
   fi
 
   job_links="<span class=\"muted\">belum tersedia</span>"
-  if [ -n "${JOB_PDF[$n]:-}" ] || [ -n "${JOB_MD[$n]:-}" ]; then
-    job_links=""
-    [ -n "${JOB_PDF[$n]:-}" ] && job_links="$job_links<a class=\"btn\" href=\"${JOB_PDF[$n]}\">Unduh PDF</a>"
-    [ -n "${JOB_MD[$n]:-}" ] && job_links="$job_links<a class=\"btn btn-outline\" href=\"${JOB_MD[$n]}\">Markdown</a>"
+  if [ -n "${JOB_PDF[$n]:-}" ]; then
+    job_links="<a class=\"btn\" href=\"${JOB_PDF[$n]}\">Unduh PDF</a>"
   fi
 
   en_job_links="<span class=\"muted\">not yet available</span>"
-  if [ -n "${EN_JOB_PDF[$n]:-}" ] || [ -n "${EN_JOB_MD[$n]:-}" ]; then
-    en_job_links=""
-    [ -n "${EN_JOB_PDF[$n]:-}" ] && en_job_links="$en_job_links<a class=\"btn\" href=\"${EN_JOB_PDF[$n]}\">Download PDF</a>"
-    [ -n "${EN_JOB_MD[$n]:-}" ] && en_job_links="$en_job_links<a class=\"btn btn-outline\" href=\"${EN_JOB_MD[$n]}\">Markdown</a>"
+  if [ -n "${EN_JOB_PDF[$n]:-}" ]; then
+    en_job_links="<a class=\"btn\" href=\"${EN_JOB_PDF[$n]}\">Download PDF</a>"
   fi
 
   rows="$rows
