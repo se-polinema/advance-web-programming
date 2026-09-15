@@ -9,6 +9,8 @@
 #     $SITE_DIR/slides/{id,en}/*.{html,pdf}
 #   - jobsheets/pertemuan-*.md have been rendered into
 #     $SITE_DIR/jobsheets/*.pdf, with the source .md copied alongside
+#   - jobsheets/en/pertemuan-*.md (if any exist) have been rendered into
+#     $SITE_DIR/jobsheets/en/*.pdf, with the source .md copied alongside
 #
 # Titles are read from the original Markdown sources (slides/id/*.md,
 # jobsheets/pertemuan-*.md; the Indonesian deck is the title source of
@@ -41,7 +43,7 @@ jobsheet_title() {
   sed -n '2p' "$1" | sed -E 's/^## //'
 }
 
-declare -A TITLES SLIDE_HTML SLIDE_PDF EN_SLIDE_HTML EN_SLIDE_PDF JOB_PDF JOB_MD
+declare -A TITLES SLIDE_HTML SLIDE_PDF EN_SLIDE_HTML EN_SLIDE_PDF JOB_PDF JOB_MD EN_JOB_PDF EN_JOB_MD
 NUMS=""
 
 for f in slides/id/bab*.md; do
@@ -80,6 +82,16 @@ for f in jobsheets/pertemuan-*.md; do
   NUMS="$NUMS $n"
 done
 
+for f in jobsheets/en/pertemuan-*.md; do
+  [ -f "$f" ] || continue
+  n="$(pertemuan_num "$f")"
+  [ -z "$n" ] && continue
+  slug="$(basename "$f" .md)"
+  [ -f "$SITE_DIR/jobsheets/en/$slug.pdf" ] && EN_JOB_PDF["$n"]="jobsheets/en/$slug.pdf"
+  [ -f "$SITE_DIR/jobsheets/en/$slug.md" ] && EN_JOB_MD["$n"]="jobsheets/en/$slug.md"
+  NUMS="$NUMS $n"
+done
+
 SORTED_NUMS="$(echo "$NUMS" | tr ' ' '\n' | sed '/^$/d' | sort -n -u)"
 
 rows=""
@@ -108,6 +120,13 @@ for n in $SORTED_NUMS; do
     [ -n "${JOB_MD[$n]:-}" ] && job_links="$job_links<a class=\"btn btn-outline\" href=\"${JOB_MD[$n]}\">Markdown</a>"
   fi
 
+  en_job_links="<span class=\"muted\">not yet available</span>"
+  if [ -n "${EN_JOB_PDF[$n]:-}" ] || [ -n "${EN_JOB_MD[$n]:-}" ]; then
+    en_job_links=""
+    [ -n "${EN_JOB_PDF[$n]:-}" ] && en_job_links="$en_job_links<a class=\"btn\" href=\"${EN_JOB_PDF[$n]}\">Download PDF</a>"
+    [ -n "${EN_JOB_MD[$n]:-}" ] && en_job_links="$en_job_links<a class=\"btn btn-outline\" href=\"${EN_JOB_MD[$n]}\">Markdown</a>"
+  fi
+
   rows="$rows
     <tr>
       <td class=\"num\">$padded</td>
@@ -115,6 +134,7 @@ for n in $SORTED_NUMS; do
       <td class=\"links\">$slide_links</td>
       <td class=\"links\">$en_slide_links</td>
       <td class=\"links\">$job_links</td>
+      <td class=\"links\">$en_job_links</td>
     </tr>"
 done
 
@@ -183,7 +203,8 @@ cat > "$OUT" <<HTML
     <th>Materi</th>
     <th>Slide (ID)</th>
     <th>Slide (EN)</th>
-    <th>Jobsheet</th>
+    <th>Jobsheet (ID)</th>
+    <th>Jobsheet (EN)</th>
   </tr>$rows
 </table>
 

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Render every jobsheets/pertemuan-*.md into an A4 PDF under jobsheets/build/.
+# Render jobsheets/pertemuan-*.md (Indonesian, at the root) and
+# jobsheets/en/pertemuan-*.md (English) into A4 PDFs under jobsheets/build/,
+# English output going to jobsheets/build/en/ to avoid filename collisions
+# with its Indonesian counterpart.
 #
-# Usage: ./build.sh          (build all)
-#        ./build.sh FILE.md  (build a single file)
+# Usage: ./build.sh                            (build all: root + en/)
+#        ./build.sh FILE.md                    (build a single Indonesian file)
+#        ./build.sh en/FILE.md                 (build a single English file)
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
-mkdir -p build
+mkdir -p build build/en
 
 PANDOC_OPTS=(
   --pdf-engine=lualatex
@@ -21,10 +25,14 @@ PANDOC_OPTS=(
 
 build_one() {
   local src="$1"
-  local name
+  local name outdir
   name="$(basename "${src%.md}")"
-  echo "==> ${name}"
-  pandoc "$src" -o "build/${name}.pdf" "${PANDOC_OPTS[@]}"
+  outdir="build"
+  case "$src" in
+    en/*) outdir="build/en" ;;
+  esac
+  echo "==> ${src}"
+  pandoc "$src" -o "${outdir}/${name}.pdf" "${PANDOC_OPTS[@]}"
 }
 
 if [ "$#" -gt 0 ]; then
@@ -32,6 +40,9 @@ if [ "$#" -gt 0 ]; then
 else
   shopt -s nullglob
   for f in pertemuan-*.md; do
+    build_one "$f"
+  done
+  for f in en/pertemuan-*.md; do
     build_one "$f"
   done
 fi

@@ -51,7 +51,7 @@ jobs:
       - name: Prepare output directory
         run: |
           rm -rf _site
-          mkdir -p _site/slides/id _site/slides/en _site/jobsheets
+          mkdir -p _site/slides/id _site/slides/en _site/jobsheets/en
 
       - name: Pull Marp CLI image
         run: docker pull marpteam/marp-cli
@@ -84,6 +84,12 @@ jobs:
         run: |
           cp jobsheets/build/*.pdf _site/jobsheets/
           cp jobsheets/pertemuan-*.md _site/jobsheets/
+          shopt -s nullglob
+          en_pdfs=(jobsheets/build/en/*.pdf)
+          if [ "${#en_pdfs[@]}" -gt 0 ]; then
+            cp jobsheets/build/en/*.pdf _site/jobsheets/en/
+            cp jobsheets/en/pertemuan-*.md _site/jobsheets/en/
+          fi
 
       - name: Generate index page
         run: ./scripts/build-pages-index.sh _site
