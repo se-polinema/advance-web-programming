@@ -25,6 +25,9 @@ style: |
     color: #fff;
     font-size: 2.2em;
   }
+  section.divider h2 {
+    color: #fff;
+  }
   section.divider p {
     color: #bfdbfe;
   }

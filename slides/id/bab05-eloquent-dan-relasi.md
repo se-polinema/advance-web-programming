@@ -25,6 +25,9 @@ style: |
     color: #fff;
     font-size: 2.2em;
   }
+  section.divider h2 {
+    color: #fff;
+  }
   section.divider p {
     color: #bfdbfe;
   }
@@ -337,7 +340,7 @@ Pola yang sama seperti membuat data: ubah properti lalu `save()`, atau langsung 
 </div>
 
 <div class="tip-box">
-Mirip pohon silsilah keluarga: garis keturunan digambar sekali, lalu siapa pun yang membaca pohon itu langsung tahu hubungannya, tanpa menelusuri dokumen satu per satu.
+Mirip pohon keluarga: hubungannya digambar sekali, lalu siapa pun yang melihatnya langsung paham, tanpa harus membuka dokumen satu per satu.
 </div>
 
 ---
@@ -471,7 +474,7 @@ Empat method yang baru saja kamu lihat sebenarnya cuma dua ide: siapa punya satu
 
 ---
 
-## Nama Metode Relationship Bukan Sekadar Kosmetik
+## Kenapa Nama Method Relationship Penting
 
 Tulis `articles()` sekali di model `Author`, dan nama itu langsung berlaku di tiga tempat berbeda:
 
@@ -514,7 +517,7 @@ Menampilkan 15 artikel beserta nama penulisnya, tanpa eager loading: 1 query daf
 <div class="cols">
 <div>
 
-**Lazy loading: 16 tembakan query terpisah**
+**Lazy loading: 16 query terpisah**
 <div class="flow">
   <div class="box">1 query: daftar artikel</div>
 </div>
@@ -528,7 +531,7 @@ Menampilkan 15 artikel beserta nama penulisnya, tanpa eager loading: 1 query daf
 </div>
 <div>
 
-**Eager loading: 2 tembakan, selesai**
+**Eager loading: 2 query saja, selesai**
 <div class="flow">
   <div class="box">1 query: daftar artikel</div>
 </div>
@@ -557,7 +560,7 @@ Satu kata tambahan, `with('author')`, dan 16 query tadi langsung menyusut jadi 2
 
 ---
 
-## Eager Loading Berjenjang: Notasi Titik
+## Eager Loading Berlapis: Notasi Titik
 
 Relasinya bisa lebih dari satu lapis. Tulis lewat notasi titik, dan Eloquent tetap memuat semuanya dalam jumlah query yang tetap:
 
@@ -709,7 +712,7 @@ Kode `Product::take(12)->get()` yang sudah kamu tulis di Pertemuan 4 sekarang pu
 
 - Relationship (`hasOne`, `hasMany`, `belongsTo`, `belongsToMany`) dideklarasikan sekali di model, lalu dipakai lewat pemanggilan metode, akses properti, atau string di dalam `with()`
 
-- Lazy loading memicu satu query tambahan per baris per relationship (masalah N+1); eager loading, termasuk notasi titik berjenjang, memuat relationship dalam jumlah query tetap, tidak bergantung jumlah baris
+- Lazy loading memicu satu query tambahan per baris per relationship (masalah N+1); eager loading, termasuk notasi titik berlapis, memuat relationship dalam jumlah query tetap, tidak bergantung jumlah baris
 
 - `paginate()` membagi listing besar jadi halaman-halaman kecil; halaman berbeda bisa dibuktikan benar-benar berbeda dengan membandingkan ID hasil antar halaman
 

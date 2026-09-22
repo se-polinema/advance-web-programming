@@ -25,6 +25,9 @@ style: |
     color: #fff;
     font-size: 2.2em;
   }
+  section.divider h2 {
+    color: #fff;
+  }
   section.divider p {
     color: #bfdbfe;
   }
@@ -337,7 +340,7 @@ Same pattern as creating data: change a property then `save()`, or go straight t
 </div>
 
 <div class="tip-box">
-Similar to a family tree: the line of descent gets drawn once, and anyone reading that tree instantly understands the relationship, no digging through separate records.
+Similar to a family tree: the relationships get drawn once, and anyone looking at it instantly understands how everyone connects, no digging through separate records.
 </div>
 
 ---
@@ -471,7 +474,7 @@ The four methods you just saw are really only two ideas: who has one, and who ha
 
 ---
 
-## A Relationship's Name Isn't Just Cosmetic
+## Why a Relationship's Name Matters
 
 Write `articles()` once on the `Author` model, and that name immediately applies in three different places:
 
@@ -514,7 +517,7 @@ Displaying 15 articles with each one's author name, without eager loading: 1 lis
 <div class="cols">
 <div>
 
-**Lazy loading: 16 separate query shots**
+**Lazy loading: 16 separate queries**
 <div class="flow">
   <div class="box">1 query: article list</div>
 </div>
@@ -528,7 +531,7 @@ Displaying 15 articles with each one's author name, without eager loading: 1 lis
 </div>
 <div>
 
-**Eager loading: 2 shots, done**
+**Eager loading: just 2 queries, done**
 <div class="flow">
   <div class="box">1 query: article list</div>
 </div>
