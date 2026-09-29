@@ -1,0 +1,197 @@
+%% ========================================================================
+%% Appendix E: Development Environment Installation Guide
+%% ========================================================================
+
+\chapter{Development Environment Installation Guide}
+\label{app:instalasi}
+
+Chapter~1 assumes four command-line tools are already installed: PHP,
+Composer, Node.js, and Git (see the tip box right before
+\cmd{composer create-project} in that chapter). This appendix walks
+through installing all four from scratch, split by operating system, then
+closes with a verification step common to all three.
+
+\begin{table}[htbp]
+\centering
+\caption{Tools required before starting Chapter~1}
+\label{tab:instalasi-kebutuhan}
+\begin{tblr}{
+  colspec = {X[0.8,l] X[0.9,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Tool} & \textbf{Minimum Version} & \textbf{Purpose} \\
+PHP & 8.2 & Runs Laravel 13 and the Artisan command line \\
+Composer & 2.x & Installs PHP dependencies from \file{composer.json} \\
+Node.js & 18 LTS & Runs \cmd{npm} for the Vite + Tailwind toolchain (Chapter~3) \\
+Git & 2.x & Tracks code versions and follows the \file{chapter-NN} branches \\
+\end{tblr}
+\end{table}
+
+\section{Windows}
+
+The quickest path on Windows 10/11 is \pkg{winget}, the package manager
+already bundled with most modern installations. Open PowerShell and run
+the following four commands one at a time:
+
+\begin{lstlisting}[language=bash]
+winget install PHP.PHP.8.3
+winget install Composer.Composer
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+\end{lstlisting}
+
+\begin{warningbox}
+The default \file{php.ini} shipped with the \pkg{PHP.PHP.8.3} package
+disables several extensions, including \texttt{pdo\_sqlite}, which Simple
+POS requires. Run \cmd{php --ini} to find the active \file{php.ini}
+path, open it, and remove the leading \texttt{;} from the
+\texttt{extension=pdo\_sqlite} and \texttt{extension=fileinfo} lines. See
+\cref{sec:instalasi-ekstensi} for the full list of required extensions.
+\end{warningbox}
+
+\begin{tipbox}
+Close and reopen the terminal window after \pkg{winget} finishes
+installing. A newly added PATH entry is only picked up by terminals
+opened after the change, not the one still running.
+\end{tipbox}
+
+Another option is \pkg{Scoop}, a package manager that installs every tool
+into the user's own directory (\file{\textasciitilde\textbackslash scoop})
+without requiring administrator rights or a UAC confirmation prompt. This
+is useful on campus lab or office computers whose accounts are not granted
+administrator access. Open PowerShell and run:
+
+\begin{lstlisting}[language=bash]
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+irm get.scoop.sh | iex
+scoop install php composer nodejs-lts git
+\end{lstlisting}
+
+\begin{notebox}
+The first two lines install Scoop itself (allowing locally signed
+PowerShell scripts to run, then downloading and running Scoop's
+installer); the third line installs all four tools at once from Scoop's
+default \texttt{main} bucket. Scoop's \pkg{php} package uses the same
+default Windows \file{php.ini} as the \pkg{winget} package, so the
+\texttt{pdo\_sqlite} extension warning above applies here exactly the
+same way. Pick one package manager only, \pkg{winget} or \pkg{Scoop}, not
+both; two competing PHP installations on PATH are the most common cause
+of \cmd{php -v} showing an unexpected version (see the warning box in the
+Verification section).
+\end{notebox}
+
+\section{macOS}
+
+\pkg{Homebrew} is the most common third-party package manager on macOS.
+If it is not installed yet, follow the instructions at
+\url{https://brew.sh} first, then run:
+
+\begin{lstlisting}[language=bash]
+brew install php composer node git
+\end{lstlisting}
+
+\begin{notebox}
+The Homebrew \pkg{php} formula already ships every extension listed in
+\cref{sec:instalasi-ekstensi} enabled by default, including
+\texttt{pdo\_sqlite}, so the \file{php.ini} edit described for Windows is
+not needed on macOS.
+\end{notebox}
+
+\begin{warningbox}
+macOS ships a system PHP at \file{/usr/bin/php}, usually an old version
+Laravel 13 does not support. After \cmd{brew install php}, confirm
+\cmd{which php} points to \file{/opt/homebrew/bin/php} (Apple Silicon) or
+\file{/usr/local/bin/php} (Intel), not \file{/usr/bin/php}. If it still
+points to the system version, add
+\texttt{export PATH="/opt/homebrew/bin:\$PATH"} to
+\file{\textasciitilde/.zshrc}, then open a new terminal window.
+\end{warningbox}
+
+\section{Linux (Debian/Ubuntu)}
+
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt install php php-cli php-sqlite3 php-mbstring php-xml php-curl unzip
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+sudo apt install nodejs npm git
+\end{lstlisting}
+
+\begin{notebox}
+Ubuntu LTS's default package repository sometimes lags a few PHP versions
+behind the latest release. If \cmd{php -v} reports a version below 8.2
+after \cmd{apt install}, add the \pkg{ondrej/php} PPA
+(\cmd{sudo add-apt-repository ppa:ondrej/php}) before re-running
+\cmd{apt update \&\& apt install php8.3}. Fedora and Arch Linux users can
+use the equivalent package names with \cmd{dnf install php composer
+nodejs npm git} or \cmd{pacman -S php composer nodejs npm git}.
+\end{notebox}
+
+\section{Verification}
+
+Once one of the paths above is done, run the following four commands in
+the terminal to confirm everything is installed and reachable through
+PATH:
+
+\begin{lstlisting}[language=bash]
+php -v
+composer -V
+node -v
+git --version
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{verifikasi-instalasi}
+\caption{Sample terminal output after running the four verification
+commands in sequence; the exact version numbers on your screen will
+differ depending on when each tool was installed, what matters is the
+absence of any \texttt{command not found} message}
+\label{fig:verifikasi-instalasi}
+\end{figure}
+
+\begin{warningbox}
+If \cmd{php -v} shows an old version even though a newer one was just
+installed, another PHP installation is likely found first on PATH
+(common on macOS with the system PHP, or on Windows with a leftover
+XAMPP install). Run \cmd{which php} (macOS/Linux) or \cmd{where.exe php}
+(Windows) to see the order of locations checked, then adjust PATH so the
+correct installation appears first.
+\end{warningbox}
+
+\section{PHP Extensions Laravel Requires}
+\label{sec:instalasi-ekstensi}
+
+Laravel 13 checks for nine PHP extensions when \cmd{composer
+create-project} and \cmd{php artisan serve} run. Most are already
+enabled by default on modern PHP installations, but minimal builds
+(especially manual builds from source, or a bare \texttt{php:cli} Docker
+image) often miss some of them.
+
+\begin{table}[htbp]
+\centering
+\caption{PHP extensions required for Laravel 13 and Simple POS}
+\label{tab:instalasi-ekstensi}
+\begin{tblr}{
+  colspec = {X[1,l] X[1.8,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Extension} & \textbf{Purpose} \\
+OpenSSL & Encrypts sessions, cookies, and the application key \\
+PDO \& \texttt{pdo\_sqlite} & Eloquent's connection to the \file{database.sqlite} file \\
+Mbstring & UTF-8-safe string handling (product names, transaction labels) \\
+Tokenizer & Composer's and Blade's internal parser \\
+XML & Parses Composer package configuration \\
+Ctype \& JSON & Input validation and API responses (Chapter~9) \\
+BCMath & High-precision decimal math for transaction totals \\
+Fileinfo & File-type detection during CSV import (Chapter~8) \\
+\end{tblr}
+\end{table}
+
+\begin{tipbox}
+The \cmd{php -m} command prints every extension active on the current
+PHP installation. Pair it with \cmd{grep} to check one at a time, for
+example \cmd{php -m | grep -i sqlite} to confirm \texttt{pdo\_sqlite} is
+active before running \artisan{php artisan migrate:fresh --seed} for the
+first time.
+\end{tipbox}

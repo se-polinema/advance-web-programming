@@ -182,6 +182,15 @@ minute, instead of spending half an hour setting up a MySQL account. Simple
 POS itself runs on SQLite even for in-class demonstrations, not just for
 this book's exercises.
 
+\begin{tipbox}
+Before continuing, confirm the following four tools are installed by
+running each command in a terminal: \cmd{php -v} (version 8.2 or
+higher), \cmd{composer -V}, \cmd{node -v}, and \cmd{git --version}. If
+any is missing or too old, install it first before moving to the next
+step; Appendix~E walks through installing all four per operating system
+(Windows, macOS, Linux).
+\end{tipbox}
+
 \begin{istilahpenting}
 \begin{description}[leftmargin=0pt,style=nextline]
   \item[Artisan] Laravel's built-in command-line interface for everyday development tasks: migrations, seeding, and boilerplate file generation. The full command list can be viewed anytime by running \artisan{php artisan list}; Artisan is strictly a development tool, it never runs while the application serves real users.

@@ -21,6 +21,7 @@
 *.vrb
 
 # Build output
+build/
 output/
 *.pdf
 

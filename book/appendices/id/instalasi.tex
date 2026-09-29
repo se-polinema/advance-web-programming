@@ -1,0 +1,201 @@
+%% ========================================================================
+%% Lampiran E: Panduan Instalasi Lingkungan Pengembangan
+%% ========================================================================
+
+\chapter{Panduan Instalasi Lingkungan Pengembangan}
+\label{app:instalasi}
+
+Bab~1 mengasumsikan empat alat baris perintah sudah terpasang: PHP,
+Composer, Node.js, dan Git (lihat kotak tip sebelum \cmd{composer
+create-project} pada bab tersebut). Lampiran ini menuntun pemasangan
+keempatnya dari nol, dipisah per sistem operasi, lalu ditutup dengan
+langkah verifikasi yang sama untuk ketiganya.
+
+\begin{table}[htbp]
+\centering
+\caption{Alat yang dibutuhkan sebelum mengikuti Bab~1}
+\label{tab:instalasi-kebutuhan}
+\begin{tblr}{
+  colspec = {X[0.8,l] X[0.9,l] X[1.6,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Alat} & \textbf{Versi Minimum} & \textbf{Kegunaan} \\
+PHP & 8.2 & Menjalankan Laravel 13 dan perintah Artisan \\
+Composer & 2.x & Memasang dependensi PHP dari \file{composer.json} \\
+Node.js & 18 LTS & Menjalankan \cmd{npm} untuk toolchain Vite + Tailwind (Bab~3) \\
+Git & 2.x & Melacak versi kode dan mengikuti branch \file{chapter-NN} \\
+\end{tblr}
+\end{table}
+
+\section{Windows}
+
+Cara paling ringkas di Windows 10/11 adalah \pkg{winget}, pengelola paket
+bawaan yang sudah terpasang di sebagian besar instalasi modern. Buka
+PowerShell lalu jalankan keempat perintah berikut satu per satu:
+
+\begin{lstlisting}[language=bash]
+winget install PHP.PHP.8.3
+winget install Composer.Composer
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+\end{lstlisting}
+
+\begin{warningbox}
+Berkas \file{php.ini} bawaan dari paket \pkg{PHP.PHP.8.3} mematikan
+sebagian ekstensi secara default, termasuk \texttt{pdo\_sqlite} yang
+dibutuhkan Simple POS. Jalankan \cmd{php --ini} untuk menemukan lokasi
+\file{php.ini} yang dipakai, buka berkas itu, lalu hapus tanda \texttt{;}
+di depan baris \texttt{extension=pdo\_sqlite} dan
+\texttt{extension=fileinfo}. Lihat \cref{sec:instalasi-ekstensi} untuk
+daftar lengkap ekstensi yang dibutuhkan.
+\end{warningbox}
+
+\begin{tipbox}
+Tutup dan buka ulang jendela terminal setelah instalasi \pkg{winget}
+selesai. Variabel PATH yang baru ditambahkan hanya dibaca ulang oleh
+terminal yang baru dibuka, bukan yang sedang berjalan.
+\end{tipbox}
+
+Alternatif lain adalah \pkg{Scoop}, pengelola paket yang memasang semua
+alat ke direktori milik pengguna sendiri (\file{\textasciitilde\textbackslash
+scoop}) tanpa memerlukan hak administrator maupun jendela konfirmasi UAC.
+Cocok dipakai di komputer laboratorium kampus atau kantor yang akunnya
+tidak diberi akses administrator. Buka PowerShell lalu jalankan:
+
+\begin{lstlisting}[language=bash]
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+irm get.scoop.sh | iex
+scoop install php composer nodejs-lts git
+\end{lstlisting}
+
+\begin{notebox}
+Dua baris pertama memasang Scoop itu sendiri (mengizinkan menjalankan
+skrip PowerShell yang ditandatangani lokal, lalu mengunduh dan menjalankan
+installer Scoop); baris ketiga memasang keempat alat sekaligus dari
+bucket \texttt{main} bawaan Scoop. Paket \pkg{php} dari Scoop memakai
+\file{php.ini} bawaan Windows yang sama seperti paket \pkg{winget}, jadi
+peringatan ekstensi \texttt{pdo\_sqlite} di atas berlaku sama persis di
+sini. Pilih satu pengelola paket saja, \pkg{winget} atau \pkg{Scoop},
+tidak keduanya sekaligus; dua instalasi PHP yang bersaing di PATH adalah
+sumber kebingungan paling umum saat \cmd{php -v} menampilkan versi yang
+tidak diharapkan (lihat kotak peringatan pada bagian Verifikasi
+Instalasi).
+\end{notebox}
+
+\section{macOS}
+
+\pkg{Homebrew} adalah pengelola paket pihak ketiga paling umum dipakai di
+macOS. Kalau belum terpasang, ikuti instruksi di \url{https://brew.sh}
+terlebih dahulu, lalu jalankan:
+
+\begin{lstlisting}[language=bash]
+brew install php composer node git
+\end{lstlisting}
+
+\begin{notebox}
+Paket \pkg{php} dari Homebrew sudah menyertakan \texttt{pdo\_sqlite} dan
+seluruh ekstensi pada \cref{sec:instalasi-ekstensi} secara aktif, jadi
+langkah edit \file{php.ini} pada bagian Windows tidak diperlukan di
+macOS.
+\end{notebox}
+
+\begin{warningbox}
+macOS menyertakan PHP bawaan sistem di \file{/usr/bin/php}, biasanya versi
+lama yang tidak didukung Laravel 13. Setelah \cmd{brew install php},
+pastikan \cmd{which php} menunjuk ke \file{/opt/homebrew/bin/php} (Apple
+Silicon) atau \file{/usr/local/bin/php} (Intel), bukan ke
+\file{/usr/bin/php}. Kalau masih menunjuk ke versi sistem, tambahkan baris
+\texttt{export PATH="/opt/homebrew/bin:\$PATH"} ke \file{\textasciitilde
+/.zshrc}, lalu buka terminal baru.
+\end{warningbox}
+
+\section{Linux (Debian/Ubuntu)}
+
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt install php php-cli php-sqlite3 php-mbstring php-xml php-curl unzip
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+sudo apt install nodejs npm git
+\end{lstlisting}
+
+\begin{notebox}
+Repositori paket bawaan Ubuntu LTS kadang tertinggal beberapa versi PHP
+di belakang rilis terbaru. Kalau \cmd{php -v} menampilkan versi di bawah
+8.2 setelah \cmd{apt install}, tambahkan PPA
+\pkg{ondrej/php} (\cmd{sudo add-apt-repository ppa:ondrej/php}) sebelum
+menjalankan ulang \cmd{apt update \&\& apt install php8.3}. Pengguna
+Fedora dan Arch Linux memakai nama paket serupa lewat \cmd{dnf install
+php composer nodejs npm git} atau \cmd{pacman -S php composer nodejs npm
+git}.
+\end{notebox}
+
+\section{Verifikasi Instalasi}
+
+Setelah salah satu jalur di atas selesai, jalankan keempat perintah
+berikut di terminal untuk memastikan semuanya terpasang dan terjangkau
+lewat PATH:
+
+\begin{lstlisting}[language=bash]
+php -v
+composer -V
+node -v
+git --version
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{verifikasi-instalasi}
+\caption{Contoh keluaran terminal setelah keempat perintah verifikasi
+dijalankan berurutan; nomor versi persis pada layarmu akan berbeda
+tergantung kapan alat dipasang, yang penting tidak ada pesan
+\texttt{command not found}}
+\label{fig:verifikasi-instalasi}
+\end{figure}
+
+\begin{warningbox}
+Kalau \cmd{php -v} menampilkan versi lama padahal baru saja memasang versi
+baru, kemungkinan ada instalasi PHP lain yang lebih dulu ditemukan di
+PATH (umum terjadi di macOS dengan PHP bawaan sistem, atau Windows dengan
+XAMPP lama yang masih terpasang). Jalankan \cmd{which php} (macOS/Linux)
+atau \cmd{where.exe php} (Windows) untuk melihat urutan lokasi yang
+diperiksa, lalu sesuaikan PATH agar instalasi yang benar muncul lebih
+dulu.
+\end{warningbox}
+
+\section{Ekstensi PHP yang Dibutuhkan Laravel}
+\label{sec:instalasi-ekstensi}
+
+Laravel 13 memeriksa keberadaan sembilan ekstensi PHP saat
+\cmd{composer create-project} maupun \cmd{php artisan serve} dijalankan.
+Kebanyakan sudah aktif secara default pada instalasi PHP modern, tetapi
+paket minimal (terutama build manual dari sumber, atau image Docker
+\texttt{php:cli} tanpa tambahan) sering melewatkan sebagian.
+
+\begin{table}[htbp]
+\centering
+\caption{Ekstensi PHP wajib untuk Laravel 13 dan Simple POS}
+\label{tab:instalasi-ekstensi}
+\begin{tblr}{
+  colspec = {X[1,l] X[1.8,l]},
+  hline{1,2,Z} = {solid},
+}
+\textbf{Ekstensi} & \textbf{Kegunaan} \\
+OpenSSL & Enkripsi sesi, cookie, dan kunci aplikasi \\
+PDO \& \texttt{pdo\_sqlite} & Koneksi Eloquent ke berkas \file{database.sqlite} \\
+Mbstring & Manipulasi string aman-UTF-8 (nama produk, label transaksi) \\
+Tokenizer & Parser internal Composer dan Blade \\
+XML & Parser konfigurasi paket Composer \\
+Ctype \& JSON & Validasi input dan respons API (Bab~9) \\
+BCMath & Perhitungan desimal presisi tinggi untuk total transaksi \\
+Fileinfo & Deteksi tipe berkas saat impor CSV (Bab~8) \\
+\end{tblr}
+\end{table}
+
+\begin{tipbox}
+Perintah \cmd{php -m} mencetak seluruh ekstensi yang aktif pada instalasi
+PHP saat ini. Gabungkan dengan \cmd{grep} untuk memeriksa satu per satu,
+misalnya \cmd{php -m | grep -i sqlite} untuk memastikan
+\texttt{pdo\_sqlite} sudah aktif sebelum menjalankan
+\artisan{php artisan migrate:fresh --seed} pertama kali.
+\end{tipbox}

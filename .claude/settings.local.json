@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk read *)",
+      "Bash(rtk find *)",
+      "Bash(rtk wc *)",
+      "Bash(rtk grep *)",
+      "Bash(chromium --headless --disable-gpu --no-sandbox --hide-scrollbars --window-size=920,560 --default-background-color=00000000 --screenshot=verifikasi-instalasi.png \"file://$\\(pwd\\)/terminal-verifikasi.html\")",
+      "Bash(mkdir -p /home/dhs/Workspaces/polinema/advance-web-programming/book/images)",
+      "Bash(cp /tmp/claude-1000/-home-dhs-Workspaces-polinema-advance-web-programming/dcbaa97a-5919-4ec0-9b2a-2d94b08f2ee5/scratchpad/verifikasi-instalasi-trim.png /home/dhs/Workspaces/polinema/advance-web-programming/book/images/verifikasi-instalasi.png)",
+      "Bash(timeout 300 make id)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(timeout 300 make en)",
+      "Bash(pdftoppm -png -f 112 -l 118 -r 100 book-id.pdf /tmp/claude-1000/-home-dhs-Workspaces-polinema-advance-web-programming/dcbaa97a-5919-4ec0-9b2a-2d94b08f2ee5/scratchpad/appendix-page)",
+      "Bash(pdftotext -layout book-id.pdf -)",
+      "Bash(pdftoppm -png -f 113 -l 118 -r 100 book-id.pdf /tmp/claude-1000/-home-dhs-Workspaces-polinema-advance-web-programming/dcbaa97a-5919-4ec0-9b2a-2d94b08f2ee5/scratchpad/instalasi-page)",
+      "Bash(pdftotext -layout book-id.pdf /tmp/claude-1000/-home-dhs-Workspaces-polinema-advance-web-programming/dcbaa97a-5919-4ec0-9b2a-2d94b08f2ee5/scratchpad/book-id.txt)",
+      "Bash(awk 'BEGIN{p=1} /\\\\f/{p++} /winget install PHP/{print \"physical page:\",p} /pdo_sqlite.*dibutuhkan Simple POS/{print \"physical page \\(warningbox\\):\",p}' /tmp/claude-1000/-home-dhs-Workspaces-polinema-advance-web-programming/dcbaa97a-5919-4ec0-9b2a-2d94b08f2ee5/scratchpad/book-id.txt)",
+      "Bash(pdftoppm *)",
+      "Bash(awk *)",
+      "Bash(rtk git *)"
+    ]
+  }
+}

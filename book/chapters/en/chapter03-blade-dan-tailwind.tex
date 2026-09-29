@@ -163,6 +163,21 @@ reloads will fail to find the dev server and throw a
 some point before.
 \end{warningbox}
 
+\begin{tipbox}
+Running and remembering two separate terminals gets old once the routine
+is familiar. The \cmd{composer run dev} script, already defined in the
+\texttt{scripts} section of the default Laravel project's
+\file{composer.json}, starts \artisan{php artisan serve}, \cmd{npm run
+dev}, the queue listener, and the application's log tail all at once in
+a single terminal through one \artisan{php artisan dev} command under
+the hood; a single \texttt{Ctrl+C} stops all of them together. This book
+deliberately starts with two separate terminals so it stays clear which
+process handles what, especially when one of them fails (say Vite throws
+an error, and a dedicated terminal makes the source obvious right away);
+once that pattern feels familiar, \cmd{composer run dev} becomes the more
+convenient choice for everyday use.
+\end{tipbox}
+
 \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
 @extends('layouts.app')
 

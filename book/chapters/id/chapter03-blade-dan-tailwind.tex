@@ -162,6 +162,21 @@ dimuat ulang akan gagal menemukan dev server dan melempar
 sebelumnya.
 \end{warningbox}
 
+\begin{tipbox}
+Menjalankan dan mengingat dua terminal terpisah cukup merepotkan begitu
+sudah terbiasa. Skrip \cmd{composer run dev}, sudah didefinisikan di
+bagian \texttt{scripts} pada \file{composer.json} proyek Laravel bawaan,
+menjalankan \artisan{php artisan serve}, \cmd{npm run dev}, queue
+listener, dan tail log aplikasi sekaligus dalam satu terminal lewat satu
+perintah \artisan{php artisan dev} di baliknya; satu \texttt{Ctrl+C}
+menghentikan semuanya bersamaan. Buku ini sengaja memulai dengan dua
+terminal terpisah supaya jelas proses mana yang menangani apa, terutama
+saat salah satunya gagal (misalnya Vite melempar galat, dan terminal
+khususnya membuat sumber masalah langsung terlihat); setelah pola itu
+terasa akrab, \cmd{composer run dev} jadi cara yang lebih praktis untuk
+dipakai sehari-hari.
+\end{tipbox}
+
 \begin{lstlisting}[language=php, title=\lstfile{resources/views/pos/create.blade.php}]
 @extends('layouts.app')
 
