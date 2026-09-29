@@ -263,7 +263,7 @@ git log --oneline
 
 ## D. Tugas dan Deliverable
 
-Kumpulkan hal berikut sesuai format yang diminta asisten/dosen:
+Kumpulkan hal berikut sesuai format yang diminta dosen:
 
 - Output `php artisan route:list` setelah Langkah 10 (menunjukkan route `/pos/riwayat`).
 - Screenshot tab Network DevTools untuk `/halo` (status 200) dan `/tidak-ada` (status 404).

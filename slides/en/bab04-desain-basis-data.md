@@ -290,7 +290,7 @@ Computing a snapshot column doesn't mean the server can just trust whatever numb
 </div>
 
 <div class="tip-box">
-The two aren't mutually exclusive: many systems pick relational for transactions and NoSQL elsewhere. This book stays relational, since Simple POS needs consistent transactions.
+The two aren't mutually exclusive: many systems pick relational for transactions and NoSQL elsewhere. Simple POS stays relational here, since it needs consistent transactions.
 </div>
 
 ---
@@ -470,7 +470,7 @@ An old migration edited after it has run leaves the schema history on another ma
 **`DB::table()->insert()` in batches**
 - One `INSERT` statement for many rows at once
 - Far fewer round-trips to the database
-- `array_chunk()` splits the batch because some database engines cap the number of rows per `INSERT`
+- `array_chunk()` splits it into small batches, since some database engines cap rows per `INSERT`
 
 </div>
 </div>
@@ -479,15 +479,9 @@ An old migration edited after it has run leaves the schema history on another ma
 $articles = [];
 foreach ($authorIds as $authorId) {
     for ($i = 0; $i < 30; $i++) {
-        $articles[] = [
-            'author_id' => $authorId,
-            'title' => fake()->sentence(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ];
+        $articles[] = ['author_id' => $authorId, 'title' => fake()->sentence()];
     }
 }
-
 foreach (array_chunk($articles, 50) as $chunk) {
     DB::table('articles')->insert($chunk);
 }

@@ -232,7 +232,7 @@ Meetings 1&ndash;10 build the technical foundation in Laravel; Meetings 11&ndash
 
 2. Understanding why **Laravel 13** with **SQLite** as a zero-setup database was chosen for the Simple POS project you'll build across the semester
 
-3. Recognizing the Laravel project folder structure (`routes/`, `app/Http/Controllers/`, `database/migrations/`) as an embodiment of the **MVC** pattern
+3. Recognizing the Laravel project folder structure (`routes/`, `app/Http/Controllers/`, `database/migrations/`) as an application of the **MVC** pattern
 
 <div class="tip-box">
 This slide covers concepts. Installation steps, project setup, and full hands-on practice are covered separately outside this slide.
@@ -475,7 +475,7 @@ The <code>.env</code> file stores sensitive data and must never be committed. La
 | `vendor/` | - | Composer packages, not committed |
 
 <div class="tip-box">
-This structure isn't an accident: it embodies the same MVC pattern as the request-flow diagram earlier.
+This structure isn't an accident: it follows the same MVC pattern as the request-flow diagram earlier.
 </div>
 
 ---
@@ -488,7 +488,7 @@ This structure isn't an accident: it embodies the same MVC pattern as the reques
 
 - **Composer**/npm manage dependencies; **.env** separates configuration from code; **Artisan** & **migrations** build the database schema programmatically
 
-- Laravel's folder structure embodies the **MVC** pattern, consistently separating the responsibilities of routing, business logic, and presentation
+- Laravel's folder structure applies the **MVC** pattern, consistently separating the responsibilities of routing, business logic, and presentation
 
 ---
 

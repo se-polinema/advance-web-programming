@@ -474,7 +474,7 @@ Migration lama yang diedit setelah dijalankan membuat riwayat skema di komputer 
 **`DB::table()->insert()` dalam batch**
 - Satu pernyataan `INSERT` untuk banyak baris sekaligus
 - Jauh lebih sedikit round-trip ke basis data
-- `array_chunk()` membagi batch karena sebagian mesin basis data membatasi jumlah baris per `INSERT`
+- `array_chunk()` membagi ke batch kecil sesuai batas baris `INSERT`
 
 </div>
 </div>
@@ -483,15 +483,9 @@ Migration lama yang diedit setelah dijalankan membuat riwayat skema di komputer 
 $articles = [];
 foreach ($authorIds as $authorId) {
     for ($i = 0; $i < 30; $i++) {
-        $articles[] = [
-            'author_id' => $authorId,
-            'title' => fake()->sentence(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ];
+        $articles[] = ['author_id' => $authorId, 'title' => fake()->sentence()];
     }
 }
-
 foreach (array_chunk($articles, 50) as $chunk) {
     DB::table('articles')->insert($chunk);
 }

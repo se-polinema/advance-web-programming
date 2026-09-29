@@ -409,4 +409,4 @@ Submit the following in the format your instructor requests:
 | Checkpoints verified (group) | 20% | Screenshots, task-division table, and a complete, correct git log | Some checkpoints proven |
 | Per-member contribution (individual) | 25% | At least one meaningful commit under each member's name, matching the task-division table | Commits exist but are small or their relevance is unclear |
 | Independent task (individual) | 15% | Both explanations are accurate and self-written | An answer exists but is incomplete |
-| Repository and commit hygiene | 10% | The `increment 3` message is exact, no `vendor/`/`node_modules/`/`.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
+| Repository and commit hygiene | 10% | The `increment 3` message is exact, no `vendor/`, `node_modules/`, `.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |

@@ -552,7 +552,7 @@ Subtotal yang dihitung Alpine di sisi klien murni untuk tampilan. Setiap kali fo
 </div>
 
 <div class="tip-box">
-Aturan praktis: logika kosmetik (menampilkan subtotal, menyorot item baru) aman ditaruh di Alpine. Keputusan bisnis (total final, validitas data) wajib dihitung ulang di server.
+Aturan praktis: logika tampilan (menampilkan subtotal, menyorot item baru) aman ditaruh di Alpine. Keputusan bisnis (total final, validitas data) wajib dihitung ulang di server.
 </div>
 
 ---

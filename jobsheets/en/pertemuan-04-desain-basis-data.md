@@ -404,4 +404,4 @@ Submit the following in the format your instructor requests:
 | Work steps completed (group) | 40% | Steps 1-7 done, seeder runs with the correct row counts, `/pos` shows data from the database | Most steps done, seeder and `/pos` work |
 | Checkpoints verified (group) | 25% | `EXPLAIN QUERY PLAN` screenshots before/after, task-division table, and a complete, correct git log | Some checkpoints proven |
 | Per-member contribution (individual) | 25% | At least one meaningful commit under each member's name, matching the task-division table | Commits exist but are small or their relevance is unclear |
-| Repository and commit hygiene | 10% | The `increment 4` message is exact, new migrations (not edits to old ones), no `vendor/`/`node_modules/`/`.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
+| Repository and commit hygiene | 10% | `increment 4` message exact, new migrations (not edits to old ones), no `vendor/`, `node_modules/`, `.env`, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |

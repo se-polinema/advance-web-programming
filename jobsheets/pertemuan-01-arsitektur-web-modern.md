@@ -61,7 +61,7 @@ php artisan key:generate
 
 ### Langkah 3: Memasang dependensi frontend
 
-Selain `composer.json`, proyek Laravel terbaru juga menyertakan `package.json`: daftar dependensi JavaScript untuk toolchain frontend (Vite dan Tailwind CSS) yang mulai dipakai Pertemuan 3. `npm install` adalah padanan `composer install` di dunia JavaScript: membaca `package.json`, lalu mengunduh setiap paket ke folder `node_modules/`.
+Selain `composer.json`, proyek Laravel terbaru juga menyertakan `package.json`: daftar dependensi JavaScript untuk toolchain frontend (Vite dan Tailwind CSS) yang mulai dipakai Pertemuan 3. `npm install` mirip dengan `composer install`, tapi di dunia JavaScript: membaca `package.json`, lalu mengunduh setiap paket ke folder `node_modules/`.
 
 ```bash
 npm install
@@ -150,7 +150,7 @@ git log --oneline
 
 ## D. Tugas dan Deliverable
 
-Kumpulkan hal berikut sesuai format yang diminta asisten/dosen:
+Kumpulkan hal berikut sesuai format yang diminta dosen:
 
 - Screenshot halaman selamat datang Laravel di `http://127.0.0.1:8000`.
 - Output `git log --oneline` yang menunjukkan commit `increment 1` milikmu.
@@ -164,4 +164,4 @@ Kumpulkan hal berikut sesuai format yang diminta asisten/dosen:
 | Langkah kerja tuntas | 40% | Proyek berjalan, seluruh Langkah 1-7 selesai | Server berjalan, sebagian langkah selesai |
 | Checkpoint terverifikasi | 30% | Screenshot welcome page + `git log` + tabel eksplorasi lengkap dan benar | Sebagian checkpoint terbukti |
 | Tugas mandiri | 20% | Penjelasan monolith vs microservices tepat dan berdiri sendiri (bukan salinan materi) | Jawaban ada meski belum lengkap |
-| Kerapian commit | 10% | Pesan commit persis `increment 1: proyek Laravel kosong`, `vendor/`/`node_modules/`/`.env` tidak ter-commit | Commit ada meski pesan/isi kurang rapi |
+| Kerapian commit | 10% | Pesan commit persis `increment 1: proyek Laravel kosong`, `vendor/`, `node_modules/`, `.env` tidak ter-commit | Commit ada meski pesan/isi kurang rapi |

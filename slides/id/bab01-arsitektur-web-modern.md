@@ -232,7 +232,7 @@ Pertemuan 1&ndash;10 membangun fondasi teknis Laravel; Pertemuan 11&ndash;17 men
 
 2. Memahami alasan **Laravel 13** dengan **SQLite** sebagai basis data zero-setup dipilih untuk proyek Simple POS yang akan kamu bangun sepanjang semester
 
-3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) sebagai perwujudan pola **MVC**
+3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) yang menerapkan pola **MVC**
 
 <div class="tip-box">
 Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik lengkap dibahas terpisah di luar slide ini.
@@ -475,7 +475,7 @@ Berkas <code>.env</code> menyimpan data sensitif dan tidak boleh ikut di-commit.
 | `vendor/` | - | Paket Composer, tidak di-commit |
 
 <div class="tip-box">
-Struktur ini bukan kebetulan: ia mewujudkan pola MVC yang sama dengan diagram alur request sebelumnya.
+Struktur ini bukan kebetulan: ia mengikuti pola MVC yang sama seperti diagram alur request sebelumnya.
 </div>
 
 ---
@@ -488,7 +488,7 @@ Struktur ini bukan kebetulan: ia mewujudkan pola MVC yang sama dengan diagram al
 
 - **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram
 
-- Struktur folder Laravel mewujudkan pola **MVC**, memisahkan tanggung jawab routing, logika bisnis, dan tampilan secara konsisten
+- Struktur folder Laravel menerapkan pola **MVC**, memisahkan tanggung jawab routing, logika bisnis, dan tampilan secara konsisten
 
 ---
 

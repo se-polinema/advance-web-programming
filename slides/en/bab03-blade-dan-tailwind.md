@@ -552,12 +552,12 @@ The subtotal Alpine computes client-side exists purely for display. Every time t
 </div>
 
 <div class="tip-box">
-A useful rule of thumb: cosmetic logic (showing a subtotal, highlighting a just-added item) is safe to keep in Alpine. Business decisions (the final total, data validity) must be recalculated on the server.
+A useful rule of thumb: display logic (showing a subtotal, highlighting a just-added item) is safe to keep in Alpine. Business decisions (the final total, data validity) must be recalculated on the server.
 </div>
 
 ---
 
-## The Grown-Up Version: `Alpine.data`
+## The Full Version: `Alpine.data`
 
 - An inline `x-data` object is enough to learn the mechanism
 - In the Simple POS case study you build in the jobsheet, the cart registers itself through `Alpine.data('posCart', ...)` in `app.js`, complete with SKU scanning, discounts, and `sessionStorage`

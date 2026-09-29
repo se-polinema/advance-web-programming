@@ -150,7 +150,7 @@ git log --oneline
 
 ## D. Tasks and Deliverables
 
-Submit the following in the format your teaching assistant/instructor requests:
+Submit the following in the format your instructor requests:
 
 - A screenshot of Laravel's welcome page at `http://127.0.0.1:8000`.
 - The output of `git log --oneline` showing your `increment 1` commit.
@@ -164,4 +164,4 @@ Submit the following in the format your teaching assistant/instructor requests:
 | Work steps completed | 40% | The project runs, all of Steps 1-7 done | Server runs, some steps done |
 | Checkpoints verified | 30% | Welcome page screenshot + `git log` + exploration table complete and correct | Some checkpoints proven |
 | Independent task | 20% | The monolith vs. microservices explanation is accurate and self-written (not copied from the material) | An answer exists but is incomplete |
-| Commit hygiene | 10% | The commit message is exactly `increment 1: proyek Laravel kosong`, `vendor/`/`node_modules/`/`.env` not committed | A commit exists, but the message or contents are messy |
+| Commit hygiene | 10% | The commit message is exactly `increment 1: proyek Laravel kosong`, `vendor/`, `node_modules/`, `.env` not committed | A commit exists, but the message or contents are messy |

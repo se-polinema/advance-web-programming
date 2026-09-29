@@ -404,4 +404,4 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 | Langkah kerja tuntas (kelompok) | 40% | Langkah 1-7 selesai, seeder berjalan dengan jumlah baris benar, `/pos` menampilkan data dari database | Sebagian besar langkah selesai, seeder dan `/pos` berfungsi |
 | Checkpoint terverifikasi (kelompok) | 25% | Screenshot `EXPLAIN QUERY PLAN` sebelum/sesudah, tabel pembagian tugas, dan git log lengkap dan benar | Sebagian checkpoint terbukti |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna atas nama tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
-| Kerapian repositori dan commit | 10% | Pesan `increment 4` persis, migrasi baru (bukan edit migrasi lama), tanpa menyertakan `vendor/`/`node_modules/`/`.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
+| Kerapian repositori dan commit | 10% | Pesan `increment 4` persis, migrasi baru (bukan edit migrasi lama), tanpa menyertakan `vendor/`, `node_modules/`, `.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |

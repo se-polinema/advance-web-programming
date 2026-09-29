@@ -409,4 +409,4 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 | Checkpoint terverifikasi (kelompok) | 20% | Screenshot, tabel pembagian tugas, dan git log lengkap dan benar | Sebagian checkpoint terbukti |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna atas nama tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
 | Tugas mandiri (individu) | 15% | Kedua penjelasan tepat dan berdiri sendiri | Jawaban ada meski belum lengkap |
-| Kerapian repositori dan commit | 10% | Pesan `increment 3` persis, tanpa menyertakan `vendor/`/`node_modules/`/`.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
+| Kerapian repositori dan commit | 10% | Pesan `increment 3` persis, tanpa menyertakan `vendor/`, `node_modules/`, `.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |

@@ -263,7 +263,7 @@ git log --oneline
 
 ## D. Tasks and Deliverables
 
-Submit the following in the format your teaching assistant/instructor requests:
+Submit the following in the format your instructor requests:
 
 - The output of `php artisan route:list` after Step 10 (showing the `/pos/riwayat` route).
 - A screenshot of the DevTools Network tab for `/halo` (status 200) and `/tidak-ada` (status 404).
