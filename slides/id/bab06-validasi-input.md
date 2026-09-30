@@ -307,7 +307,7 @@ public function rules(): array
 }
 ```
 
-Setiap elemen di `items` diperiksa satu per satu memakai aturan yang sama, kalau salah satu barisnya salah, hanya baris itu yang ditolak besertaan pesan errornya.
+Setiap elemen di `items` diperiksa satu per satu memakai aturan yang sama. Kalau ada baris yang salah, seluruh request ditolak, dan pesan errornya menyebut persis baris mana yang bermasalah, misalnya `items.2.qty`.
 
 ---
 
@@ -394,7 +394,7 @@ Pesan itu muncul sekali setelah redirect, lalu hilang sendiri kalau halamannya d
 
 ## Menerapkan pada Simple POS
 
-Konsep FormRequest, validasi, dan total di server ini akan kamu terapkan langsung pada Simple POS di jobsheet praktikum: menulis `StoreProductRequest` dan `StoreTransactionRequest` untuk model yang sudah kamu bangun sejak Pertemuan 4 dan 5, lalu memastikan total transaksi selalu dihitung ulang dari harga di database, bukan dari input kasir.
+Konsep FormRequest, validasi, dan total di server ini akan kamu terapkan langsung pada Simple POS di jobsheet praktikum: melengkapi model dengan `$fillable` (konsep mass assignment dari Pertemuan 5), menulis `StoreProductRequest` dan `StoreTransactionRequest` untuk model yang sudah kamu bangun sejak Pertemuan 4 dan 5, lalu memastikan total transaksi selalu dihitung ulang dari harga di database, bukan dari input kasir.
 
 <div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch06</code></div>
 

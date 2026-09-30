@@ -307,7 +307,7 @@ public function rules(): array
 }
 ```
 
-Every element in `items` is checked one by one using the same rules, if one row is invalid, only that row is rejected along with its own error message.
+Every element in `items` is checked one by one using the same rules. When a row is invalid, the whole request is rejected, and the error message points at exactly the offending row, e.g. `items.2.qty`.
 
 ---
 
@@ -394,7 +394,7 @@ That message shows up once after the redirect, then disappears on its own if the
 
 ## Applying This to Simple POS
 
-You'll apply the FormRequest, validation, and server-side total concepts directly to Simple POS in the practicum jobsheet: writing `StoreProductRequest` and `StoreTransactionRequest` for the models you've already built since Meeting 4 and 5, then making sure the transaction total is always recomputed from database prices, never from cashier input.
+You'll apply the FormRequest, validation, and server-side total concepts directly to Simple POS in the practicum jobsheet: adding `$fillable` to the models (the mass assignment concept from Meeting 5), writing `StoreProductRequest` and `StoreTransactionRequest` for the models you've already built since Meeting 4 and 5, then making sure the transaction total is always recomputed from database prices, never from cashier input.
 
 <div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch06</code></div>
 

@@ -53,7 +53,7 @@ Before writing code, agree on the validation rules for the two forms you're abou
 
 ### Step 2: `$fillable` on the models
 
-Try opening `php artisan tinker` right now and running `Product::create(['name' => 'Test'])`. You'll get a `MassAssignmentException`, because none of these three models have `$fillable` yet. Fix that before moving on.
+Try opening `php artisan tinker` right now and running `Product::create(['name' => 'Test'])`. You'll get a `MassAssignmentException`, because none of these three models have `$fillable` yet, the mass-assignment column whitelist covered in Meeting 5. Fix that before moving on.
 
 Create a new branch off the latest `main`, e.g. `fillable-models`:
 
@@ -308,7 +308,7 @@ class StoreTransactionRequest extends FormRequest
 }
 ```
 
-Replace the entire contents of `resources/views/pos/create.blade.php`. Notice three additions compared to the Meeting 3 version: everything is wrapped in a `<form>` with `@csrf`, each cart item produces two hidden inputs (`items[index][product_id]` and `items[index][qty]`), and there's now a Bayar button:
+Replace the entire contents of `resources/views/pos/create.blade.php`. Notice three additions compared to the Meeting 3 version: everything is wrapped in a `<form>` with `@csrf` (the CSRF defense covered in this meeting's material), each cart item produces two hidden inputs (`items[index][product_id]` and `items[index][qty]`), and there's now a Bayar button:
 
 ```php
 @extends('layouts.app')
@@ -418,7 +418,7 @@ git push -u origin transaction-form-validation
 
 Open a Pull Request to `main`, merge it, then everyone goes back to `main` and pulls.
 
-> ✅ **Checkpoint:** open `/pos`, click the Bayar button without clicking any product first. The page returns to `/pos` with a red "required" error message for `items`. Click two products, then click Bayar: the page returns to `/pos` with a green "Transaksi berhasil disimpan." message. Open `php artisan tinker`:
+> ✅ **Checkpoint:** open `/pos`, click the Bayar button without clicking any product first. The page returns to `/pos` with a red "The items field is required." error message. Click two products, then click Bayar: the page returns to `/pos` with a green "Transaksi berhasil disimpan." message. Open `php artisan tinker`:
 > ```
 > >>> Transaction::latest()->first()->total;
 > ```

@@ -53,7 +53,7 @@ Sebelum menulis kode, sepakati aturan validasi untuk dua form yang akan kamu ban
 
 ### Langkah 2: `$fillable` pada model
 
-Coba buka `php artisan tinker` sekarang dan jalankan `Product::create(['name' => 'Tes'])`. Kamu akan mendapat `MassAssignmentException`, karena ketiga model ini belum punya `$fillable`. Perbaiki dulu sebelum lanjut ke langkah berikutnya.
+Coba buka `php artisan tinker` sekarang dan jalankan `Product::create(['name' => 'Tes'])`. Kamu akan mendapat `MassAssignmentException`, karena ketiga model ini belum punya `$fillable`, daftar kolom yang boleh diisi massal yang dibahas di Pertemuan 5. Perbaiki dulu sebelum lanjut ke langkah berikutnya.
 
 Buat branch baru dari `main` terbaru, misalnya `fillable-models`:
 
@@ -308,7 +308,7 @@ class StoreTransactionRequest extends FormRequest
 }
 ```
 
-Ganti seluruh isi `resources/views/pos/create.blade.php`. Perhatikan tiga tambahan dari versi Pertemuan 3: dibungkus `<form>` beserta `@csrf`, tiap item keranjang menghasilkan dua input tersembunyi (`items[index][product_id]` dan `items[index][qty]`), dan ada tombol Bayar:
+Ganti seluruh isi `resources/views/pos/create.blade.php`. Perhatikan tiga tambahan dari versi Pertemuan 3: dibungkus `<form>` beserta `@csrf` (pertahanan CSRF yang dibahas di materi pertemuan ini), tiap item keranjang menghasilkan dua input tersembunyi (`items[index][product_id]` dan `items[index][qty]`), dan ada tombol Bayar:
 
 ```php
 @extends('layouts.app')
@@ -418,7 +418,7 @@ git push -u origin transaction-form-validation
 
 Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
 
-> ✅ **Checkpoint:** buka `/pos`, klik tombol Bayar tanpa mengklik produk apa pun dulu. Halaman kembali ke `/pos` dengan pesan error merah "wajib diisi" untuk `items`. Klik dua produk lalu klik Bayar: halaman kembali ke `/pos` dengan pesan hijau "Transaksi berhasil disimpan." Buka `php artisan tinker`:
+> ✅ **Checkpoint:** buka `/pos`, klik tombol Bayar tanpa mengklik produk apa pun dulu. Halaman kembali ke `/pos` dengan pesan error merah "The items field is required." (pesan bawaan Laravel berbahasa Inggris). Klik dua produk lalu klik Bayar: halaman kembali ke `/pos` dengan pesan hijau "Transaksi berhasil disimpan." Buka `php artisan tinker`:
 > ```
 > >>> Transaction::latest()->first()->total;
 > ```
