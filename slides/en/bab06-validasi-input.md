@@ -240,7 +240,7 @@ Imagine you're logged into a cashier app, then you open another site that quietl
 </form>
 ```
 
-The `@csrf` token you've always written in every Blade form since Meeting 3 is the defense: Laravel rejects any POST request that doesn't carry that token.
+Blade provides the `@csrf` directive to generate this token automatically inside a form, you'll start using it in the cashier form in this meeting's jobsheet: Laravel rejects any POST request that doesn't carry that token.
 
 <div class="ref-link">Full list of common vulnerabilities: OWASP Top 10, <code>owasp.org/www-project-top-ten</code></div>
 

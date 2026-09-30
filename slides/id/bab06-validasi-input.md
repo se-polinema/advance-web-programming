@@ -240,7 +240,7 @@ Bayangkan kamu sedang login ke sebuah aplikasi kasir, lalu membuka situs lain ya
 </form>
 ```
 
-Token `@csrf` yang selalu kamu tulis di setiap form Blade sejak Pertemuan 3 adalah pertahanannya: Laravel menolak request POST yang tidak membawa token itu.
+Blade menyediakan directive `@csrf` untuk menghasilkan token ini otomatis di dalam form, kamu akan mulai memakainya di form kasir pada jobsheet pertemuan ini: Laravel menolak request POST yang tidak membawa token itu.
 
 <div class="ref-link">Daftar lengkap kerentanan umum: OWASP Top 10, <code>owasp.org/www-project-top-ten</code></div>
 

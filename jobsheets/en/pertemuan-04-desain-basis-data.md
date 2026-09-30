@@ -50,7 +50,7 @@ Before writing code, the group sketches the following schema on paper or a white
 
 One `categories` row has many `products`. One `products` row can appear in many `transaction_details`, and one `transactions` row has many `transaction_details`, each recording one purchased line item. `transactions` points back to `users` (the cashier who processed that transaction, already in place since Meeting 1).
 
-Note `transactions.total` and `transaction_details.subtotal`: both are columns that are **stored**, not recomputed every time they're read. That's a deliberate choice, because a transaction's total has to stay exactly what it was when the transaction happened, even if the product's price changes later. The validation meeting later covers why this value must also be recomputed on the server when it's saved, not just trusted from input.
+Note `transactions.total` and `transaction_details.subtotal`: both are **snapshot** columns (the term from this meeting's slides), stored rather than recomputed every time they're read. That's a deliberate choice, because a transaction's total has to stay exactly what it was when the transaction happened, even if the product's price changes later. The validation meeting later covers why this value must also be recomputed on the server when it's saved, not just trusted from input.
 
 > ✅ **Checkpoint:** the group has a schema sketch on paper/whiteboard, and Steps 2-5 are divided up and agreed on.
 

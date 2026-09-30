@@ -152,7 +152,7 @@ class TransactionController extends Controller
 
 ### Langkah 6: Mendaftarkan route ke controller
 
-Ganti isi `routes/web.php` menjadi (perhatikan baris `use` yang mengimpor controller):
+Ganti isi `routes/web.php` menjadi (perhatikan baris `use` yang mengimpor controller, dan `->name()` di tiap route yang menandainya sebagai named route seperti di Bagian 3):
 
 ```php
 <?php
@@ -195,7 +195,7 @@ php artisan route:list
 
 ### Langkah 8: Membungkus route dengan middleware `auth`
 
-Route yang seharusnya hanya bisa diakses pengguna yang sudah login perlu dibungkus middleware. Ubah bagian route Simple POS di `routes/web.php` menjadi:
+Route yang seharusnya hanya bisa diakses pengguna yang sudah login perlu dibungkus middleware. `Route::middleware('auth')->group(...)` di bawah ini adalah route group, pola yang dibahas di Bagian 3: satu middleware ditulis sekali, berlaku untuk semua route di dalamnya. Ubah bagian route Simple POS di `routes/web.php` menjadi:
 
 ```php
 <?php

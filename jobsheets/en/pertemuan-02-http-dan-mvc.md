@@ -152,7 +152,7 @@ class TransactionController extends Controller
 
 ### Step 6: Registering routes to the controller
 
-Replace the contents of `routes/web.php` with (note the `use` line importing the controller):
+Replace the contents of `routes/web.php` with (note the `use` line importing the controller, and the `->name()` on each route marking it as a named route like in Part 3):
 
 ```php
 <?php
@@ -195,7 +195,7 @@ php artisan route:list
 
 ### Step 8: Wrapping routes with the `auth` middleware
 
-A route that should only be reachable by logged-in users needs to be wrapped in middleware. Change the Simple POS route section in `routes/web.php` to:
+A route that should only be reachable by logged-in users needs to be wrapped in middleware. The `Route::middleware('auth')->group(...)` below is a route group, the pattern covered in Part 3: one middleware written once, applying to every route inside it. Change the Simple POS route section in `routes/web.php` to:
 
 ```php
 <?php

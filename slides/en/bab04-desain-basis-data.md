@@ -593,7 +593,7 @@ The syntax differs, but the concept is the same: a database schema is code with 
 - You'll apply the schema, migration, and index concepts directly to the Simple POS case study in the practicum jobsheet
 - Designing the category-product-transaction tables, writing a seeder at hundreds-to-thousands-row scale, and proving the index with `EXPLAIN QUERY PLAN`
 
-<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-04</code></div>
+<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch04</code></div>
 
 ---
 

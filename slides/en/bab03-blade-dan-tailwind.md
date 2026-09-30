@@ -560,10 +560,10 @@ A useful rule of thumb: display logic (showing a subtotal, highlighting a just-a
 ## The Full Version: `Alpine.data`
 
 - An inline `x-data` object is enough to learn the mechanism
-- In the Simple POS case study you build in the jobsheet, the cart registers itself through `Alpine.data('posCart', ...)` in `app.js`, complete with SKU scanning, discounts, and `sessionStorage`
-- Same concept, different scale
+- In the Simple POS case study you build in the jobsheet, the cart stays as an inline `x-data` object right on the cashier page, plenty for its current complexity
+- If the cart grows more complex later, pulling it out via `Alpine.data('posCart', ...)` in `app.js` is the natural next step, same concept, different scale
 
-<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-03</code></div>
+<div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch03</code></div>
 
 ---
 

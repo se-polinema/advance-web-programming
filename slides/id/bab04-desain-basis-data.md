@@ -597,7 +597,7 @@ Sintaksnya berbeda-beda, tapi konsepnya sama: skema basis data adalah kode yang 
 - Konsep skema, migration, dan index ini akan kamu terapkan langsung pada studi kasus Simple POS di jobsheet praktikum
 - Merancang tabel kategori-produk-transaksi, menulis seeder berskala ratusan-ribuan baris, dan membuktikan index lewat `EXPLAIN QUERY PLAN`
 
-<div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-04</code></div>
+<div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch04</code></div>
 
 ---
 

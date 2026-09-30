@@ -560,10 +560,10 @@ Aturan praktis: logika tampilan (menampilkan subtotal, menyorot item baru) aman 
 ## Versi Lengkap: `Alpine.data`
 
 - Objek `x-data` inline cukup untuk belajar mekanismenya
-- Pada studi kasus Simple POS yang kamu bangun di jobsheet, keranjang didaftarkan lewat `Alpine.data('posCart', ...)` di `app.js`, lengkap dengan scan SKU, diskon, dan `sessionStorage`
-- Konsep yang sama, skala yang berbeda
+- Pada studi kasus Simple POS yang kamu bangun di jobsheet, keranjang tetap dipakai langsung sebagai `x-data` inline di halaman kasir, cukup untuk kompleksitas sekarang
+- Kalau nanti keranjang tumbuh lebih rumit, memisahkannya lewat `Alpine.data('posCart', ...)` di `app.js` adalah langkah alami berikutnya, konsep yang sama, skala yang berbeda
 
-<div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos</code>, branch <code>chapter-03</code></div>
+<div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch03</code></div>
 
 ---
 
