@@ -7,8 +7,7 @@
 | **Pertemuan** | 2 (Minggu 2) |
 | **Durasi** | 2 sesi &times; 170 menit |
 | **Sub-CPMK** | Sub-CPMK 1: Mahasiswa mampu memahami konsep dasar web framework serta menerapkan routing, controller, dan pengelolaan basis data dalam pengembangan aplikasi web. |
-| **Kode Awal** | branch `chapter-01` di `github.com/se-polinema/simple-pos` |
-| **Kode Akhir** | branch `chapter-02` di `github.com/se-polinema/simple-pos` |
+| **Kode Awal** | template repository `github.com/se-polinema/simple-pos-ch01` |
 
 ## A. Capaian Praktikum
 
@@ -22,10 +21,10 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
 ## B. Persiapan dan Prasyarat
 
 - **Alat**: sama seperti Pertemuan 1 (PHP 8.2+, Composer, Node.js, Git), ditambah `curl` (sudah tersedia bawaan di macOS/Linux; di Windows tersedia lewat PowerShell modern atau Git Bash).
-- **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari Pertemuan 1. Kalau tertinggal atau proyekmu bermasalah, mulai dari kode awal pertemuan ini:
+- **Kelanjutan kode**: lanjutkan proyek `simple-pos` milikmu dari Pertemuan 1. Kalau tertinggal atau proyekmu bermasalah, mulai dari template repository `simple-pos-ch01`: buka `https://github.com/se-polinema/simple-pos-ch01`, klik **Use this template** &rarr; **Create a new repository**, lalu clone salinanmu sendiri:
   ```bash
-  git clone -b chapter-01 https://github.com/se-polinema/simple-pos.git
-  cd simple-pos
+  git clone https://github.com/<username-kamu>/<nama-repo-kamu>.git
+  cd <nama-repo-kamu>
   composer install
   npm install
   cp .env.example .env
@@ -37,7 +36,7 @@ Setelah menyelesaikan jobsheet ini, kamu mampu:
   ```bash
   git log --oneline
   ```
-  Harus menampilkan minimal satu baris `increment 1: proyek Laravel kosong`. Jalankan juga `php artisan serve` di satu jendela terminal dan biarkan tetap berjalan sepanjang praktikum ini.
+  Harus menampilkan minimal satu baris yang diawali `increment 1:`. Jalankan juga `php artisan serve` di satu jendela terminal dan biarkan tetap berjalan sepanjang praktikum ini.
 
 ## C. Langkah Kerja
 

@@ -7,7 +7,6 @@
 | **Meeting** | 1 (Week 1) |
 | **Duration** | 2 sessions &times; 170 minutes |
 | **Sub-CPMK** | Sub-CPMK 1: Students can understand the basic concepts of web frameworks and apply routing, controllers, and database management in web application development. |
-| **Ending Code** | `chapter-01` branch at `github.com/se-polinema/simple-pos` (to compare against your own result) |
 
 ## A. Practicum Outcomes
 

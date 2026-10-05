@@ -468,7 +468,7 @@ An old migration edited after it has run leaves the schema history on another ma
 <div>
 
 **`DB::table()->insert()` in batches**
-- One `INSERT` statement for many rows at once
+- One `INSERT` for many rows
 - Far fewer round-trips to the database
 - `array_chunk()` splits it into small batches, since some database engines cap rows per `INSERT`
 
@@ -477,10 +477,11 @@ An old migration edited after it has run leaves the schema history on another ma
 
 ```php
 $articles = [];
-foreach ($authorIds as $authorId) {
-    for ($i = 0; $i < 30; $i++) {
-        $articles[] = ['author_id' => $authorId, 'title' => fake()->sentence()];
-    }
+for ($i = 0; $i < 300; $i++) {
+    $articles[] = [
+        'title' => fake()->sentence(),
+        'created_at' => now(), 'updated_at' => now(),
+    ];
 }
 foreach (array_chunk($articles, 50) as $chunk) {
     DB::table('articles')->insert($chunk);

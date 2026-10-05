@@ -7,8 +7,7 @@
 | **Meeting** | 2 (Week 2) |
 | **Duration** | 2 sessions &times; 170 minutes |
 | **Sub-CPMK** | Sub-CPMK 1: Students can understand the basic concepts of web frameworks and apply routing, controllers, and database management in web application development. |
-| **Starting Code** | `chapter-01` branch at `github.com/se-polinema/simple-pos` |
-| **Ending Code** | `chapter-02` branch at `github.com/se-polinema/simple-pos` |
+| **Starting Code** | template repository `github.com/se-polinema/simple-pos-ch01` |
 
 ## A. Practicum Outcomes
 
@@ -22,10 +21,10 @@ After completing this jobsheet, you'll be able to:
 ## B. Preparation and Prerequisites
 
 - **Tools**: same as Meeting 1 (PHP 8.2+, Composer, Node.js, Git), plus `curl` (already available by default on macOS/Linux; on Windows it's available through modern PowerShell or Git Bash).
-- **Continuing the code**: continue your own `simple-pos` project from Meeting 1. If you've fallen behind or your project has problems, start from this meeting's starting code:
+- **Continuing the code**: continue your own `simple-pos` project from Meeting 1. If you've fallen behind or your project has problems, start from the starting template repository `simple-pos-ch01`: open `https://github.com/se-polinema/simple-pos-ch01`, click **Use this template** &rarr; **Create a new repository**, then clone your own copy:
   ```bash
-  git clone -b chapter-01 https://github.com/se-polinema/simple-pos.git
-  cd simple-pos
+  git clone https://github.com/<your-username>/<your-repo-name>.git
+  cd <your-repo-name>
   composer install
   npm install
   cp .env.example .env
@@ -37,7 +36,7 @@ After completing this jobsheet, you'll be able to:
   ```bash
   git log --oneline
   ```
-  It should show at least one `increment 1: proyek Laravel kosong` line. Also run `php artisan serve` in one terminal window and leave it running throughout this practicum.
+  It should show at least one line starting with `increment 1:`. Also run `php artisan serve` in one terminal window and leave it running throughout this practicum.
 
 ## C. Work Steps
 

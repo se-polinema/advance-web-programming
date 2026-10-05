@@ -50,7 +50,7 @@ Sebelum menulis kode, kelompok menggambar skema berikut di atas kertas atau papa
 
 Satu `categories` punya banyak `products`. Satu `products` bisa muncul di banyak `transaction_details`, dan satu `transactions` punya banyak `transaction_details`, masing-masing mencatat satu baris item yang dibeli. `transactions` menunjuk balik ke `users` (kasir yang memproses transaksi itu, sudah ada sejak Pertemuan 1).
 
-Perhatikan `transactions.total` dan `transaction_details.subtotal`: keduanya kolom **snapshot** (istilah dari slide Pertemuan ini), disimpan, bukan dihitung ulang setiap kali dibaca. Itu keputusan sadar, karena total transaksi harus tetap sama persis seperti nilai saat transaksi itu terjadi, meskipun harga produk berubah di kemudian hari. Pertemuan validasi nanti membahas kenapa nilai ini juga wajib dihitung ulang di server saat disimpan, bukan sekadar dipercaya dari input.
+Perhatikan `transactions.total` dan `transaction_details.subtotal`: keduanya kolom **snapshot**, yaitu nilai yang disimpan sekali saat transaksi terjadi, bukan dihitung ulang setiap kali dibaca. Itu keputusan sadar, karena total transaksi harus tetap sama persis seperti nilai saat transaksi itu terjadi, meskipun harga produk berubah di kemudian hari. Pertemuan validasi nanti membahas kenapa nilai ini juga wajib dihitung ulang di server saat disimpan, bukan sekadar dipercaya dari input.
 
 > ✅ **Checkpoint:** kelompok sudah punya gambar skema di atas kertas/papan, dan pembagian tugas Langkah 2-5 sudah disepakati.
 
