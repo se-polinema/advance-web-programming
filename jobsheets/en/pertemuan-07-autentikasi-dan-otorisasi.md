@@ -151,19 +151,38 @@ Replace the contents of `app/Models/User.php` with:
 namespace App\Models;
 
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'is_active',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -191,7 +210,7 @@ class User extends Authenticatable
 }
 ```
 
-The `password => hashed` cast means every time you assign `password` to the model, Laravel hashes it first. The original password never reaches the database.
+The new columns go into the `$fillable` list, same as you already did in the `Product` and `Category` models. The `password => hashed` cast means every time you assign `password` to the model, Laravel hashes it first. The original password never reaches the database.
 
 ```bash
 git add .
@@ -202,6 +221,8 @@ git push -u origin user-model
 Open a Pull Request to `main`, merge it, then everyone goes back to `main` and pulls.
 
 > ✅ **Checkpoint:** `php artisan tinker` followed by `App\Models\User::make(['password' => 'rahasia'])->password` prints a long hash string, not `rahasia`.
+
+> ⚠️ **If it fails:** a `MassAssignmentException: Add [password] to fillable property...` error means `$fillable` in `User.php` wasn't saved or doesn't list the column you're using.
 
 ### Step 4: Demo accounts for admin and kasir
 
@@ -491,7 +512,7 @@ The navigation must show a logout button, and show admin menus only to admin use
 </nav>
 ```
 
-Hiding the admin menu in the navigation is only visual. The real restriction is applied on the server in the next steps.
+Hiding the admin menu in the navigation is only a visual change. The real restriction is applied on the server in the next steps.
 
 ```bash
 git add .
@@ -499,7 +520,7 @@ git commit -m "tambah tombol keluar dan menu admin di navigasi"
 git push
 ```
 
-> ✅ **Checkpoint:** after logging in as admin, the navigation shows `Produk` and `Kategori`. After logging in as kasir, those two menus disappear and the `Keluar` button is still there.
+> ✅ **Checkpoint:** the file `resources/views/components/nav.blade.php` is saved with the `Keluar` button and the `@if (auth()->user()?->isAdmin())` block. Same as step 5, this can only be checked in the browser after step 8. At that point: logging in as admin shows the `Produk` and `Kategori` menus; logging in as kasir hides both, and the `Keluar` button is still there.
 
 Once step 6 is done, open a Pull Request from `login-logout` to `main` (steps 5 and 6 are combined in one PR), merge it with **Create a merge commit**, then everyone goes back to `main` and pulls.
 
@@ -548,7 +569,6 @@ The `$role` parameter is supplied by the route, for example `role:admin`. The mi
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -562,9 +582,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->expectsJson(),
-        );
+        //
     })->create();
 ```
 
@@ -574,7 +592,7 @@ git commit -m "tambah middleware role untuk pembatasan halaman admin"
 git push -u origin role-middleware
 ```
 
-> ✅ **Checkpoint:** `php artisan tinker` followed by `app('router')->getMiddleware()['role']` shows the class name `EnsureUserHasRole`, not `null`.
+> ✅ **Checkpoint:** `php artisan tinker` followed by `app(Illuminate\Contracts\Http\Kernel::class)->getMiddlewareAliases()['role']` shows the class name `EnsureUserHasRole`, not an error.
 
 > ⚠️ **If it fails:** a `Target class [role] does not exist` error means the alias in `bootstrap/app.php` wasn't saved or is misspelled. Check the `$middleware->alias([...])` block.
 
@@ -632,13 +650,19 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 Test this step with both accounts, not only the admin. The most common mistake is invisible when the tester always logs in as admin.
 
-1. Run `php artisan migrate:fresh --seed`, then `php artisan serve`.
+1. Run `php artisan migrate:fresh --seed`, then `php artisan serve` (and `npm run dev` in a second terminal if it's not already running, since the login page loads assets through `@vite`).
 2. Log in as `admin@pos.test`, open `/products`. **Expected:** the product list shows normally.
 3. Log out, log in as `kasir@pos.test`, open `/products` again. **Expected:** a 403 error page with the message "Anda tidak memiliki akses untuk halaman ini.", not the product list.
-4. While logged in as kasir, open `/pos`. **Expected:** the cashier page shows normally, since kasir is allowed there.
-5. Try logging in with a wrong password. **Expected:** the message "Email atau kata sandi salah."
+4. Still logged in as kasir, open `/pos`. **Expected:** the cashier page shows normally, since kasir is allowed there.
+5. Click `Keluar`, then try logging in with a wrong password. **Expected:** the message "Email atau kata sandi salah." (try this after logging out, since trying to log in while still logged in just redirects you to `/pos` instead of showing the form).
+6. Still logged out, open `/products` directly from the address bar. **Expected:** you're redirected to the `/login` page, not an error page. For an ordinary browser page, Laravel answers "not logged in" by redirecting to the login page, since that's the most useful response for a human.
+7. Still logged out, with the server still running, run this command in another terminal (on Windows, run it through Git Bash):
+   ```bash
+   curl -i http://127.0.0.1:8000/pos -H "Accept: application/json"
+   ```
+   **Expected:** the first line shows status `401 Unauthorized`, with the body `{"message":"Unauthenticated."}`. This request asked for a JSON answer, not an HTML page, so Laravel answers with a literal 401 status code. Compare this with step 3: `401` means not logged in, `403` means logged in but not permitted.
 
-> ✅ **Checkpoint:** all five results match, and each member has tried at least step 3 or step 4 on their own laptop.
+> ✅ **Checkpoint:** all seven results match, and each member has tried at least step 3, step 4, or step 7 on their own laptop.
 
 > ⚠️ **If kasir can still open `/products`:** check two possibilities. (a) The `/products` route is outside the `role:admin` group in step 8. (b) The routes were cached before the middleware was added. Run `php artisan route:clear`, then try again.
 
@@ -696,4 +720,4 @@ Submit the following in the format your instructor requests:
 | Work steps completed (group) | 40% | Steps 1-11 done, login, logout, and role restriction work as the two-account test shows | Most steps done, login and the admin restriction work |
 | Checkpoints verified (group) | 25% | Screenshots of the 403 page and the admin page, task-division table, and a complete, correct git log | Some checkpoints proven |
 | Per-member contribution (individual) | 25% | At least one meaningful commit under each member's name, matching the task-division table | Commits exist but are small or their relevance is unclear |
-| Repository and commit hygiene | 10% | The `increment 7` message is exact, new migrations (not edits to old ones), no `vendor/`/`node_modules/`/`.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
+| Repository and commit hygiene | 10% | The `increment 7` message is exact, new migrations (not edits to old ones), no `vendor/`, `node_modules/`, `.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |

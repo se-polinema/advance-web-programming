@@ -156,9 +156,9 @@ Who you are, what you're allowed to do, and how to check both on every request
 
 1. Tell apart **authentication** (proving identity) from **authorization** (deciding permission), and why the two are kept separate
 
-2. Understand how **sessions** and **cookies** let stateless HTTP remember a logged-in user
+2. Understand how **sessions**, **cookies**, and related features (remember me, password reset, login rate limiting) make login feel safe and convenient
 
-3. Recognize the basic rules for storing **passwords** and **RBAC** (role-based access control) through **middleware**
+3. Recognize the basic rules for storing **passwords** and **RBAC** (role-based access control) through **middleware**, **Gates**, and **Policies**
 
 <div class="tip-box">
 This deck covers concepts. Implementing login and role restrictions for Simple POS happens in the practicum jobsheet.
@@ -239,6 +239,18 @@ An employee whose badge is valid at the lobby can still be turned away at the se
 
 ---
 
+## Remember Me: Login That Outlasts the Session
+
+<div class="term-box">
+<b>Remember Me:</b> an extra, long-lived cookie (weeks, not minutes) that keeps a user logged in even after their session on the server has ended, for example after closing the browser.
+</div>
+
+- This cookie carries a separate random token, not the regular session and not the password, stored in a column like `remember_token` on the users table
+- When the user comes back, the server matches that token, creates a new session, then replaces it with a fresh token again
+- Because it lasts so long, checking "Remember Me" should be the user's own choice, not the default behavior
+
+---
+
 ## Session vs Token
 
 <div class="cols">
@@ -273,11 +285,44 @@ An employee whose badge is valid at the lobby can still be turned away at the se
 
 ---
 
+## Forgot Password
+
+Because passwords are stored as hashes, the server itself cannot read one back to resend by email. The fix isn't sending the old password, it's giving the user a chance to set a new one:
+
+<div class="flow">
+  <div class="box">Request reset</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">One-time token emailed</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Enter new password</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Token checked, new hash stored</div>
+</div>
+
+- The reset token must expire quickly and work only once, just like a session ID that gets regenerated after login
+- The reset link is emailed, not shown directly on the page, so only the real owner of that email can use it
+
+---
+
 ## Why Password Hashing Is Deliberately Slow
 
 - Fast hashing lets an attacker try billions of guesses per second
 - Modern password algorithms (bcrypt, argon2) are intentionally slow, and their cost can be raised as hardware gets faster
 - In Laravel, `Hash::make()` uses the algorithm set in the configuration, and you should never write your own hash function
+
+---
+
+## Rate Limiting Login Attempts
+
+Slow hashing slows down an attacker who already has a copy of the database. An attacker just guessing through the login form needs a different defense: limiting how many attempts are allowed in a given time.
+
+```php
+Route::post('/login', [LoginController::class, 'store'])
+    ->middleware('throttle:5,1');
+```
+
+- The code above allows at most 5 attempts per minute from the same source, the 6th attempt is rejected outright without even checking the password
+- Just like slow hashing, the goal is to make brute-force guessing take far too long, not to prevent it completely
 
 ---
 
@@ -353,6 +398,7 @@ In a session fixation attack, the attacker gives the victim a session ID the att
 **401 Unauthorized**
 - No identity has been proven yet
 - The fix: log in first
+- In a browser, Laravel answers this by redirecting to the login page
 
 </div>
 <div>
@@ -374,6 +420,90 @@ Middleware only protects the routes that actually use it. A new admin route adde
 
 - The mistake is invisible in testing if the tester always logs in as admin
 - The prevention: also test with accounts of other roles, not only the admin account
+
+---
+
+## Gate: A Simple Authorization Rule
+
+<div class="term-box">
+<b>Gate:</b> an authorization rule written as a closure, registered under a name, and called by that name wherever it's needed.
+</div>
+
+```php
+Gate::define('manage-products', function (User $user) {
+    return $user->role === 'admin';
+});
+
+Gate::authorize('manage-products');
+```
+
+- Suits rules that aren't tied to one specific row of data, for example "who may open the settings page"
+- Middleware checks at the route level, a Gate can be called anywhere in the code, including in the middle of a controller
+
+---
+
+## Policy: Authorization per Model
+
+<div class="term-box">
+<b>Policy:</b> a class that collects all the authorization rules for one model, one method per action (<code>view</code>, <code>update</code>, <code>delete</code>, etc.).
+</div>
+
+```php
+class ArticlePolicy
+{
+    public function update(User $user, Article $article): bool
+    {
+        return $user->id === $article->author_id;
+    }
+}
+```
+
+- Created via `php artisan make:policy ArticlePolicy --model=Article`, then called with `Gate::authorize('update', $article)`
+- The method receives the actual row of data, so the rule can differ per row, not just by role
+
+---
+
+## Middleware vs Policy: When to Use Which
+
+<div class="cols">
+<div>
+
+**Middleware**
+- The question: "can this reach this route at all?"
+- Checked before the controller, for the whole request
+- Suits role-based rules, the same for every row of data
+
+</div>
+<div>
+
+**Policy**
+- The question: "can this be done to this specific row?"
+- Checked inside the controller, for one particular row of data
+- Suits ownership rules, for example "only the original author may edit"
+
+</div>
+</div>
+
+<div class="tip-box">
+The <code>role:admin</code> middleware you build in the jobsheet answers the first question. Once the cashier app needs a rule like "a kasir may only void their own transaction", that's the second question, a Policy's job.
+</div>
+
+---
+
+## Checking Permissions in Blade: @can and @cannot
+
+```php
+@can('update', $article)
+    <a href="{{ route('articles.edit', $article) }}">Edit</a>
+@endcan
+
+@cannot('update', $article)
+    <p>You can't edit this article.</p>
+@endcannot
+```
+
+- `@can`/`@cannot` call the same Gate or Policy rule, so the rule is never written twice
+- Just like `@if (auth()->user()?->isAdmin())` only hides the admin menu in the navigation, `@can` only hides the view, the real check must still happen again in the controller or route
 
 ---
 
@@ -416,19 +546,27 @@ Middleware only protects the routes that actually use it. A new admin route adde
 
 ---
 
-## Summary (1/2)
+## Summary (1/3)
 
 - Authentication answers "who are you", authorization answers "what are you allowed to do"; the two are checked separately
-- Sessions and cookies let stateless HTTP remember a user; the cookie carries only the session ID
+- Sessions and cookies let stateless HTTP remember a user; the cookie carries only the session ID, remember me uses a separate long-lived cookie
 - Passwords are stored as hashes, and after login the session must be regenerated to prevent session fixation
 
 ---
 
-## Summary (2/2)
+## Summary (2/3)
 
-- RBAC attaches permissions to roles, and middleware acts as a checkpoint before the controller
+- Forgot password is solved with a one-time reset token emailed to the user, not by resending the old password
+- Rate limiting (throttling) login attempts slows down brute-force guessing, just like deliberately slow hashing
+- RBAC attaches permissions to roles, and middleware acts as a checkpoint at the route level before the controller
+
+---
+
+## Summary (3/3)
+
 - Use 401 for not logged in and 403 for logged in but not allowed
-- Pick a package to fit the need: custom middleware for simple roles, Breeze for ready-made authentication, Spatie for granular permissions
+- A Gate answers simple rules not tied to one row of data, a Policy answers per-row rules (like ownership); `@can`/`@cannot` in Blade call the same rules
+- Pick a package to fit the need: custom middleware for simple roles, Breeze for ready-made authentication, Spatie for very fine-grained permissions
 
 ---
 
@@ -440,4 +578,4 @@ Official Laravel documentation (Authentication, Authorization, Middleware)
 
 Full code: `github.com/se-polinema/simple-pos-ch07`
 
-**Next meeting:** UTS (Project Progress Evaluation)
+**Next meeting:** UTS (PBL Project Progress Evaluation)

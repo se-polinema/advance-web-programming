@@ -117,7 +117,7 @@ return new class extends Migration
 };
 ```
 
-Default `kasir` berarti setiap pengguna baru otomatis berperan kasir, kecuali dibuat sebagai admin secara eksplisit. Itu disengaja: peran dengan hak lebih besar harus selalu dipilih sadar, tidak diberikan diam-diam.
+Default `kasir` berarti setiap pengguna baru otomatis berperan kasir, kecuali dibuat sebagai admin secara eksplisit. Itu disengaja: peran dengan hak lebih besar harus selalu dipilih dengan sengaja, tidak diberikan diam-diam.
 
 ```bash
 git add .
@@ -151,19 +151,38 @@ Isi `app/Models/User.php` menjadi:
 namespace App\Models;
 
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'is_active',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -191,7 +210,7 @@ class User extends Authenticatable
 }
 ```
 
-Atribut `password => hashed` berarti setiap kali kamu menulis `password` ke model, Laravel menghitung hash-nya dulu. Kata sandi asli tidak pernah masuk ke basis data.
+Kolom baru masuk ke daftar `$fillable`, sama seperti yang sudah kamu lakukan di model `Product` dan `Category`. Cast `password => hashed` berarti setiap kali kamu menulis `password` ke model, Laravel menghitung hash-nya dulu. Kata sandi asli tidak pernah masuk ke basis data.
 
 ```bash
 git add .
@@ -202,6 +221,8 @@ git push -u origin user-model
 Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
 
 > ✅ **Checkpoint:** `php artisan tinker` lalu `App\Models\User::make(['password' => 'rahasia'])->password` menampilkan string hash panjang, bukan `rahasia`.
+
+> ⚠️ **Jika gagal:** error `MassAssignmentException: Add [password] to fillable property...` berarti `$fillable` di `User.php` belum tersimpan atau belum mencantumkan kolom yang dipakai.
 
 ### Langkah 4: Akun demo admin dan kasir
 
@@ -466,7 +487,7 @@ git push -u origin login-logout
 
 Jangan buka Pull Request dulu: langkah 6 masih dikerjakan di branch `login-logout` yang sama.
 
-> ✅ **Checkpoint:** `php artisan route:list` belum error, dan berkas `resources/views/auth/login.blade.php` serta `app/Http/Controllers/Auth/LoginController.php` sudah tersimpan. Login di browser baru bisa diuji setelah langkah 8, karena route `/login` dipasang di sana.
+> ✅ **Checkpoint:** jalankan `php artisan route:list`, pastikan tidak ada error, dan pastikan berkas `resources/views/auth/login.blade.php` serta `app/Http/Controllers/Auth/LoginController.php` sudah tersimpan. Login di browser baru bisa diuji setelah langkah 8, karena route `/login` dipasang di sana.
 
 > ⚠️ **Jika gagal:** kalau `/login` menampilkan 404 sekarang, itu wajar karena route belum dipasang. Kalau setelah langkah 8 kata sandi benar tapi login tetap ditolak, cek akun demo (langkah 4) dan kolom `is_active` bernilai `true`.
 
@@ -491,7 +512,7 @@ Navigasi harus menampilkan tombol keluar dan hanya menampilkan menu admin untuk 
 </nav>
 ```
 
-Menu admin disembunyikan di navigasi, tetapi itu hanya kenyataan visual. Pembatasan yang sebenarnya dikerjakan di langkah berikutnya, di sisi server.
+Menu admin disembunyikan di navigasi, tetapi itu hanya soal tampilan. Pembatasan yang sebenarnya dikerjakan di langkah berikutnya, di sisi server.
 
 ```bash
 git add .
@@ -499,11 +520,7 @@ git commit -m "tambah tombol keluar dan menu admin di navigasi"
 git push -u origin login-logout
 ```
 
-> ✅ **Checkpoint:** setelah login sebagai admin, navigasi menampilkan `Produk` dan `Kategori`. Setelah login sebagai kasir, dua menu itu hilang dan tombol `Keluar` tetap ada.
-
-```bash
-git push
-```
+> ✅ **Checkpoint:** berkas `resources/views/components/nav.blade.php` sudah tersimpan dengan tombol `Keluar` dan blok `@if (auth()->user()?->isAdmin())`. Sama seperti langkah 5, tampilannya baru bisa dicek di browser setelah langkah 8. Saat itu: login sebagai admin menampilkan menu `Produk` dan `Kategori`; login sebagai kasir menyembunyikan dua menu itu, dan tombol `Keluar` tetap ada.
 
 Setelah langkah 6 selesai, buka Pull Request `login-logout` ke `main` (langkah 5 dan 6 digabung dalam satu PR), merge dengan **Create a merge commit**, lalu semua anggota kembali ke `main` dan pull.
 
@@ -552,7 +569,6 @@ Parameter `$role` diisi dari route, misalnya `role:admin`. Middleware ini perlu 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -566,9 +582,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->expectsJson(),
-        );
+        //
     })->create();
 ```
 
@@ -578,7 +592,7 @@ git commit -m "tambah middleware role untuk pembatasan halaman admin"
 git push -u origin role-middleware
 ```
 
-> ✅ **Checkpoint:** `php artisan tinker` lalu `app('router')->getMiddleware()['role']` menampilkan nama kelas `EnsureUserHasRole`, bukan `null`.
+> ✅ **Checkpoint:** `php artisan tinker` lalu `app(Illuminate\Contracts\Http\Kernel::class)->getMiddlewareAliases()['role']` menampilkan nama kelas `EnsureUserHasRole`, bukan error.
 
 > ⚠️ **Jika gagal:** error `Target class [role] does not exist` berarti alias di `bootstrap/app.php` belum tersimpan atau salah ketik. Periksa bagian `$middleware->alias([...])`.
 
@@ -636,13 +650,19 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 Uji langkah ini dengan kedua akun, bukan hanya admin. Kesalahan paling umum justru tidak terlihat kalau yang diuji selalu admin.
 
-1. Jalankan `php artisan migrate:fresh --seed`, lalu `php artisan serve`.
+1. Jalankan `php artisan migrate:fresh --seed`, lalu `php artisan serve` (dan `npm run dev` di terminal kedua kalau belum berjalan, karena halaman login memuat aset lewat `@vite`).
 2. Login sebagai `admin@pos.test`, buka `/products`. **Yang diharapkan:** halaman daftar produk tampil normal.
 3. Logout, login sebagai `kasir@pos.test`, buka `/products` lagi. **Yang diharapkan:** halaman error 403 dengan pesan "Anda tidak memiliki akses untuk halaman ini.", bukan daftar produk.
-4. Login sebagai kasir, buka `/pos`. **Yang diharapkan:** halaman kasir tampil normal, karena kasir memang boleh.
-5. Coba login dengan kata sandi yang salah. **Yang diharapkan:** pesan "Email atau kata sandi salah."
+4. Masih login sebagai kasir, buka `/pos`. **Yang diharapkan:** halaman kasir tampil normal, karena kasir memang boleh.
+5. Klik `Keluar`, lalu coba login dengan kata sandi yang salah. **Yang diharapkan:** pesan "Email atau kata sandi salah." (login harus dicoba setelah keluar, karena mencoba login sementara masih login akan langsung dialihkan ke `/pos`, bukan menampilkan form).
+6. Masih tanpa login, buka `/products` langsung dari address bar. **Yang diharapkan:** kamu diarahkan ke halaman `/login`, bukan halaman error. Untuk halaman biasa di browser, Laravel menjawab kondisi "belum login" dengan mengarahkan ke halaman login, karena itu jawaban yang paling berguna untuk manusia.
+7. Masih tanpa login, dengan server tetap berjalan, jalankan perintah ini di terminal lain (di Windows, jalankan lewat Git Bash):
+   ```bash
+   curl -i http://127.0.0.1:8000/pos -H "Accept: application/json"
+   ```
+   **Yang diharapkan:** baris pertama menunjukkan status `401 Unauthorized`, dengan isi `{"message":"Unauthenticated."}`. Request ini meminta jawaban JSON, bukan halaman HTML, jadi Laravel menjawab dengan kode status 401 apa adanya. Bandingkan dengan langkah 3 tadi: `401` berarti belum login, `403` berarti sudah login tetapi tidak punya izin.
 
-> ✅ **Checkpoint:** kelima hasil di atas sesuai, dan setiap anggota sudah mencoba minimal satu dari langkah 3 atau 4 di laptopnya sendiri.
+> ✅ **Checkpoint:** ketujuh hasil di atas sesuai, dan setiap anggota sudah mencoba minimal satu dari langkah 3, 4, atau 7 di laptopnya sendiri.
 
 > ⚠️ **Jika kasir tetap bisa membuka `/products`:** periksa dua kemungkinan. (a) Route `/products` ternyata berada di luar grup `role:admin` pada langkah 8. (b) Route sempat di-cache sebelum middleware ditambahkan. Jalankan `php artisan route:clear`, lalu coba lagi.
 
@@ -664,7 +684,7 @@ Coba login sebagai `kasir@pos.test`. **Yang diharapkan:** pesan "Akun dinonaktif
 
 Bagi tugas berikut di antara anggota, supaya setiap anggota tercatat minimal satu commit bermakna lewat Pull Request masing-masing:
 
-- Ubah pesan 403 di `EnsureUserHasRole` agar menyebutkan peran yang dibutuhkan, misalnya "Halaman ini hanya untuk peran admin.", alih-alih pesan generik.
+- Ubah pesan 403 di `EnsureUserHasRole` agar menyebutkan peran yang dibutuhkan, misalnya "Halaman ini hanya untuk peran admin.", bukan pesan umum seperti sebelumnya.
 - Tambahkan peran ketiga, `manager`, yang boleh membuka `/transactions` tetapi tidak boleh membuka `/products`. Tentukan sendiri bagaimana route perlu dikelompokkan supaya aturan ini benar.
 - Tambahkan halaman yang hanya bisa dibuka tamu (belum login), misalnya halaman informasi, dan pastikan pengguna yang sudah login diarahkan ke `/pos`.
 - Tulis satu skenario uji manual di README proyek untuk setiap peran: langkah dan hasil yang diharapkan.
@@ -700,4 +720,4 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 | Langkah kerja tuntas (kelompok) | 40% | Langkah 1-11 selesai, login, logout, dan pembatasan peran berfungsi sesuai hasil uji dua akun | Sebagian besar langkah selesai, login dan pembatasan admin berjalan |
 | Checkpoint terverifikasi (kelompok) | 25% | Screenshot 403 dan halaman admin, tabel pembagian tugas, dan git log lengkap dan benar | Sebagian checkpoint terbukti |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna atas nama tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
-| Kerapian repositori dan commit | 10% | Pesan `increment 7` persis, migrasi baru (bukan edit migrasi lama), tanpa menyertakan `vendor/`/`node_modules/`/`.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
+| Kerapian repositori dan commit | 10% | Pesan `increment 7` persis, migrasi baru (bukan edit migrasi lama), tanpa menyertakan `vendor/`, `node_modules/`, `.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |

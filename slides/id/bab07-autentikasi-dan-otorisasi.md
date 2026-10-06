@@ -156,9 +156,9 @@ Siapa kamu, apa yang boleh kamu lakukan, dan bagaimana memeriksanya di setiap re
 
 1. Membedakan **autentikasi** (membuktikan identitas) dan **otorisasi** (menentukan izin), serta mengapa keduanya perlu dipisah
 
-2. Memahami bagaimana **sesi** dan **cookie** membuat HTTP yang tanpa status (stateless) bisa mengingat pengguna yang sudah login
+2. Memahami bagaimana **sesi**, **cookie**, dan fitur terkait (remember me, lupa kata sandi, pembatasan percobaan login) membuat login terasa aman dan nyaman
 
-3. Mengenali aturan dasar penyimpanan **kata sandi** dan **RBAC** (kontrol akses berbasis peran) lewat **middleware**
+3. Mengenali aturan dasar penyimpanan **kata sandi** dan **RBAC** (kontrol akses berbasis peran) lewat **middleware**, **Gate**, dan **Policy**
 
 <div class="tip-box">
 Slide ini membahas konsep. Implementasi login dan pembatasan peran pada Simple POS dikerjakan di jobsheet praktikum.
@@ -239,6 +239,18 @@ Pegawai yang kartunya sah di lobi tetap bisa ditolak di ruang server. Lobi menge
 
 ---
 
+## Remember Me: Login yang Bertahan
+
+<div class="term-box">
+<b>Remember Me:</b> cookie tambahan berumur panjang (berminggu-minggu) yang membuat pengguna tetap login walau sesinya di server sudah berakhir, misalnya setelah menutup browser.
+</div>
+
+- Cookie ini membawa token acak terpisah, bukan sesi biasa dan bukan kata sandi, disimpan di kolom seperti `remember_token` pada tabel pengguna
+- Begitu pengguna kembali, server mencocokkan token itu, membuat sesi baru, lalu menggantinya dengan token baru lagi
+- Karena umurnya panjang, centang "Remember Me" sebaiknya jadi pilihan pengguna sendiri, bukan perilaku default
+
+---
+
 ## Session vs Token
 
 <div class="cols">
@@ -273,11 +285,44 @@ Pegawai yang kartunya sah di lobi tetap bisa ditolak di ruang server. Lobi menge
 
 ---
 
+## Lupa Kata Sandi
+
+Karena kata sandi disimpan sebagai hash, server sendiri tidak bisa membacanya untuk dikirim ulang lewat email. Solusinya bukan mengirim kata sandi lama, melainkan memberi kesempatan membuat kata sandi baru:
+
+<div class="flow">
+  <div class="box">Minta reset</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Token sekali pakai dikirim ke email</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Isi kata sandi baru</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Token diperiksa, hash baru disimpan</div>
+</div>
+
+- Token reset harus kedaluwarsa dalam waktu singkat dan hanya bisa dipakai sekali, persis seperti ID sesi yang diregenerasi setelah login
+- Link reset dikirim lewat email, bukan ditampilkan langsung di halaman, supaya hanya pemilik email asli yang bisa memakainya
+
+---
+
 ## Mengapa Hashing Sengaja Dibuat Lambat
 
 - Hashing yang cepat membuat penyerang bisa mencoba miliaran tebakan per detik
 - Algoritma password modern (bcrypt, argon2) sengaja dibuat lambat dan bisa dinaikkan biayanya seiring perangkat makin cepat
 - Di Laravel, `Hash::make()` memakai algoritma yang diatur di konfigurasi, dan jangan pernah menulis fungsi hash sendiri
+
+---
+
+## Membatasi Percobaan Login
+
+Hashing yang lambat memperlambat penyerang yang punya salinan basis data. Tapi penyerang yang hanya menebak lewat form login butuh pertahanan lain: membatasi berapa kali percobaan login boleh dilakukan dalam waktu tertentu.
+
+```php
+Route::post('/login', [LoginController::class, 'store'])
+    ->middleware('throttle:5,1');
+```
+
+- Kode di atas membatasi maksimal 5 percobaan per menit dari sumber yang sama, percobaan ke-6 langsung ditolak tanpa mengecek kata sandinya
+- Sama seperti hashing yang lambat, tujuannya membuat serangan coba-coba makan waktu sangat lama, bukan mencegahnya sepenuhnya
 
 ---
 
@@ -287,7 +332,7 @@ Pegawai yang kartunya sah di lobi tetap bisa ditolak di ruang server. Lobi menge
 Serangan session fixation: penyerang memberi korban ID sesi yang sudah dia ketahui sebelum login. Begitu korban login, sesi yang sama ikut menjadi milik penyerang.
 </div>
 
-- Cegahnya: buat ID sesi baru tepat setelah login berhasil, lalu hapus ID lama
+- Cara mencegahnya: buat ID sesi baru tepat setelah login berhasil, lalu hapus ID lama
 - Di Laravel, ini dilakukan dengan `session()->regenerate()` setelah `Auth::attempt()` berhasil
 
 ---
@@ -353,6 +398,7 @@ Serangan session fixation: penyerang memberi korban ID sesi yang sudah dia ketah
 **401 Unauthorized**
 - Belum ada identitas yang terbukti
 - Solusinya: login dulu
+- Di browser, Laravel menjawabnya dengan mengarahkan ke halaman login
 
 </div>
 <div>
@@ -377,6 +423,90 @@ Middleware hanya melindungi route yang benar-benar memakainya. Route admin baru 
 
 ---
 
+## Gate: Aturan Otorisasi Sederhana
+
+<div class="term-box">
+<b>Gate:</b> aturan otorisasi berbentuk closure, didaftarkan dengan nama, dan dipanggil lewat nama itu di mana pun dibutuhkan.
+</div>
+
+```php
+Gate::define('kelola-produk', function (User $user) {
+    return $user->role === 'admin';
+});
+
+Gate::authorize('kelola-produk');
+```
+
+- Cocok untuk aturan yang tidak terikat ke satu baris data tertentu, misalnya "siapa boleh membuka halaman pengaturan"
+- Middleware memeriksa di level route, Gate bisa dipanggil di mana saja di dalam kode, termasuk di tengah controller
+
+---
+
+## Policy: Otorisasi per Model
+
+<div class="term-box">
+<b>Policy:</b> class yang mengumpulkan semua aturan otorisasi untuk satu model, satu method per aksi (<code>view</code>, <code>update</code>, <code>delete</code>, dst.).
+</div>
+
+```php
+class ArticlePolicy
+{
+    public function update(User $user, Article $article): bool
+    {
+        return $user->id === $article->author_id;
+    }
+}
+```
+
+- Dibuat lewat `php artisan make:policy ArticlePolicy --model=Article`, lalu dipanggil dengan `Gate::authorize('update', $article)`
+- Method menerima baris data yang sebenarnya, jadi aturannya bisa berbeda untuk tiap baris, bukan cuma berdasarkan peran
+
+---
+
+## Middleware vs Policy: Kapan Pakai Apa
+
+<div class="cols">
+<div>
+
+**Middleware**
+- Pertanyaannya: "boleh masuk ke route ini?"
+- Diperiksa sebelum controller, untuk seluruh request
+- Cocok untuk aturan berbasis peran, sama untuk semua baris data
+
+</div>
+<div>
+
+**Policy**
+- Pertanyaannya: "boleh melakukan ini pada baris data ini?"
+- Diperiksa di dalam controller, untuk satu baris data tertentu
+- Cocok untuk aturan kepemilikan, misalnya "hanya penulis asli yang boleh mengedit"
+
+</div>
+</div>
+
+<div class="tip-box">
+Middleware <code>role:admin</code> yang kamu buat di jobsheet menjawab pertanyaan pertama. Begitu aplikasi kasir butuh aturan seperti "kasir hanya boleh membatalkan transaksinya sendiri", itu pertanyaan kedua, pekerjaan Policy.
+</div>
+
+---
+
+## Memeriksa Izin di Blade: @can dan @cannot
+
+```php
+@can('update', $article)
+    <a href="{{ route('articles.edit', $article) }}">Edit</a>
+@endcan
+
+@cannot('update', $article)
+    <p>Kamu tidak bisa mengedit artikel ini.</p>
+@endcannot
+```
+
+- `@can`/`@cannot` memanggil Gate atau Policy yang sama, jadi aturannya tidak pernah ditulis dua kali
+- Sama seperti `@if (auth()->user()?->isAdmin())` yang menyembunyikan menu admin di navigasi, `@can` hanya menyembunyikan tampilan, pemeriksaan sungguhan tetap wajib dilakukan lagi di controller atau route
+
+---
+
 <!-- _class: divider -->
 
 # Bagian 3
@@ -390,7 +520,7 @@ Middleware hanya melindungi route yang benar-benar memakainya. Route admin baru 
 |---|---|---|
 | Middleware kustom | Rendah | Peran sederhana dan tetap, misalnya 2 sampai 3 peran |
 | Laravel Breeze | Sedang | Autentikasi siap pakai beserta tampilan login dan register |
-| Spatie Permission | Sedang sampai tinggi | Izin granular per aksi dengan banyak kombinasi peran |
+| Spatie Permission | Sedang sampai tinggi | Izin sangat rinci per aksi dengan banyak kombinasi peran |
 
 <div class="ref-link">Dokumentasi resmi: <code>laravel.com/docs/authentication</code></div>
 
@@ -416,19 +546,27 @@ Middleware hanya melindungi route yang benar-benar memakainya. Route admin baru 
 
 ---
 
-## Rangkuman (1/2)
+## Rangkuman (1/3)
 
 - Autentikasi menjawab "kamu siapa", otorisasi menjawab "kamu boleh apa"; keduanya dicek terpisah
-- Sesi dan cookie membuat HTTP yang stateless bisa mengingat pengguna; cookie hanya membawa ID sesi
+- Sesi dan cookie membuat HTTP yang stateless bisa mengingat pengguna; cookie hanya membawa ID sesi, remember me memakai cookie terpisah berumur panjang
 - Kata sandi disimpan sebagai hash, dan setelah login sesi harus diperbarui (regenerate) untuk mencegah session fixation
 
 ---
 
-## Rangkuman (2/2)
+## Rangkuman (2/3)
 
-- RBAC mengaitkan izin ke peran, dan middleware menjadi pos pemeriksaan sebelum controller
+- Lupa kata sandi diselesaikan lewat token reset sekali pakai yang dikirim ke email, bukan mengirim ulang kata sandi lama
+- Membatasi percobaan login (throttle) memperlambat tebakan brute-force, sama seperti hashing yang sengaja dibuat lambat
+- RBAC mengaitkan izin ke peran, dan middleware menjadi pos pemeriksaan di level route sebelum controller
+
+---
+
+## Rangkuman (3/3)
+
 - Gunakan 401 untuk belum login dan 403 untuk sudah login tetapi tidak berwenang
-- Pilih paket sesuai kebutuhan: middleware kustom untuk peran sederhana, Breeze untuk autentikasi siap pakai, Spatie untuk izin granular
+- Gate menjawab aturan sederhana yang tidak terikat satu baris data, Policy menjawab aturan per baris data (misalnya kepemilikan); `@can`/`@cannot` di Blade memanggil aturan yang sama
+- Pilih paket sesuai kebutuhan: middleware kustom untuk peran sederhana, Breeze untuk autentikasi siap pakai, Spatie untuk izin yang sangat rinci
 
 ---
 
