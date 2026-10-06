@@ -108,6 +108,8 @@ php artisan make:controller TransactionController
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
+
 class TransactionController extends Controller
 {
     //
@@ -223,7 +225,7 @@ Route::middleware('auth')->group(function () {
 
 Reload `http://127.0.0.1:8000/pos`.
 
-> ✅ **Checkpoint (this isn't a bug, read it through):** the page shows a `Route [login] not defined.` error. This is actually **proof the middleware works**: before the request reaches `TransactionController`, the `auth` middleware checks whether the sender is logged in, finds they aren't, then tries to redirect to a login page, which won't exist until the authentication meeting later. Run `php artisan route:list` once more and notice the middleware column now shows `auth` on the `/pos` and `/transactions` rows.
+> ✅ **Checkpoint (this isn't a bug, read it through):** the page shows a `Route [login] not defined.` error. This is actually **proof the middleware works**: before the request reaches `TransactionController`, the `auth` middleware checks whether the sender is logged in, finds they aren't, then tries to redirect to a login page, which won't exist until the authentication meeting later. Run `php artisan route:list -v` (the plain command with no `-v` doesn't show a middleware column at all) and notice the `/pos` and `/transactions` rows now show `auth`.
 
 > ⚠️ **If it fails (in the real sense):** if the error that shows up is instead `Class "auth" does not exist` or similar, check how `Route::middleware('auth')` is written: the middleware name must be exactly the string `'auth'`, not a class name.
 
@@ -248,7 +250,7 @@ Reload `/pos` twice, a few seconds apart.
 
 Add one new route `GET /pos/riwayat` to `routes/web.php`, inside the same `auth` middleware group as the other `/pos` routes, pointing to a new method named `riwayat` on `TransactionController`. The method just needs to return plain text, e.g. `return "Riwayat kasir";`.
 
-> ✅ **Checkpoint:** `php artisan route:list` shows your new route with the address `pos/riwayat`, method `GET`, and the `auth` middleware, without opening `/pos/riwayat` in the browser (it would show the same `Route [login]` error as Step 8, and that's expected).
+> ✅ **Checkpoint:** `php artisan route:list -v` shows your new route with the address `pos/riwayat`, method `GET`, and the `auth` middleware, without opening `/pos/riwayat` in the browser (it would show the same `Route [login]` error as Step 8, and that's expected).
 
 ### Step 11: Commit `increment 2`
 
@@ -264,7 +266,7 @@ git log --oneline
 
 Submit the following in the format your instructor requests:
 
-- The output of `php artisan route:list` after Step 10 (showing the `/pos/riwayat` route).
+- The output of `php artisan route:list -v` after Step 10 (showing the `/pos/riwayat` route).
 - A screenshot of the DevTools Network tab for `/halo` (status 200) and `/tidak-ada` (status 404).
 - The Step 2 table.
 - The output of `git log --oneline` showing the `increment 2` commit.

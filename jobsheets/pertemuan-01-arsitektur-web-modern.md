@@ -12,7 +12,7 @@
 
 Setelah menyelesaikan jobsheet ini, kamu mampu:
 
-1. Menyiapkan proyek Laravel 13 baru dengan SQLite sebagai basis data, lengkap dengan migrasi dan data contoh.
+1. Menyiapkan proyek Laravel 12 baru dengan SQLite sebagai basis data, lengkap dengan migrasi dan data contoh.
 2. Menjalankan server pengembangan Laravel dan memverifikasi halaman selamat datang tampil dengan benar.
 3. Mengenali bagian struktur folder Laravel yang akan sering disentuh sepanjang semester.
 4. Menginisialisasi repositori Git dan membuat commit pertama mengikuti konvensi `increment N`.
@@ -48,15 +48,17 @@ git config --global user.email "email@kamu.com"
 `composer create-project` menjalankan Composer, pengelola dependensi PHP: ia membaca `composer.json`, mengunduh setiap paket ke folder `vendor/`, lalu menghasilkan `vendor/autoload.php`: berkas yang membuat setiap class di proyek ini langsung bisa dipakai tanpa `require`/`include` manual seperti PHP polos.
 
 ```bash
-composer create-project laravel/laravel simple-pos
+composer create-project laravel/laravel:^12.0 simple-pos
 cd simple-pos
 cp .env.example .env
 php artisan key:generate
 ```
 
+Perintah di atas sengaja mengunci versi ke `^12.0`: tanpa itu, Composer memasang versi Laravel terbaru yang tersedia saat perintah dijalankan, yang sudah lebih baru dari Laravel 12. Seluruh materi pertemuan berikutnya, termasuk template kode kelompok, memakai Laravel 12.
+
 > ✅ **Checkpoint:** `composer create-project` mencetak daftar paket yang diunduh, diakhiri baris seperti `Application ready in simple-pos. You can now start using Composer!`. Perintah `key:generate` mencetak `INFO Application key set successfully.`
 
-> ⚠️ **Jika gagal:** kalau `composer create-project` berhenti dengan pesan yang menyinggung versi PHP (mis. `requires php ^8.2`), jalankan `php -v` untuk memastikan versi terpasang 8.2 ke atas. Laravel 13 tidak bisa dipasang di versi yang lebih lama. Kalau proses berhenti karena timeout jaringan, ulangi perintah yang sama; Composer melanjutkan dari paket yang belum terunduh.
+> ⚠️ **Jika gagal:** kalau `composer create-project` berhenti dengan pesan yang menyinggung versi PHP (mis. `requires php ^8.2`), jalankan `php -v` untuk memastikan versi terpasang 8.2 ke atas. Laravel 12 tidak bisa dipasang di versi yang lebih lama. Kalau proses berhenti karena timeout jaringan, ulangi perintah yang sama; Composer melanjutkan dari paket yang belum terunduh.
 
 ### Langkah 3: Memasang dependensi frontend
 
@@ -72,7 +74,7 @@ Langkah ini belum wajib untuk menjalankan Simple POS hari ini. Halaman bawaan La
 
 ### Langkah 4: Menghubungkan ke SQLite dan menjalankan migrasi
 
-Proyek ini memakai SQLite alih-alih MySQL/PostgreSQL: seluruh basis data disimpan dalam satu berkas biasa, tanpa proses server terpisah yang harus dinyalakan dan diberi kredensial. Pastikan baris berikut ada di `.env` milikmu (bawaan Laravel 13 sudah mengatur ini secara default, cukup diverifikasi, bukan diubah):
+Proyek ini memakai SQLite alih-alih MySQL/PostgreSQL: seluruh basis data disimpan dalam satu berkas biasa, tanpa proses server terpisah yang harus dinyalakan dan diberi kredensial. Pastikan baris berikut ada di `.env` milikmu (bawaan Laravel 12 sudah mengatur ini secara default, cukup diverifikasi, bukan diubah):
 
 ```bash
 # .env

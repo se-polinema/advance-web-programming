@@ -230,7 +230,7 @@ Pertemuan 1&ndash;10 membangun fondasi teknis Laravel; Pertemuan 11&ndash;17 men
 
 1. Membandingkan arsitektur **monolith**, **microservices**, dan **serverless** untuk memahami dasar pemilihan arsitektur sebuah aplikasi web
 
-2. Memahami alasan **Laravel 13** dengan **SQLite** sebagai basis data zero-setup dipilih untuk proyek Simple POS yang akan kamu bangun sepanjang semester
+2. Memahami alasan **Laravel 12** dengan **SQLite** sebagai basis data zero-setup dipilih untuk proyek Simple POS yang akan kamu bangun sepanjang semester
 
 3. Mengenali struktur folder proyek Laravel (`routes/`, `app/Http/Controllers/`, `database/migrations/`) yang menerapkan pola **MVC**
 
@@ -249,6 +249,31 @@ Slide ini membahas konsep. Langkah instalasi, setup proyek, dan latihan praktik 
 - Pilihan arsitektur bukan sekadar teknis: ia menentukan berapa banyak proses deploy, titik gagal, dan komunikasi jaringan yang harus dikelola tim
 - Arsitektur yang "lebih canggih" bukan berarti lebih baik: membangun food court untuk bisnis satu dapur hanya menghabiskan usaha untuk pipa penghubung, bukan fitur
 - Tiga gaya yang akan kita bandingkan: **monolith**, **microservices**, **serverless**
+
+---
+
+## Fondasinya: Model Client-Server
+
+<div class="term-box">
+<b>Client-server:</b> pola komunikasi di mana satu pihak (client) meminta sesuatu, dan pihak lain (server) memprosesnya lalu mengirim balik hasilnya.
+</div>
+
+<div class="flow">
+  <div class="box">Client (browser)</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Request</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Server</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Response</div>
+</div>
+
+- Browser (client) tidak pernah memproses logika bisnis atau menyentuh basis data secara langsung, ia hanya meminta dan menampilkan
+- Semua gaya arsitektur yang akan kita bandingkan berikut ini, monolith, microservices, serverless, adalah cara berbeda menyusun apa yang ada di sisi server
+
+<div class="tip-box">
+Protokol yang dipakai client dan server untuk saling bicara, HTTP, dibahas lebih dalam di Pertemuan 2.
+</div>
 
 ---
 
@@ -343,6 +368,33 @@ Sebuah aplikasi dipilih sebagai <b>monolith</b> (restoran keluarga) bukan karena
 <div class="box">Layanan Pengguna</div>
 <p style="text-align:center; font-weight:bold;">Microservices</p>
 </div>
+</div>
+
+---
+
+## Dimensi Lain: Bagaimana Halaman Dirender
+
+Monolith/microservices/serverless menjawab "di mana kode server dijalankan". Pertanyaan yang terpisah: "bagaimana halaman sampai ke layar pengguna".
+
+<div class="cols">
+<div>
+
+**MPA (Multi-Page App)**
+- Tiap klik link = request baru ke server, server kirim balik HTML lengkap
+- Sederhana, cocok untuk SEO dan halaman berbasis form
+
+</div>
+<div>
+
+**SPA (Single-Page App)**
+- Satu HTML dimuat sekali, JavaScript di browser yang mengganti isi halaman
+- Terasa cepat berpindah layar, tapi beban awal dan kompleksitas di sisi client lebih besar
+
+</div>
+</div>
+
+<div class="tip-box">
+Laravel dengan Blade menganut pola MPA: setiap halaman dirender penuh di server. Alpine.js, yang akan kamu pakai mulai Pertemuan 3, menambahkan interaktivitas kecil di atasnya tanpa mengubahnya menjadi SPA.
 </div>
 
 ---
@@ -480,15 +532,21 @@ Struktur ini bukan kebetulan: ia mengikuti pola MVC yang sama seperti diagram al
 
 ---
 
-## Rangkuman
+## Rangkuman (1/2)
+
+- Model **client-server** adalah fondasinya: browser meminta, server memproses dan menjawab; **monolith**, **microservices**, dan **serverless** adalah cara berbeda menyusun sisi server itu
 
 - **Monolith** menyatukan seluruh lapisan dalam satu basis kode & satu deploy, cocok untuk aplikasi skala kecil-menengah; **microservices** memecahnya dengan ongkos yang sepadan hanya untuk sistem besar; **serverless** cocok untuk beban kerja sporadis
 
+- Terpisah dari topologi server, ada dimensi **bagaimana halaman dirender**: MPA mengirim HTML penuh tiap request (pola Laravel+Blade), SPA memindahkan rendering ke JavaScript di browser
+
+---
+
+## Rangkuman (2/2)
+
 - Laravel dipilih sebagai kerangka kerja karena strukturnya konsisten sejak awal (MVC) dan produktif untuk tim kecil; **SQLite** dipilih sebagai basis data karena zero-setup: satu berkas, tanpa server terpisah
 
-- **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram
-
-- Struktur folder Laravel menerapkan pola **MVC**, memisahkan tanggung jawab routing, logika bisnis, dan tampilan secara konsisten
+- **Composer**/npm mengelola dependensi; **.env** memisahkan konfigurasi dari kode; **Artisan** & **migrasi** membangun skema basis data secara terprogram; struktur folder Laravel menerapkan pola **MVC** yang sama
 
 ---
 

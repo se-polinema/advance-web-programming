@@ -311,6 +311,23 @@ Setiap elemen di `items` diperiksa satu per satu memakai aturan yang sama. Kalau
 
 ---
 
+## Aturan Validasi Kustom Lewat Closure
+
+Kalau aturan bawaan (`required`, `max`, `exists`, dst.) belum cukup untuk memeriksa logika bisnis tertentu, closure bisa ditambahkan langsung di dalam array aturan:
+
+```php
+'stock' => ['required', 'integer', 'min:0', function (string $attribute, mixed $value, Closure $fail) {
+    if ($value > 1000) {
+        $fail('Stok tidak boleh melebihi 1000 dalam sekali input.');
+    }
+}],
+```
+
+- Closure menerima nama field, nilai yang dikirim, dan `$fail` untuk menolak dengan pesan kustom
+- Kalau aturan yang sama dipakai di beberapa form, bungkus jadi class lewat `php artisan make:rule`, supaya tidak ditulis ulang di setiap FormRequest
+
+---
+
 <!-- _class: divider -->
 
 # Bagian 3
@@ -404,7 +421,7 @@ Konsep FormRequest, validasi, dan total di server ini akan kamu terapkan langsun
 
 - XSS, SQL Injection, dan CSRF adalah tiga serangan umum lewat input; Blade (`{{ }}`), Eloquent (parameter terikat), dan `@csrf` sudah jadi pertahanan default sejak pertemuan-pertemuan sebelumnya
 
-- FormRequest membungkus aturan validasi terpisah dari controller, dijalankan otomatis sebelum controller sempat dieksekusi, termasuk validasi array lewat notasi `items.*.field`
+- FormRequest membungkus aturan validasi terpisah dari controller, dijalankan otomatis sebelum controller sempat dieksekusi, termasuk validasi array lewat notasi `items.*.field` dan logika kustom lewat closure
 
 - Nilai seperti total transaksi wajib dihitung ulang di server dari data database, tidak pernah dipercaya langsung dari input klien
 

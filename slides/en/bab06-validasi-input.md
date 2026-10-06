@@ -311,6 +311,23 @@ Every element in `items` is checked one by one using the same rules. When a row 
 
 ---
 
+## Custom Validation Rules via a Closure
+
+When the built-in rules (`required`, `max`, `exists`, etc.) aren't enough to check a specific business rule, a closure can be added directly inside the rules array:
+
+```php
+'stock' => ['required', 'integer', 'min:0', function (string $attribute, mixed $value, Closure $fail) {
+    if ($value > 1000) {
+        $fail('Stock cannot exceed 1000 in a single entry.');
+    }
+}],
+```
+
+- The closure receives the field name, the submitted value, and `$fail` to reject it with a custom message
+- If the same rule is needed in more than one form, wrap it into a class via `php artisan make:rule`, so it isn't rewritten in every FormRequest
+
+---
+
 <!-- _class: divider -->
 
 # Part 3
@@ -404,7 +421,7 @@ You'll apply the FormRequest, validation, and server-side total concepts directl
 
 - XSS, SQL Injection, and CSRF are three common input-based attacks; Blade (`{{ }}`), Eloquent (bound parameters), and `@csrf` have already been default defenses since earlier meetings
 
-- FormRequest wraps validation rules separately from the controller, running automatically before the controller ever executes, including array validation through `items.*.field` notation
+- FormRequest wraps validation rules separately from the controller, running automatically before the controller ever executes, including array validation through `items.*.field` notation and custom logic via a closure
 
 - Values like a transaction total must be recomputed on the server from database data, never trusted directly from client input
 

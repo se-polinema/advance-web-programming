@@ -395,6 +395,7 @@ Data yang berasal dari input pengguna, termasuk judul artikel yang diketik lewat
 
 - `<x-nav />` pada layout sebelumnya adalah component
 - Kartu artikel dan tombol adalah kandidat component berikutnya
+- Component bisa menerima data lewat atribut HTML biasa: deklarasikan dengan `@props(['title'])` di baris pertama berkasnya, lalu panggil lewat `<x-tombol title="Simpan" />`
 
 ---
 
@@ -499,9 +500,20 @@ Keranjang belanja tanpa reload halaman
 | `@click` | Menjalankan kode saat elemen diklik |
 | `x-text` | Menampilkan nilai reaktif |
 | `x-for` | Mengulang elemen untuk setiap item |
-| `x-model` | Mengikat input ke state |
 
 <div class="ref-link">Daftar lengkap atribut: <code>alpinejs.dev</code></div>
+
+---
+
+## Atribut Lain yang Umum Dipakai
+
+- `x-show`: menyembunyikan atau menampilkan elemen lewat CSS, elemennya tetap ada di DOM; cocok untuk kondisi sederhana seperti pesan "Keranjang masih kosong" saat `cart.length === 0`
+- `x-if` (lewat `<template x-if="...">`): sama tujuannya dengan `x-show`, tapi benar-benar menambah dan menghapus elemen dari DOM, bukan cuma menyembunyikannya
+- `x-model`: mengikat nilai sebuah input ke state dua arah, mengetik di input mengubah state, mengubah state lewat kode juga mengubah isi input
+
+<div class="tip-box">
+Keranjang di jobsheet pertemuan ini memilih produk lewat klik kartu, bukan lewat input yang diketik, jadi belum memakai <code>x-model</code>. Ketiga atribut ini tetap penting diketahui karena sangat umum dipakai begitu halaman punya form interaktif.
+</div>
 
 ---
 

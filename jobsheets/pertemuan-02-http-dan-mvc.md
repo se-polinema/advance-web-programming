@@ -108,6 +108,8 @@ php artisan make:controller TransactionController
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
+
 class TransactionController extends Controller
 {
     //
@@ -223,7 +225,7 @@ Route::middleware('auth')->group(function () {
 
 Muat ulang `http://127.0.0.1:8000/pos`.
 
-> ✅ **Checkpoint (ini bukan kesalahan, baca sampai selesai):** halaman menampilkan error `Route [login] not defined.` Ini justru **bukti bahwa middleware bekerja**: sebelum request sampai ke `TransactionController`, middleware `auth` memeriksa apakah pengirim sudah login, mendapati belum, lalu mencoba mengarahkan ke halaman login, yang belum dibuat sampai pertemuan tentang autentikasi nanti. Jalankan `php artisan route:list` sekali lagi dan perhatikan kolom middleware kini menampilkan `auth` di baris `/pos` dan `/transactions`.
+> ✅ **Checkpoint (ini bukan kesalahan, baca sampai selesai):** halaman menampilkan error `Route [login] not defined.` Ini justru **bukti bahwa middleware bekerja**: sebelum request sampai ke `TransactionController`, middleware `auth` memeriksa apakah pengirim sudah login, mendapati belum, lalu mencoba mengarahkan ke halaman login, yang belum dibuat sampai pertemuan tentang autentikasi nanti. Jalankan `php artisan route:list -v` (perintah tanpa `-v` tidak menampilkan kolom middleware sama sekali) dan perhatikan baris `/pos` dan `/transactions` kini menampilkan `auth`.
 
 > ⚠️ **Jika gagal (dalam arti sesungguhnya):** kalau error yang muncul justru `Class "auth" does not exist` atau sejenisnya, periksa penulisan `Route::middleware('auth')`: nama middleware harus persis string `'auth'`, bukan nama class.
 
@@ -248,7 +250,7 @@ Muat ulang `/pos` dua kali dengan jeda beberapa detik.
 
 Tambahkan satu route baru `GET /pos/riwayat` pada `routes/web.php`, di dalam group middleware `auth` yang sama seperti route `/pos` lainnya, mengarah ke method baru bernama `riwayat` pada `TransactionController`. Method-nya cukup mengembalikan teks biasa, misalnya `return "Riwayat kasir";`.
 
-> ✅ **Checkpoint:** `php artisan route:list` menampilkan route barumu dengan alamat `pos/riwayat`, method `GET`, dan middleware `auth`, tanpa membuka `/pos/riwayat` di browser (karena akan menampilkan error `Route [login]` yang sama seperti Langkah 8, dan itu diharapkan).
+> ✅ **Checkpoint:** `php artisan route:list -v` menampilkan route barumu dengan alamat `pos/riwayat`, method `GET`, dan middleware `auth`, tanpa membuka `/pos/riwayat` di browser (karena akan menampilkan error `Route [login]` yang sama seperti Langkah 8, dan itu diharapkan).
 
 ### Langkah 11: Commit `increment 2`
 
@@ -264,7 +266,7 @@ git log --oneline
 
 Kumpulkan hal berikut sesuai format yang diminta dosen:
 
-- Output `php artisan route:list` setelah Langkah 10 (menunjukkan route `/pos/riwayat`).
+- Output `php artisan route:list -v` setelah Langkah 10 (menunjukkan route `/pos/riwayat`).
 - Screenshot tab Network DevTools untuk `/halo` (status 200) dan `/tidak-ada` (status 404).
 - Tabel isian Langkah 2.
 - Output `git log --oneline` menunjukkan commit `increment 2`.

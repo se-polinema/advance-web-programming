@@ -12,7 +12,7 @@
 
 After completing this jobsheet, you'll be able to:
 
-1. Set up a new Laravel 13 project with SQLite as its database, complete with migrations and sample data.
+1. Set up a new Laravel 12 project with SQLite as its database, complete with migrations and sample data.
 2. Run Laravel's development server and verify that the welcome page displays correctly.
 3. Recognize the parts of Laravel's folder structure you'll touch often throughout the semester.
 4. Initialize a Git repository and make a first commit following the `increment N` convention.
@@ -48,15 +48,17 @@ git config --global user.email "your-email@example.com"
 `composer create-project` runs Composer, PHP's dependency manager: it reads `composer.json`, downloads every package into a `vendor/` folder, then generates `vendor/autoload.php`, a file that makes every class in the project usable right away without manual `require`/`include` like plain PHP.
 
 ```bash
-composer create-project laravel/laravel simple-pos
+composer create-project laravel/laravel:^12.0 simple-pos
 cd simple-pos
 cp .env.example .env
 php artisan key:generate
 ```
 
+The command above deliberately pins the version to `^12.0`: without it, Composer installs whatever the newest available Laravel release is at the moment you run it, which by now is newer than Laravel 12. Every later meeting's material, including the group code templates, uses Laravel 12.
+
 > ✅ **Checkpoint:** `composer create-project` prints a list of downloaded packages, ending with a line like `Application ready in simple-pos. You can now start using Composer!`. The `key:generate` command prints `INFO Application key set successfully.`
 
-> ⚠️ **If it fails:** `composer create-project` stopping with a message about the PHP version (e.g. `requires php ^8.2`) means you should run `php -v` to confirm the installed version is 8.2 or newer. Laravel 13 can't be installed on an older version. If the process stops from a network timeout, rerun the same command; Composer resumes from the packages it hasn't downloaded yet.
+> ⚠️ **If it fails:** `composer create-project` stopping with a message about the PHP version (e.g. `requires php ^8.2`) means you should run `php -v` to confirm the installed version is 8.2 or newer. Laravel 12 can't be installed on an older version. If the process stops from a network timeout, rerun the same command; Composer resumes from the packages it hasn't downloaded yet.
 
 ### Step 3: Installing frontend dependencies
 
@@ -72,7 +74,7 @@ This step isn't required to run Simple POS today. Laravel's default page still s
 
 ### Step 4: Connecting to SQLite and running migrations
 
-This project uses SQLite instead of MySQL/PostgreSQL: the entire database lives in one plain file, with no separate server process to start and give credentials to. Make sure the following line is in your `.env` (Laravel 13's default already sets this, so you're just verifying it, not changing it):
+This project uses SQLite instead of MySQL/PostgreSQL: the entire database lives in one plain file, with no separate server process to start and give credentials to. Make sure the following line is in your `.env` (Laravel 12's default already sets this, so you're just verifying it, not changing it):
 
 ```bash
 # .env

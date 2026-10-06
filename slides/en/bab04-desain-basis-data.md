@@ -239,7 +239,24 @@ A deliberate exception: a <b>snapshot</b> column (a value frozen at one moment, 
   <div class="box">articles (many)</div>
 </div>
 
+- Without a foreign key, an `articles` row could point at an `author_id` that's already been deleted, an "orphan" row that breaks the app the moment it tries to display that author's name
 - One `authors` row has many `articles`; every `articles` row stores an `author_id` pointing back to its author
+
+---
+
+## Foreign Key and Delete Behavior: `onDelete`
+
+<div class="term-box">
+<b>onDelete:</b> the rule a foreign key follows when the parent row it points to gets deleted, declared on the migration's column definition.
+</div>
+
+| Choice | Extra Code | Effect When the Parent Is Deleted |
+|---|---|---|
+| Default (`restrict`) | `->constrained()` | The parent delete is rejected while children still exist |
+| `cascade` | `->onDelete('cascade')` | Every child row is deleted along with the parent |
+| `set null` | `->nullable()->onDelete('set null')` | Child rows stay, their pointer is just cleared |
+
+- Pick deliberately per relationship: deleting a `categories` row probably shouldn't silently delete every `products` row in it, so `restrict` (the default) is usually the safest choice
 
 ---
 

@@ -395,6 +395,7 @@ Data coming from user input, including an article title typed into a form, must 
 
 - `<x-nav />` in the layout above is a component
 - An article card or a button are natural next candidates
+- A component can receive data through plain HTML attributes: declare it with `@props(['title'])` on the file's first line, then call it via `<x-button title="Save" />`
 
 ---
 
@@ -499,9 +500,20 @@ A shopping cart with no page reload
 | `@click` | Runs code when an element is clicked |
 | `x-text` | Displays a reactive value |
 | `x-for` | Repeats an element for each item |
-| `x-model` | Binds an input to state |
 
 <div class="ref-link">Full attribute list: <code>alpinejs.dev</code></div>
+
+---
+
+## Other Commonly Used Attributes
+
+- `x-show`: hides or shows an element through CSS, the element still stays in the DOM; suits simple conditions like a "Cart is still empty" message when `cart.length === 0`
+- `x-if` (through `<template x-if="...">`): serves the same purpose as `x-show`, but actually adds and removes the element from the DOM instead of just hiding it
+- `x-model`: binds an input's value to state two ways, typing in the input changes the state, changing the state through code also changes the input's contents
+
+<div class="tip-box">
+The cart in this meeting's jobsheet picks products by clicking a card, not by typing into an input, so it doesn't use <code>x-model</code> yet. All three attributes are still worth knowing, since they're extremely common the moment a page has an interactive form.
+</div>
 
 ---
 

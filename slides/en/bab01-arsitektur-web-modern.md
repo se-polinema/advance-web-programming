@@ -230,7 +230,7 @@ Meetings 1&ndash;10 build the technical foundation in Laravel; Meetings 11&ndash
 
 1. Comparing **monolith**, **microservices**, and **serverless** architectures to understand the basis for choosing a web application's architecture
 
-2. Understanding why **Laravel 13** with **SQLite** as a zero-setup database was chosen for the Simple POS project you'll build across the semester
+2. Understanding why **Laravel 12** with **SQLite** as a zero-setup database was chosen for the Simple POS project you'll build across the semester
 
 3. Recognizing the Laravel project folder structure (`routes/`, `app/Http/Controllers/`, `database/migrations/`) as an application of the **MVC** pattern
 
@@ -249,6 +249,31 @@ This slide covers concepts. Installation steps, project setup, and full hands-on
 - Choosing an architecture isn't just a technical decision: it determines how many deploy processes, failure points, and network calls the team has to manage
 - A "fancier" architecture isn't automatically better: building a food court for a business that only needs one kitchen just burns effort on connecting plumbing instead of features
 - Three styles we'll compare: **monolith**, **microservices**, **serverless**
+
+---
+
+## The Foundation: the Client-Server Model
+
+<div class="term-box">
+<b>Client-server:</b> a communication pattern where one party (the client) requests something, and another party (the server) processes it and sends back the result.
+</div>
+
+<div class="flow">
+  <div class="box">Client (browser)</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Request</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Server</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Response</div>
+</div>
+
+- The browser (client) never runs business logic or touches the database directly, it only asks and displays
+- Every architecture style we're about to compare, monolith, microservices, serverless, is a different way of organizing what sits on the server side
+
+<div class="tip-box">
+The protocol client and server use to talk to each other, HTTP, is covered in depth in Meeting 2.
+</div>
 
 ---
 
@@ -343,6 +368,33 @@ An application is built as a <b>monolith</b> (the family restaurant) not out of 
 <div class="box">User Service</div>
 <p style="text-align:center; font-weight:bold;">Microservices</p>
 </div>
+</div>
+
+---
+
+## A Different Dimension: How Pages Get Rendered
+
+Monolith/microservices/serverless answer "where does the server code run". A separate question: "how does the page reach the user's screen".
+
+<div class="cols">
+<div>
+
+**MPA (Multi-Page App)**
+- Every link click = a new request to the server, the server sends back full HTML
+- Simple, suits SEO and form-heavy pages
+
+</div>
+<div>
+
+**SPA (Single-Page App)**
+- One HTML page loads once, JavaScript in the browser swaps out the content
+- Feels fast switching screens, but carries a heavier initial load and more client-side complexity
+
+</div>
+</div>
+
+<div class="tip-box">
+Laravel with Blade follows the MPA pattern: every page is fully rendered on the server. Alpine.js, which you'll start using in Meeting 3, adds small bits of interactivity on top without turning it into an SPA.
 </div>
 
 ---
@@ -480,15 +532,21 @@ This structure isn't an accident: it follows the same MVC pattern as the request
 
 ---
 
-## Summary
+## Summary (1/2)
+
+- The **client-server** model is the foundation: the browser asks, the server processes and answers; **monolith**, **microservices**, and **serverless** are different ways of organizing that server side
 
 - **Monolith** unifies every layer in one codebase and one deploy, a fit for small-to-medium scale applications; **microservices** splits it apart at a cost that's only worth it for large systems; **serverless** suits sporadic workloads
 
+- Separate from server topology, there's the dimension of **how pages get rendered**: MPA sends full HTML every request (Laravel+Blade's pattern), SPA moves rendering to JavaScript in the browser
+
+---
+
+## Summary (2/2)
+
 - Laravel is chosen as a framework because its structure stays consistent from the start (MVC) and it's productive for small teams; **SQLite** is the database because it's zero-setup: one file, no separate server
 
-- **Composer**/npm manage dependencies; **.env** separates configuration from code; **Artisan** & **migrations** build the database schema programmatically
-
-- Laravel's folder structure applies the **MVC** pattern, consistently separating the responsibilities of routing, business logic, and presentation
+- **Composer**/npm manage dependencies; **.env** separates configuration from code; **Artisan** & **migrations** build the database schema programmatically; Laravel's folder structure applies that same **MVC** pattern
 
 ---
 

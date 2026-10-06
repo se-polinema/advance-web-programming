@@ -340,7 +340,7 @@ Buat branch baru, misalnya `alpine-cart`, lalu ubah `resources/views/pos/create.
         </div>
 
         <div class="mt-4 border-t pt-3">
-            <template x-for="item in cart" :key="item.id">
+            <template x-for="item in cart">
                 <p x-text="item.name + ' - Rp ' + item.price"></p>
             </template>
             <p class="font-semibold mt-2">Subtotal: Rp <span x-text="subtotal()"></span></p>
@@ -348,6 +348,8 @@ Buat branch baru, misalnya `alpine-cart`, lalu ubah `resources/views/pos/create.
     </div>
 @endsection
 ```
+
+`x-data` di `<div>` terluar membungkus seluruh grid produk dan area ringkasan, mendeklarasikan `cart` sebagai array kosong beserta dua method yang mengubahnya. Setiap kartu produk memanggil `addToCart` lewat `@click`, dan `x-for` menggambar ulang daftar `cart` otomatis setiap kali array itu berubah. `x-for` di atas sengaja tidak diberi `:key`: mengklik produk yang sama dua kali menghasilkan dua baris `cart` dengan `id` yang sama, jadi memakai `item.id` sebagai key justru membuat Alpine keliru menganggap kedua baris itu satu elemen yang sama. Tanpa `:key`, Alpine memakai urutan baris sebagai key, aman untuk kasus ini.
 
 ```bash
 git add .

@@ -340,7 +340,7 @@ Create a new branch, e.g. `alpine-cart`, then change `resources/views/pos/create
         </div>
 
         <div class="mt-4 border-t pt-3">
-            <template x-for="item in cart" :key="item.id">
+            <template x-for="item in cart">
                 <p x-text="item.name + ' - Rp ' + item.price"></p>
             </template>
             <p class="font-semibold mt-2">Subtotal: Rp <span x-text="subtotal()"></span></p>
@@ -348,6 +348,8 @@ Create a new branch, e.g. `alpine-cart`, then change `resources/views/pos/create
     </div>
 @endsection
 ```
+
+The `x-data` on the outer `<div>` wraps the whole product grid and the summary area, declaring `cart` as an empty array along with the two methods that change it. Every product card calls `addToCart` through `@click`, and `x-for` redraws the `cart` list automatically whenever that array changes. The `x-for` above deliberately has no `:key`: clicking the same product twice produces two `cart` rows with the same `id`, so using `item.id` as the key would make Alpine wrongly treat those two rows as the same element. Without `:key`, Alpine uses the row's position as the key instead, which is safe here.
 
 ```bash
 git add .

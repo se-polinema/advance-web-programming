@@ -244,6 +244,22 @@ Pengecualian sadar: kolom <b>snapshot</b> (nilai yang dibekukan pada satu momen,
 
 ---
 
+## Foreign Key dan Perilaku Hapus: `onDelete`
+
+<div class="term-box">
+<b>onDelete:</b> aturan yang diikuti foreign key saat baris induk yang ditunjuknya dihapus, dideklarasikan pada definisi kolom di migration.
+</div>
+
+| Pilihan | Tambahan Kode | Efek saat Induk Dihapus |
+|---|---|---|
+| Default (`restrict`) | `->constrained()` | Penghapusan induk ditolak selama masih ada anaknya |
+| `cascade` | `->onDelete('cascade')` | Semua baris anak ikut terhapus bersama induknya |
+| `set null` | `->nullable()->onDelete('set null')` | Baris anak tetap ada, pointernya dikosongkan |
+
+- Pilih dengan sadar per relasi: menghapus satu `categories` sebaiknya tidak diam-diam ikut menghapus semua `products` di dalamnya, jadi `restrict` (default) biasanya pilihan paling aman
+
+---
+
 ## Contoh Skema: Relasi Satu ke Banyak
 
 | Tabel | Kolom Utama |
