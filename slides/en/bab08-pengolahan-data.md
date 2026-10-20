@@ -154,11 +154,11 @@ From the ETL pipeline, large datasets, and memory, to heavy work handed off to t
 
 ## What You'll Learn
 
-1. Explain the **ETL** pattern and **batch processing**, and use them to process large amounts of data
-2. Build a report that summarizes data over a date range, and pick the right techniques for **large datasets**
+1. Explain the **ETL** pattern and **batch processing** for handling large amounts of data
+2. Build a date-range report, and pick the right techniques for **large datasets**
 3. Understand why **memory** runs out, and choose memory-friendly ways to read data
-4. Choose between **CSV, Excel, and PDF** for a need, and know the libraries that produce them
-5. Recognize when a task should be handed off to a **queue**, and make it resilient to failure
+4. Choose between **CSV, Excel, and PDF** for a need
+5. Follow a **job** through a queue, from creation to execution by a worker, and run it in **production**
 
 <div class="tip-box">
 These slides cover the concepts. Applying reports, export/import, and queues to Simple POS is done in the lab jobsheet.
@@ -166,7 +166,7 @@ These slides cover the concepts. Applying reports, export/import, and queues to 
 
 ---
 
-## Meeting Map: Think of a Restaurant Kitchen
+## Meeting Map
 
 <div class="flow">
   <div class="box">Raw data</div>
@@ -181,7 +181,7 @@ These slides cover the concepts. Applying reports, export/import, and queues to 
 </div>
 
 <div class="tip-box">
-Picture a restaurant kitchen. Raw ingredients come in (<b>extract</b>), get cooked into dishes (<b>transform</b>), and are served at the table (<b>load</b>). When orders pile up, the kitchen does not make guests stand next to the stove: they get a table number, and the food is brought over later. That is the big picture of this meeting.
+Like a restaurant kitchen: ingredients come in (<b>extract</b>), get cooked (<b>transform</b>), then are served (<b>load</b>). When orders pile up, guests get a table number and the food is brought over later. That is a queue.
 </div>
 
 ---
@@ -195,25 +195,16 @@ Picture a restaurant kitchen. Raw ingredients come in (<b>extract</b>), get cook
 
 ## Four Basic Terms
 
-<div class="term-box">
-<b>ETL (Extract, Transform, Load):</b> a common pattern: take raw data, reshape it, then store or present it in a new form.
-</div>
-
-<div class="term-box">
-<b>Batch Processing:</b> processing lots of data together in groups, not one record at a time.
-</div>
-
-<div class="term-box">
-<b>Queue:</b> a mechanism for handing heavy work to a separate process that runs it in the background, instead of during the user's request.
-</div>
-
-<div class="term-box">
-<b>Import/Export:</b> bringing data in from an external format (CSV, Excel) into the database, or sending it out to an external format (CSV, Excel, PDF) to be read outside the app.
-</div>
+| Term | Meaning |
+|---|---|
+| **ETL** | Extract (take), Transform (reshape), Load (store or present) |
+| **Batch processing** | processing data in groups, not one by one |
+| **Import / Export** | data in from CSV/Excel to the database, or out to CSV/Excel/PDF |
+| **Queue** | heavy work handed off, done by another process in the background |
 
 ---
 
-## ETL: Three Stages That Always Show Up
+## ETL: Three Stages That Always Appear
 
 <svg viewBox="0 0 1000 300" width="100%" style="display:block;margin:0 auto;max-height:340px" font-family="Helvetica Neue, Arial, sans-serif" font-size="20">
 <defs><marker id="e1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1d4ed8"/></marker></defs>
@@ -233,7 +224,8 @@ Picture a restaurant kitchen. Raw ingredients come in (<b>extract</b>), get cook
 <text x="835" y="222" text-anchor="middle" fill="#64748b" font-size="22">served</text>
 </svg>
 
-Almost all data processing follows this order, for imports and exports alike. Separating the stages keeps each part easy to test and replace: the source can change, the validation rules can change, the destination can change.
+- Keep the three stages separate so each part is easy to test and replace
+- Source, validation rules, and destination can change without touching the others
 
 ---
 
@@ -241,18 +233,16 @@ Almost all data processing follows this order, for imports and exports alike. Se
 
 | | Extract | Transform | Load |
 |---|---|---|---|
-| **Import** | read a CSV / Excel file | validate each row, map columns | save to the database |
+| **Import** | read CSV / Excel file | validate each row, map columns | save to database |
 | **Export** | query the database | pick columns, format dates and numbers | write CSV / Excel / PDF |
 
 <div class="tip-box">
-Useful questions for every import or export feature: where does the data come from (extract), what must be cleaned or changed (transform), and where does the result go (load)?
+For every feature, ask: where does the data come from, what changes, where does the result go?
 </div>
 
 ---
 
-## Batch: One by One vs One Truck
-
-A courier who delivers one parcel per trip loses to a courier who carries a full truckload. The same applies to databases: every query pays the cost of a trip (round trip) to the database.
+## Batch: One by One vs One Truckload
 
 ```php
 // 10,000 rows = 10,000 queries
@@ -266,8 +256,10 @@ foreach (array_chunk($rows, 500) as $batch) {
 }
 ```
 
+Every query pays a trip to the database. One full truck beats 10,000 motorbike couriers.
+
 <div class="warn-box">
-A bulk <code>insert()</code> does not fill <code>created_at</code>/<code>updated_at</code> automatically and does not fire model events. Fill the timestamps yourself if you need them.
+Bulk <code>insert()</code> does not fill <code>created_at</code>/<code>updated_at</code> and does not fire model events. Fill timestamps yourself if needed.
 </div>
 
 ---
@@ -277,18 +269,16 @@ A bulk <code>insert()</code> does not fill <code>created_at</code>/<code>updated
 <div class="cols">
 <div>
 
-**Batch too small**
+**Too small**
 - Too many round trips
-- Slow, like a motorbike courier
+- Slow
 
-**Batch too large**
+**Too large**
 - Memory balloons
 - One failure fails many rows
 
 </div>
 <div>
-
-**Reading in batches**
 
 ```php
 Article::where('status', 'draft')
@@ -303,14 +293,14 @@ Article::where('status', 'draft')
 </div>
 
 <div class="tip-box">
-A reasonable starting point: hundreds to a thousand rows per batch, then measure. Wrap each batch in <code>DB::transaction()</code> if a batch must succeed or fail as a whole.
+Start with hundreds to a thousand rows per batch, then measure. Wrap each batch in <code>DB::transaction()</code> if it must succeed or fail together.
 </div>
 
 ---
 
 ## Idempotent: Safe to Run Many Times
 
-What if the same import file is uploaded twice? Without a safeguard, every row is recorded twice. Think of an attendance sheet: if your name is already there, the clerk updates your line instead of writing the same name again.
+Uploading the same import file twice must not create duplicates.
 
 ```php
 Article::updateOrCreate(
@@ -323,7 +313,7 @@ Article::upsert($batch, ['slug'], ['title']);
 ```
 
 <div class="warn-box">
-<code>upsert()</code> requires a <b>unique index</b> on the key column. Without it, the database can't tell which rows count as the same.
+<code>upsert()</code> needs a <b>unique index</b> on the key columns. Without it, the database cannot tell which rows count as the same.
 </div>
 
 ---
@@ -335,36 +325,32 @@ Article::upsert($batch, ['slug'], ['title']);
 
 ---
 
-## List vs Report: A Pile of Receipts vs a Month-End Summary
+## List vs Report
 
-A list page is like a pile of receipts in the cash drawer: everything is there, but you have to add it up yourself. A report page is like the month-end summary: already totaled and ready to read. The question is narrower but heavier: "what is the total of X over a given period".
+- **List**: shows rows one by one
+- **Report**: summarizes, for example "total X in a date range"
 
 ```php
-$totalWords = Article::whereBetween('published_at', [
-    $from, $to,
-])->sum('word_count');
+$totalWords = Article::whereBetween('published_at', [$from, $to])
+    ->sum('word_count');   // filter by date, then sum one column
 ```
-
-`whereBetween` keeps rows whose date falls between two bounds, then `sum()` adds up one column of the filtered result.
 
 ---
 
-## Common Pitfall: The Day That Gets Cut Off
+## Common Trap: The Cut-Off Last Day
 
 <div class="warn-box">
-A filter of "August 1 to August 31" taken literally means "up to 00:00:00 on the 31st". Every transaction made during the 31st disappears, like a shop that tallies August revenue but stops counting the moment it opens its doors on the last day.
+A filter "1 to 31 August" means "up to 31 August 00:00:00". Every transaction on the 31st is lost.
 </div>
 
 ```php
-$from = $request->date('from')->startOfDay();
-$to = $request->date('to')->endOfDay();
+$from = $request->date('from')->startOfDay();   // 00:00:00
+$to = $request->date('to')->endOfDay();         // 23:59:59
 ```
-
-`startOfDay()` turns the start date into 00:00:00, and `endOfDay()` turns the end date into 23:59:59, so the whole last day is counted.
 
 ---
 
-## The Day-Boundary Pitfall on a Timeline
+## The Day-Boundary Trap, Drawn on a Timeline
 
 <svg viewBox="0 0 1000 270" width="100%" style="display:block;margin:0 auto;max-height:400px" font-family="Helvetica Neue, Arial, sans-serif" font-size="23">
 <line x1="40" y1="40" x2="300" y2="40" stroke="#dc2626" stroke-width="7"/>
@@ -391,18 +377,16 @@ $to = $request->date('to')->endOfDay();
 
 ---
 
-## Calculate in the Database, Not in PHP
-
-Imagine asking for your account balance. You could ask the bank to send every transaction and add them up yourself, or simply ask the bank for the balance. The database is the bank.
+## Compute in the Database, Not in PHP
 
 ```php
-// heavy: every row is loaded into memory and summed in PHP
+// heavy: all rows loaded into memory, summed in PHP
 $total = Article::all()->sum('word_count');
 
 // light: the database does the summing
 $total = Article::sum('word_count');
 
-// summary per author: the 5 authors with the most words
+// per-author summary: top 5 authors by word count
 Article::selectRaw('author_id, COUNT(*) AS total, SUM(word_count) AS total_words')
     ->groupBy('author_id')
     ->orderByDesc('total_words')
@@ -410,44 +394,42 @@ Article::selectRaw('author_id, COUNT(*) AS total, SUM(word_count) AS total_words
     ->get();
 ```
 
----
-
-## Stored Totals Are Not Recomputed
-
-Meeting 6 made the point: a derived value like a total must not be trusted when it comes from client input, and must be recomputed on the server when the data is created. Once it is stored correctly, a report can use it as is. It is like the total printed on a receipt: when summarizing, you add up the receipt totals instead of re-checking every item on them.
-
-```php
-// word_count is computed once when the article is saved
-$article->word_count = str_word_count($article->body);
-
-// the report just sums the stored column
-$totalWords = Article::whereBetween('published_at', [$from, $to])
-    ->sum('word_count');
-```
-
 <div class="tip-box">
-Recomputing a value from raw data (for example counting the words of every article body) each time the report opens burdens the server for no reason: the number has been correct since the article was saved.
+Like asking the bank for your balance, instead of requesting every transaction and adding them up yourself.
 </div>
 
 ---
 
-## Toolbox for Large Datasets
+## Use the Stored Total
 
-| Technique | Use when | Notes |
-|---|---|---|
-| `paginate()` | showing a list to the user | one page per request |
-| `chunkById()` | processing or updating many rows | memory per chunk, safe when rows change |
-| `lazyById()` | reading many rows like a `foreach` | flat memory, simple code |
-| `cursor()` | reading one long query | convenient, but less safe if data changes |
-| `select([...])` | only some columns are needed | each model gets smaller |
-| `with()` | using relations inside a loop | avoids N+1 queries |
-| index | filtering or sorting on a column | query doesn't scan the whole table |
+```php
+// word_count is computed once, when the article is saved
+$article->word_count = str_word_count($article->body);
+
+// the report just sums the stored column
+Article::whereBetween('published_at', [$from, $to])->sum('word_count');
+```
+
+- Derived values are computed on the server at creation time (Meeting 6)
+- Reports do not recompute from raw data every time they open
 
 ---
 
-## Index: A Table of Contents for a Table
+## Tools for Large Datasets
 
-The date filter on the report runs again and again. Without an index on that column, the database has to read the whole table row by row, like finding one topic by flipping through the book page by page. With an index, the database jumps straight to the right page through the table of contents.
+| Technique | Use when | Note |
+|---|---|---|
+| `paginate()` | showing a list | one page per request |
+| `chunkById()` | updating many rows | safe when rows change |
+| `lazyById()` | reading many rows like a `foreach` | flat memory |
+| `cursor()` | one long query | less safe if data changes |
+| `select([...])` | only some columns needed | smaller models |
+| `with()` | using relations in a loop | avoids N+1 |
+| index | filter or sort on a column | no full table scan |
+
+---
+
+## Index: A Table of Contents for the Table
 
 ```php
 Schema::table('articles', function (Blueprint $table) {
@@ -457,9 +439,11 @@ Schema::table('articles', function (Blueprint $table) {
 
 ```sql
 EXPLAIN SELECT * FROM articles WHERE published_at BETWEEN '2026-08-01' AND '2026-08-31';
--- type: ALL    = scans the whole table (slow)
+-- type: ALL    = full table scan (slow)
 -- type: range  = uses the index (fast)
 ```
+
+Without an index, the database reads the table row by row. With one, it jumps straight to the rows it needs.
 
 <div class="ref-link">Recall Meeting 4: index strategy and <code>EXPLAIN</code></div>
 
@@ -474,30 +458,32 @@ EXPLAIN SELECT * FROM articles WHERE published_at BETWEEN '2026-08-01' AND '2026
 
 ## Why Memory Runs Out
 
-PHP has a `memory_limit` (commonly 128 MB). Every row Eloquent loads becomes a full **model object** with attributes and metadata, much bigger than the raw data. Picture a workbench: `get()` puts every document on the bench at once. Once there are thousands of documents, the bench is full and work stops.
+- PHP has a `memory_limit` (commonly 128 MB)
+- Each Eloquent row becomes a **model object**, much bigger than the raw data
+- `get()` loads every row at once
 
 <div class="warn-box">
-Example measurement from the jobsheet: reading 52,500 transactions with <code>get()</code> uses about 96 MB, while <code>lazyById()</code> uses only about 38 MB. Add a bit more data and <code>get()</code> hits <code>memory_limit</code>: the error <i>Allowed memory size exhausted</i>.
+Jobsheet example: reading 52,500 transactions with <code>get()</code> uses about 96 MB, while <code>lazyById()</code> uses only about 38 MB. Add a bit more data and <code>get()</code> hits <i>Allowed memory size exhausted</i>.
 </div>
 
 ---
 
 ## `get` vs `chunk` vs `lazy` vs `cursor`
 
-| Way | Memory | Queries | Fits |
+| Method | Memory | Queries | Good for |
 |---|---|---|---|
-| `get()` | all rows at once | 1 | small data, shown on screen |
-| `chunkById(n)` | n rows per turn | many (per chunk) | bulk updates, per-batch processing |
-| `lazyById(n)` | n rows per turn | many (per chunk) | exports, a plain `foreach` |
-| `cursor()` | one row per turn | 1 | a one-time read, data doesn't change |
+| `get()` | all rows | 1 | small data |
+| `chunkById(n)` | n rows | many | bulk updates |
+| `lazyById(n)` | n rows | many | export, plain `foreach` |
+| `cursor()` | 1 row | 1 | one-pass reads, data not changing |
 
 <div class="tip-box">
-Rule of thumb: if the data can reach hundreds of thousands of rows or more, don't <code>get()</code>. Use <code>lazyById()</code> to read and <code>chunkById()</code> to update.
+Could be hundreds of thousands of rows? Do not <code>get()</code>. Read with <code>lazyById()</code>, update with <code>chunkById()</code>.
 </div>
 
 ---
 
-## Bucket vs Tap: Two Ways to Send a Big File
+## Bucket vs Tap
 
 <svg viewBox="0 0 1000 310" width="100%" style="display:block;margin:0 auto;max-height:400px" font-family="Helvetica Neue, Arial, sans-serif" font-size="22">
 <text x="40" y="28" font-size="23" font-weight="bold" fill="#1d4ed8">Bucket: collect first</text>
@@ -527,8 +513,6 @@ Rule of thumb: if the data can reach hundreds of thousands of rows or more, don'
 
 ## Export with `streamDownload()` and `lazyById()`
 
-The tap way: fetch data in small chunks, write it to the output, then forget it.
-
 ```php
 $articles = Article::with('author')
     ->whereBetween('published_at', [$from, $to]);
@@ -543,9 +527,9 @@ return response()->streamDownload(function () use ($articles) {
 }, 'articles-report.csv');
 ```
 
-`lazyById()` reads the database in chunks, and `streamDownload()` sends each row as it goes, so memory stays flat.
+`lazyById()` reads per chunk, `streamDownload()` sends per row. Memory stays flat.
 
-<div class="ref-link">Laravel docs: <code>HTTP Responses &rarr; File Downloads</code> and <code>Eloquent &rarr; Chunking / lazyById()</code></div>
+<div class="ref-link">Laravel docs: <code>HTTP Responses &rarr; File Downloads</code> and <code>Eloquent &rarr; Chunking</code></div>
 
 ---
 
@@ -553,7 +537,7 @@ return response()->streamDownload(function () use ($articles) {
 
 ```php
 gc_collect_cycles();
-memory_reset_peak_usage();      // restart the peak counter from zero
+memory_reset_peak_usage();      // start counting the peak from zero
 
 foreach (Article::lazyById() as $a) {
     // ... work ...
@@ -562,20 +546,16 @@ foreach (Article::lazyById() as $a) {
 printf("peak %.1f MB\n", memory_get_peak_usage() / 1048576);
 ```
 
-- `memory_get_peak_usage()` records the highest point of memory use
-- `memory_reset_peak_usage()` (PHP 8.2+) makes each measurement stand on its own
-- Compare two approaches on the same data, and write the numbers down
-
-<div class="tip-box">
-Optimization without measurement is just a guess. Numbers before and after make the decision "use <code>lazyById()</code>" defensible.
-</div>
+- `memory_get_peak_usage()`: the highest memory use so far
+- `memory_reset_peak_usage()` (PHP 8.2+): each measurement stands alone
+- Compare two approaches on the same data, then write down the numbers
 
 ---
 
 ## The `chunk()` Trap: Skipped Rows
 
 ```php
-// DANGEROUS: filters by 'draft', then changes 'draft' itself
+// DANGEROUS: filters on 'draft', then changes 'draft' itself
 Article::where('status', 'draft')->chunk(100, function ($articles) {
     foreach ($articles as $a) {
         $a->update(['status' => 'published']);
@@ -583,10 +563,10 @@ Article::where('status', 'draft')->chunk(100, function ($articles) {
 });
 ```
 
-Every updated row drops out of the filter, so the list shifts and the next chunk skips some rows. Like a ticket queue: when served people leave right away, everyone behind them moves up a number.
+Updated rows leave the filter, the list shifts, and the next chunk skips some rows.
 
 <div class="tip-box">
-The fix is <code>chunkById(100, ...)</code>: it uses the last <code>id</code> as the page marker instead of a position, so it is safe even when rows change.
+Fix: <code>chunkById(100, ...)</code>. It uses the last <code>id</code> as a marker, so it is safe even when rows change.
 </div>
 
 ---
@@ -602,30 +582,27 @@ The fix is <code>chunkById(100, ...)</code>: it uses the last <code>id</code> as
 
 | | CSV | Excel (.xlsx) | PDF |
 |---|---|---|---|
-| **Best for** | raw data, exchange between systems | analysis, financial reports | reading or printing, not processed again |
-| **Format** | plain text | zip of XML, supports styling | fixed document |
-| **Memory** | very light (stream) | medium (library handles chunks) | heavy (whole document in memory) |
-| **Library** | built-in PHP (`fputcsv`) | Laravel Excel | DomPDF |
-| **Big data** | yes | yes (use `FromQuery`) | no, limit the rows |
+| **Best for** | raw data, between systems | analysis, financial reports | reading or printing |
+| **Memory** | very light (stream) | medium | heavy (whole document) |
+| **Library** | `fputcsv` (built into PHP) | Laravel Excel | DomPDF |
+| **Large data** | yes | yes (`FromQuery`) | no, limit rows |
 
 ---
 
 ## CSV: Simple but Full of Traps
 
-- **Delimiter**: Excel with an Indonesian locale often uses a semicolon (`;`) instead of a comma
-- **Quoting**: values containing a comma or newline must be wrapped in quotes (`fputcsv` handles this)
-- **Encoding**: UTF-8 files from Excel often start with an invisible character (**BOM**) that breaks the first header
+- **Delimiter**: Indonesian-locale Excel often uses a semicolon (`;`)
+- **Quoting**: values with commas or newlines need quotes (`fputcsv` handles it)
+- **Encoding**: UTF-8 from Excel often starts with an invisible character (**BOM**) that breaks the first header
 - **No types**: every value is text, type validation is still your job
 
 <div class="warn-box">
-If every row is suddenly rejected during an import, check the header first: the delimiter and the BOM are the prime suspects.
+Every row rejected on import? Check the header first: delimiter and BOM are the usual suspects.
 </div>
 
 ---
 
 ## Laravel Excel: Export
-
-A spreadsheet library handles the complicated `.xlsx` format. You only describe the content through small interfaces (`concerns`).
 
 ```php
 class ArticlesExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize
@@ -645,6 +622,8 @@ class ArticlesExport implements FromQuery, WithHeadings, WithMapping, ShouldAuto
 
 return Excel::download(new ArticlesExport, 'articles.xlsx');
 ```
+
+You only describe the contents through small interfaces (`concerns`). The library handles the `.xlsx` format.
 
 <div class="ref-link">docs.laravel-excel.com &rarr; Exports</div>
 
@@ -674,7 +653,7 @@ Excel::import(new ArticlesImport, $request->file('file'));
 ```
 
 <div class="warn-box">
-By default, <code>WithValidation</code> stops the import at the first invalid row. To skip bad rows and collect them, add <code>SkipsOnFailure</code>.
+By default, <code>WithValidation</code> stops at the first bad row. Add <code>SkipsOnFailure</code> to skip and collect bad rows.
 </div>
 
 ---
@@ -695,21 +674,18 @@ By default, <code>WithValidation</code> stops the import at the first invalid ro
 $pdf = Pdf::loadView('reports.articles', ['articles' => $articles])
     ->setPaper('a4', 'landscape');   // wide table: use landscape
 
-return $pdf->download('articles.pdf');
+return $pdf->download('articles.pdf');   // stream() to show in the browser
 ```
 
-- The view is plain Blade, so `@foreach`, `{{ }}`, and basic CSS work right away
-- `download()` forces a file download, `stream()` shows it in the browser
-
 <div class="warn-box">
-DomPDF supports only part of CSS and holds the whole document in memory. Use it for summaries and small tables, not for tens of thousands of rows: for big data choose CSV or Excel.
+DomPDF supports only part of CSS and holds the whole document in memory. Use it for small summaries. For large data, pick CSV or Excel.
 </div>
 
 ---
 
-## Import: Like a Cashier Scanning Groceries
+## Import: One Bad Row Does Not Stop the Others
 
-Import goes the other way: read a CSV file, then turn each of its rows into a new database row. Think of a cashier scanning groceries. If one barcode is damaged, the cashier sets that item aside and keeps scanning the rest, instead of sending every customer home.
+Like a cashier scanning groceries: a broken barcode is set aside, the rest keep scanning.
 
 <svg viewBox="0 0 1000 285" width="100%" style="display:block;margin:0 auto;max-height:330px" font-family="Helvetica Neue, Arial, sans-serif" font-size="19">
 <defs>
@@ -762,7 +738,7 @@ foreach ($rows as $row) {
     ]);
 
     if ($validator->fails()) {
-        continue; // skip this row, move on to the next one
+        continue; // skip this row, go on to the next one
     }
 
     Article::updateOrCreate(['slug' => $data['slug']], $validator->validated());
@@ -771,55 +747,55 @@ foreach ($rows as $row) {
 
 ---
 
-## What to Do with a Bad Row?
+## What to Do with Bad Rows?
 
-| Strategy | How it works | Fits |
+| Strategy | How it works | Good for |
 |---|---|---|
-| **Skip without a trace** | bad rows are skipped with no record | almost never: data vanishes and nobody knows |
-| **Skip and log** | bad rows are skipped, their row numbers and reasons saved | general imports (recommended): the user can fix the file |
-| **Abort everything** | one bad row cancels the whole import (`DB::transaction`) | financial data or data that must stay whole |
-
-<div class="tip-box">
-Like the cashier earlier: the item with the damaged barcode is set aside, <b>and</b> noted on a "could not scan" slip so the customer knows what to sort out.
-</div>
+| **Skip silently** | skipped with no record | almost never: data vanishes quietly |
+| **Skip and log** | skipped, row number and reason saved | general imports (recommended) |
+| **Abort all** | one bad row cancels everything (`DB::transaction`) | financial or must-be-complete data |
 
 ---
 
 <!-- _class: divider -->
 
 # Part 5
-## Queues: Work in the Background
+## Queue: The Journey of a Job
 
 ---
 
-## Two Ways to Process Work
+## When Does Work Go to a Queue?
 
 <div class="cols">
 <div>
 
-**Directly (inside the request)**
+**Directly (in the request)**
 - The user waits until it finishes
-- If it fails, the user knows right away
-- Fits short tasks whose result is needed immediately
+- Fits short work
 
 </div>
 <div>
 
-**Via a queue (job)**
-- Instant response, work runs in the background
-- The user does not wait in front of the browser
-- Fits heavy tasks or tasks with unpredictable duration
+**Through a queue (job)**
+- Instant response, work in the background
+- Fits heavy work
 
 </div>
 </div>
+
+A task belongs in a queue when:
+- its duration is unpredictable (depends on data size)
+- the result is not needed immediately
+- it calls a slow service (email, third-party API)
+- it is safe to retry (idempotent)
 
 <div class="tip-box">
-Laundry analogy: one T-shirt, you gladly wait at the counter. A whole sack, you drop it off, get a ticket, and go home. Importing a few dozen rows is one T-shirt. Importing thousands of rows is a whole sack, and HTTP requests have a timeout.
+Laundry: one shirt you wait for, a whole sack you drop off with a ticket. An HTTP request has a time limit.
 </div>
 
 ---
 
-## A Queue = A Laundry Drop-Off
+## Queue = Laundry by the Kilo
 
 <svg viewBox="0 0 1000 400" width="100%" style="display:block;margin:0 auto;max-height:440px" font-family="Helvetica Neue, Arial, sans-serif" font-size="19">
 <defs>
@@ -863,7 +839,120 @@ Laundry analogy: one T-shirt, you gladly wait at the counter. A whole sack, you 
 
 ---
 
-## The Journey of a Job
+## One Example from Start to Finish
+
+We follow one task: **importing articles from a CSV**.
+
+<div class="flow">
+  <div class="box">1. Job</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">2. dispatch</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">3. jobs</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">4. Worker</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">5. Result</div>
+</div>
+
+<div class="tip-box">
+The next five steps use the same job: <code>ProcessArticleImport</code>.
+</div>
+
+---
+
+## Step 1: Create the Job Class
+
+```bash
+php artisan make:job ProcessArticleImport
+```
+
+```php
+class ProcessArticleImport implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;               // at most 3 attempts
+    public array $backoff = [10, 60];    // wait 10 seconds, then 60 seconds
+    public int $timeout = 60;            // cancel if it runs over 60 seconds
+
+    public function __construct(public string $path) {}   // carry the path, not the file contents
+
+    public function handle(): void
+    {
+        $rows = array_map('str_getcsv', file(Storage::path($this->path), FILE_IGNORE_NEW_LINES));
+        $header = array_shift($rows);
+
+        foreach ($rows as $row) {
+            $data = array_combine($header, $row);
+            Article::updateOrCreate(['slug' => $data['slug']], ['title' => $data['title']]);
+        }
+    }
+}
+```
+
+---
+
+## Step 2: The Controller Sends the Job
+
+```php
+public function store(Request $request)
+{
+    $request->validate(['file' => ['required', 'file', 'mimes:csv,txt']]);
+
+    $path = $request->file('file')->store('imports');   // save the file first
+
+    ProcessArticleImport::dispatch($path);               // hand the job to the queue
+
+    return back()->with('success', 'The import is being processed in the background.');
+}
+```
+
+- The controller only saves the file and sends the job, then responds right away
+- The validate-and-save loop lives in `handle()` and has **not run yet**
+
+---
+
+## Step 3: The Job Waits in the `jobs` Table
+
+`dispatch()` only writes one row. No article has been imported yet.
+
+| id | queue | payload (short) | attempts | reserved_at |
+|---|---|---|---|---|
+| 1 | default | `{"displayName":"App\\Jobs\\ProcessArticleImport", ... "path":"imports/abc.csv"}` | 0 | NULL |
+
+- `payload`: the job class name and the data it carries (file path)
+- `attempts = 0`: never tried
+- `reserved_at = NULL`: no worker has picked it up
+
+<div class="warn-box">
+Without a worker, these rows pile up. Tickets keep growing, but no laundry gets done.
+</div>
+
+---
+
+## Step 4: A Worker Executes the Job
+
+```bash
+php artisan queue:work
+```
+
+```text
+  2026-10-21 10:00:00 App\Jobs\ProcessArticleImport ........ RUNNING
+  2026-10-21 10:00:07 App\Jobs\ProcessArticleImport ... 7s DONE
+```
+
+1. The worker takes the row from `jobs`, sets `reserved_at`, and `attempts` becomes 1
+2. It rebuilds the job object from `payload`, then calls `handle()`
+3. On success the row is deleted from `jobs`. The articles are now in the database
+
+<div class="term-box">
+<b>Worker:</b> a long-running PHP process that takes jobs one by one and runs their <code>handle()</code>.
+</div>
+
+---
+
+## Step 5: When the Job Fails
 
 <svg viewBox="0 0 1000 380" width="100%" style="display:block;margin:0 auto;max-height:440px" font-family="Helvetica Neue, Arial, sans-serif" font-size="22">
 <defs>
@@ -899,61 +988,55 @@ Laundry analogy: one T-shirt, you gladly wait at the counter. A whole sack, you 
 
 ---
 
-## The Job Flow in Laravel
+## Step 5: Fail, Retry, then `failed_jobs`
+
+```text
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 1, wait 10 seconds
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 2, wait 60 seconds
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 3 = $tries, goes to failed_jobs
+```
+
+```bash
+php artisan queue:failed         # list failed jobs, with the exception
+php artisan queue:retry all      # run them again after fixing the cause
+php artisan queue:flush          # delete the failed job records
+```
+
+---
+
+## Summary of One Job's Flow
 
 <div class="flow">
-  <div class="box">Controller</div>
+  <div class="box">make:job</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">dispatch() job</div>
+  <div class="box">dispatch()</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">jobs table</div>
+  <div class="box">row in jobs</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Worker (queue:work)</div>
+  <div class="box">queue:work</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">handle()</div>
 </div>
 
-```bash
-php artisan make:job ProcessArticleImport
-```
+<div class="cols">
+<div>
 
-```php
-ProcessArticleImport::dispatch($csvPath);
+**Success**
+- the `jobs` row is deleted
+- the data is saved
 
-return back()->with('success', 'The import is being processed in the background.');
-```
-
-The controller only saves the file and sends one job to the queue, then responds to the user right away. The real work (the validation and saving loop) moves into the `handle()` method of that job class.
-
----
-
-## Worker: The Person Who Works Through the Ticket Pile
-
-<div class="term-box">
-<b>Worker:</b> a separate PHP process that keeps running, takes jobs from the <code>jobs</code> table one at a time, and runs each one's <code>handle()</code> method.
 </div>
+<div>
 
-```bash
-php artisan queue:work
-```
+**Failure**
+- retry per `$tries` and `$backoff`
+- exhausted: moves to `failed_jobs`
 
-Without a worker, jobs just pile up in the `jobs` table. It is a laundry with no one to wash: tickets keep growing, but no laundry gets done, because `dispatch()` only stores the ticket, it does not wash anything.
-
-<div class="warn-box">
-A worker is a long-lived process, so it does <b>not</b> pick up new code automatically. After changing a job class, restart the worker (on a production server: <code>php artisan queue:restart</code>).
 </div>
-
----
-
-## Queue Drivers and Workers in Production
-
-| Driver | Storage | Fits |
-|---|---|---|
-| `sync` | none: the job runs right there | development and testing |
-| `database` | the `jobs` table | small to medium projects, easiest setup |
-| `redis` | Redis (in-memory) | high traffic, high throughput needs |
-
-In production, `queue:work` must **stay alive**. A program like **Supervisor** watches the worker and starts it again when it dies, like a shift supervisor making sure the washer is always at their post.
-
-<div class="ref-link">Laravel docs: <code>Queues &rarr; Supervisor Configuration</code></div>
+</div>
 
 ---
 
@@ -979,53 +1062,28 @@ In production, `queue:work` must **stay alive**. A program like **Supervisor** w
 </svg>
 
 <div class="warn-box">
-If <code>QUEUE_CONNECTION</code> in <code>.env</code> says <code>sync</code>, the job never enters a real queue. It is like a clerk telling you to wait until the laundry is dry even though you are already holding a ticket.
+If <code>QUEUE_CONNECTION=sync</code> in <code>.env</code>, the job runs inside the request. There is no real queue.
 </div>
 
 ---
 
-## A Job That Survives Failure
-
-A job runs in the background, so no user sees its errors. That is why a job must be designed to fail gracefully.
-
-```php
-class ProcessArticleImport implements ShouldQueue
-{
-    use Queueable;
-
-    public int $tries = 3;               // at most 3 attempts
-    public array $backoff = [10, 60];    // wait 10 seconds, then 60 seconds
-    public int $timeout = 120;           // cancel if it runs longer than 120 seconds
-}
-```
-
-```bash
-php artisan queue:failed        # list failed jobs
-php artisan queue:retry all     # run them all again
-php artisan queue:flush         # delete the failed job records
-```
-
-<div class="ref-link">Laravel docs: <code>Queues &rarr; Dealing With Failed Jobs</code></div>
-
----
-
-## Rules for Designing a Job
+## Rules for Designing Jobs
 
 <div class="cols">
 <div>
 
 **Do**
-- Make jobs **idempotent**: safe to retry (`updateOrCreate`)
-- Carry an ID or file path, not big data
-- Set `$tries`, `$backoff`, and `$timeout`
-- Use `->afterCommit()` when the job depends on data inside a database transaction
+- Make it **idempotent** (`updateOrCreate`)
+- Carry an ID or path, not big data
+- Set `$tries`, `$backoff`, `$timeout`
+- Use `->afterCommit()` if the job depends on data in a transaction
 
 </div>
 <div>
 
 **Avoid**
-- Using `request()`, the session, or the logged-in user inside `handle()`: in the background, none of them exist
-- Storing a whole file's contents in the job payload
+- `request()`, session, or the logged-in user inside `handle()`: none exist in the background
+- File contents in the job payload
 - Relying on job order without designing for it
 - Letting jobs fail with nobody watching
 
@@ -1036,70 +1094,209 @@ php artisan queue:flush         # delete the failed job records
 
 ## Keeping the User Informed
 
-A user who uploads a file and sees "being processed" wants to know when it is done. The options:
-
-- **A status column** on the import table (`pending`, `processing`, `done`, `failed`) updated by the job and shown on the page
-- **A notification** (email or an in-app notification) when the job finishes or fails
-- **A job batch**: `Bus::batch($jobs)->dispatch()` tracks many jobs at once, and `$batch->progress()` gives the percentage done
+- **Status column** (`pending`, `processing`, `done`, `failed`) updated by the job and shown on a page
+- **Notification** (email or in-app) when the job finishes or fails
+- **Job batch**: `Bus::batch($jobs)->dispatch()` tracks many jobs, `$batch->progress()` gives a percentage
 
 <div class="ref-link">Laravel docs: <code>Queues &rarr; Job Batching</code></div>
 
 ---
 
-## Signs a Task Belongs in a Queue
+<!-- _class: divider -->
 
-- Its duration cannot be predicted in advance, since it depends on the size of the data
-- The user does not need to see the result immediately on the same page
-- It calls a slow external service, such as sending email or calling a third-party API
-- It can be retried safely (idempotent)
+# Part 6
+## Queues in Production
 
-<div class="warn-box">
-A report that is opened and read right on the page is usually still better done directly, because the user is waiting for the result at that moment. A queue is not the answer to every heavy task, only to those that do not need an instant result.
+---
+
+## Setup: `.env` and the Queue Tables
+
+```bash
+# .env
+QUEUE_CONNECTION=database
+```
+
+| Driver | Storage | Good for |
+|---|---|---|
+| `sync` | none, the job runs in place | development, testing |
+| `database` | the `jobs` table | small to medium projects |
+| `redis` | Redis (in-memory) | high traffic |
+
+- A new Laravel project already has migrations for `jobs` and `failed_jobs`
+- Older projects: `php artisan make:queue-table`, then `php artisan migrate`
+- After changing `.env`: `php artisan config:clear` (or `config:cache` in production)
+
+---
+
+## `retry_after` vs `--timeout`
+
+```php
+// config/queue.php
+'database' => [
+    'driver' => 'database',
+    'retry_after' => 90,    // after 90 seconds a job is seen as stuck and another worker takes it
+],
+```
+
+<div class="cols">
+<div>
+
+**Right**
+- `--timeout=60`
+- `retry_after = 90`
+- the job is stopped before it counts as stuck
+
+</div>
+<div>
+
+**Wrong**
+- `--timeout=120`
+- `retry_after = 90`
+- the job is still running, but a second worker takes it: **processed twice**
+
+</div>
+</div>
+
+<div class="tip-box">
+Rule: <code>timeout</code> must be smaller than <code>retry_after</code>.
 </div>
 
 ---
 
-## Applying It to Simple POS
+## `queue:work` Options Worth Knowing
 
-You will apply this meeting's concepts directly to Simple POS in the lab jobsheet:
+| Option | Purpose |
+|---|---|
+| `--queue=high,default` | process `high` first, then `default` |
+| `--tries=3` | max attempts per job |
+| `--timeout=60` | seconds limit per job |
+| `--sleep=3` | seconds to wait when the queue is empty |
+| `--max-jobs=1000` | stop after n jobs (memory is released) |
+| `--max-time=3600` | stop after n seconds |
+| `--stop-when-empty` | stop when the queue is empty |
+
+<div class="tip-box">
+A worker that stops itself (<code>--max-time</code>, <code>--max-jobs</code>) is started again by Supervisor, so memory does not pile up.
+</div>
+
+---
+
+## Supervisor: Keeping Workers Alive
+
+`queue:work` in a terminal dies when the terminal closes or the server restarts. Supervisor starts it again automatically.
+
+```ini
+; /etc/supervisor/conf.d/laravel-worker.conf
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/app/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/app/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+---
+
+## Activating Supervisor
+
+```bash
+sudo apt-get install supervisor
+
+sudo supervisorctl reread                      # read the new config file
+sudo supervisorctl update                      # apply it
+sudo supervisorctl start "laravel-worker:*"    # start all workers
+```
+
+- `numprocs=2`: two workers run at the same time
+- `autorestart=true`: a worker dies, Supervisor starts it again
+- `stopwaitsecs`: must be larger than the longest job, so jobs are not cut off
+
+<div class="ref-link">Laravel docs: <code>Queues &rarr; Supervisor Configuration</code></div>
+
+---
+
+## Deploy: Restart the Workers
+
+Workers live long and keep the old code in memory. After a deploy, new code is not picked up until the workers restart.
+
+```bash
+git pull
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan config:cache
+php artisan queue:restart     # workers stop after their current job finishes
+```
+
+<div class="tip-box">
+<code>queue:restart</code> does not cut off a running job. Workers stop cleanly, then Supervisor starts them with the new code.
+</div>
+
+---
+
+## Level Up: Redis and Horizon
+
+- Start with `database`. Move to `redis` when traffic or job volume is high
+- Set `QUEUE_CONNECTION=redis` and prepare a Redis server
+- **Horizon**: dashboard and configuration for Redis queues (metrics, failed jobs, automatic worker count)
+- Horizon is Redis only, and Supervisor keeps it alive too (`php artisan horizon`)
+
+<div class="ref-link">Laravel docs: <code>Horizon</code> and <code>Queues &rarr; Supervisor Configuration</code></div>
+
+---
+
+## Applying This to Simple POS
+
+In the jobsheet you apply these concepts to Simple POS:
 
 1. A sales report with a date filter, computed in the database
-2. Export the report to CSV (streaming), Excel (Laravel Excel), and PDF (DomPDF)
-3. Measure memory of `get()` vs `lazyById()` on 50,000 rows
+2. Report export to CSV (streaming), Excel, and PDF
+3. Measuring memory for `get()` vs `lazyById()` on 50,000 rows
 4. A product import from CSV that validates per row and is safe to repeat
-5. Move the import to a queued job with `$tries` and `backoff`, then trace the failed jobs
+5. Moving the import to a queued job with `$tries` and `backoff`, then tracing a failed job
 
 <div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch08</code></div>
 
 ---
 
-## Summary (1/3): ETL, Batch, and Large Datasets
+## Summary (1/4): ETL, Batch, and Reports
 
-- ETL splits data processing into extract, transform, load; import and export are two-way ETL
-- Batching cuts database round trips (`array_chunk` + `insert`, `chunkById`); batch size should be measured
-- A good import is idempotent: `updateOrCreate()` or `upsert()` (with a unique index)
-- Reports summarize through `whereBetween`, and `startOfDay()`/`endOfDay()` keep the last day from being cut off
-- Calculate in the database (`sum`, `groupBy`), not in PHP; an index speeds up filters
-
----
-
-## Summary (2/3): Memory and Formats
-
-- Memory runs out because `get()` loads every row as an object; use `lazyById()` to read and `chunkById()` to update
-- `chunk()` can skip rows when the filter column is also updated: use `chunkById()`
-- Measure with `memory_get_peak_usage()`, don't guess
-- CSV for raw data, Excel (Laravel Excel) for analysis, PDF (DomPDF) for compact documents
-- Bad rows during an import: skip and log is the common choice, abort for data that must stay whole
+- ETL: extract, transform, load. Import and export are two-way ETL
+- Batching cuts round trips (`array_chunk` + `insert`, `chunkById`)
+- Idempotent import: `updateOrCreate()` or `upsert()` (with a unique index)
+- Reports: `whereBetween`, `startOfDay()`/`endOfDay()`, compute in the database, add an index
 
 ---
 
-## Summary (3/3): Queues
+## Summary (2/4): Memory and Formats
 
-- Work with unpredictable duration or large volume goes to a queue: instant response, work follows
-- `dispatch()` only stores the job in the `jobs` table; the worker (`queue:work`) runs it
-- Resilient jobs: `$tries`, `$backoff`, `$timeout`, and the `failed_jobs` table with `queue:retry`
-- Design idempotent jobs, carry an ID or path (not big data), and don't depend on the request or session
-- In production, Supervisor keeps the worker alive and it is restarted on deploy
+- `get()` loads every row. Read with `lazyById()`, update with `chunkById()`
+- Measure with `memory_get_peak_usage()`, do not guess
+- CSV for raw data, Excel for analysis, PDF for short documents
+- Bad rows on import: skip and log, or abort for data that must be complete
+
+---
+
+## Summary (3/4): The Journey of a Job
+
+- `make:job`, then `dispatch()` only writes a row to the `jobs` table
+- `queue:work` takes the row and runs `handle()`
+- Failure: retry per `$tries` and `$backoff`, exhausted goes to `failed_jobs`, then `queue:retry`
+- Idempotent jobs, carry an ID or path, never depend on the request or session
+
+---
+
+## Summary (4/4): Queues in Production
+
+- `QUEUE_CONNECTION=database` (or `redis`), the `jobs` table comes from a migration
+- `timeout` must be smaller than `retry_after`
+- Supervisor keeps `queue:work` alive (`numprocs`, `autorestart`, `stopwaitsecs`)
+- Deploy: `queue:restart`. Large scale: Redis and Horizon
 
 ---
 
@@ -1107,7 +1304,7 @@ You will apply this meeting's concepts directly to Simple POS in the lab jobshee
 
 # References & Discussion
 
-Official Laravel documentation (Queues, File Storage, HTTP Responses, Eloquent Chunking), docs.laravel-excel.com, and laravel-dompdf
+Official Laravel docs (Queues, Horizon, File Storage, HTTP Responses, Eloquent Chunking), docs.laravel-excel.com, and laravel-dompdf
 
 Full code: `github.com/se-polinema/simple-pos-ch08`
 

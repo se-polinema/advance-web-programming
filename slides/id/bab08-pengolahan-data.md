@@ -154,19 +154,19 @@ Dari pipeline ETL, dataset besar, dan memory, sampai pekerjaan berat yang dititi
 
 ## Yang Akan Kamu Pelajari
 
-1. Menjelaskan pola **ETL** dan **batch processing**, dan memakainya untuk memproses data dalam jumlah besar
-2. Menyusun laporan yang merekap data dalam rentang tanggal, dan memilih teknik yang tepat untuk **dataset besar**
+1. Menjelaskan pola **ETL** dan **batch processing** untuk memproses data dalam jumlah besar
+2. Menyusun laporan rentang tanggal, dan memilih teknik yang tepat untuk **dataset besar**
 3. Memahami kenapa **memory** bisa habis, dan memilih cara membaca data yang hemat memory
-4. Memilih format **CSV, Excel, atau PDF** sesuai kebutuhan, dan mengenal library untuk membuatnya
-5. Mengenali kapan sebuah pekerjaan sebaiknya dititipkan ke **queue**, dan membuatnya tahan gagal
+4. Memilih format **CSV, Excel, atau PDF** sesuai kebutuhan
+5. Mengikuti perjalanan sebuah **job** di queue, dari dibuat sampai dieksekusi worker, dan menjalankannya di **production**
 
 <div class="tip-box">
-Slide ini membahas konsep. Menerapkan laporan, export/import, dan queue pada Simple POS dikerjakan di jobsheet praktikum.
+Slide ini membahas konsep. Menerapkan laporan, export/import, dan queue pada Simple POS dikerjakan di jobsheet.
 </div>
 
 ---
 
-## Peta Pertemuan: Seperti Dapur Restoran
+## Peta Pertemuan
 
 <div class="flow">
   <div class="box">Data mentah</div>
@@ -181,7 +181,7 @@ Slide ini membahas konsep. Menerapkan laporan, export/import, dan queue pada Sim
 </div>
 
 <div class="tip-box">
-Bayangkan dapur restoran. Bahan mentah masuk (<b>extract</b>), dimasak jadi hidangan (<b>transform</b>), lalu disajikan ke meja (<b>load</b>). Kalau pesanan membludak, dapur tidak menyuruh tamu berdiri di depan kompor: tamu diberi nomor meja, lalu hidangan diantar belakangan. Itulah gambaran besar pertemuan ini.
+Seperti dapur restoran: bahan masuk (<b>extract</b>), dimasak (<b>transform</b>), lalu disajikan (<b>load</b>). Kalau pesanan membludak, tamu diberi nomor meja dan hidangan diantar belakangan. Itu queue.
 </div>
 
 ---
@@ -195,21 +195,12 @@ Bayangkan dapur restoran. Bahan mentah masuk (<b>extract</b>), dimasak jadi hida
 
 ## Empat Istilah Dasar
 
-<div class="term-box">
-<b>ETL (Extract, Transform, Load):</b> pola umum mengambil data mentah, mengubah bentuknya, lalu menyimpan atau menyajikannya dalam bentuk baru.
-</div>
-
-<div class="term-box">
-<b>Batch Processing:</b> memproses banyak data sekaligus dalam kelompok, bukan satu per satu.
-</div>
-
-<div class="term-box">
-<b>Queue:</b> mekanisme menitipkan pekerjaan berat agar dikerjakan di background oleh proses terpisah, bukan langsung selama request pengguna berlangsung.
-</div>
-
-<div class="term-box">
-<b>Import/Export:</b> membawa data masuk dari format eksternal (CSV, Excel) ke database, atau mengeluarkannya ke format eksternal (CSV, Excel, PDF) untuk dibaca di luar aplikasi.
-</div>
+| Istilah | Artinya |
+|---|---|
+| **ETL** | Extract (ambil), Transform (ubah), Load (simpan atau sajikan) |
+| **Batch processing** | memproses data berkelompok, bukan satu per satu |
+| **Import / Export** | data masuk dari CSV/Excel ke database, atau keluar ke CSV/Excel/PDF |
+| **Queue** | pekerjaan berat dititipkan, dikerjakan proses lain di background |
 
 ---
 
@@ -233,7 +224,8 @@ Bayangkan dapur restoran. Bahan mentah masuk (<b>extract</b>), dimasak jadi hida
 <text x="835" y="222" text-anchor="middle" fill="#64748b" font-size="22">disajikan</text>
 </svg>
 
-Hampir semua pengolahan data mengikuti urutan ini, baik import maupun export. Memisahkan tahapnya membuat tiap bagian mudah diuji dan diganti: sumber datanya boleh berubah, aturan validasinya boleh berubah, tujuannya boleh berubah.
+- Pisahkan tiga tahap ini supaya tiap bagian mudah diuji dan diganti
+- Sumber, aturan validasi, dan tujuan boleh berubah tanpa menyentuh bagian lain
 
 ---
 
@@ -245,14 +237,12 @@ Hampir semua pengolahan data mengikuti urutan ini, baik import maupun export. Me
 | **Export** | query database | pilih column, format tanggal dan angka | tulis CSV / Excel / PDF |
 
 <div class="tip-box">
-Pertanyaan yang berguna untuk setiap fitur import atau export: dari mana datanya (extract), apa yang harus dibersihkan atau diubah (transform), dan ke mana hasilnya (load)?
+Untuk setiap fitur, tanyakan: dari mana datanya, apa yang diubah, ke mana hasilnya?
 </div>
 
 ---
 
 ## Batch: Satu per Satu vs Satu Truk
-
-Kurir yang mengantar satu paket per perjalanan akan kalah efisien dari kurir yang membawa satu truk penuh. Hal yang sama berlaku untuk database: setiap query punya ongkos perjalanan (round trip) ke database.
 
 ```php
 // 10.000 row = 10.000 query
@@ -266,8 +256,10 @@ foreach (array_chunk($rows, 500) as $batch) {
 }
 ```
 
+Setiap query punya ongkos perjalanan ke database. Satu truk penuh lebih hemat daripada 10.000 kurir motor.
+
 <div class="warn-box">
-<code>insert()</code> massal tidak mengisi <code>created_at</code>/<code>updated_at</code> otomatis dan tidak menjalankan model event. Isi timestamp-nya sendiri kalau dibutuhkan.
+<code>insert()</code> massal tidak mengisi <code>created_at</code>/<code>updated_at</code> dan tidak menjalankan model event. Isi timestamp sendiri kalau perlu.
 </div>
 
 ---
@@ -277,18 +269,16 @@ foreach (array_chunk($rows, 500) as $batch) {
 <div class="cols">
 <div>
 
-**Batch terlalu kecil**
+**Terlalu kecil**
 - Terlalu banyak round trip
-- Lambat, seperti kurir motor
+- Lambat
 
-**Batch terlalu besar**
+**Terlalu besar**
 - Memory membengkak
 - Satu kegagalan menggagalkan banyak row
 
 </div>
 <div>
-
-**Membaca per batch**
 
 ```php
 Article::where('status', 'draft')
@@ -303,14 +293,14 @@ Article::where('status', 'draft')
 </div>
 
 <div class="tip-box">
-Titik awal yang wajar: ratusan sampai seribu row per batch, lalu ukur. Bungkus tiap batch dengan <code>DB::transaction()</code> kalau satu batch harus berhasil atau gagal seluruhnya.
+Mulai dari ratusan sampai seribu row per batch, lalu ukur. Bungkus tiap batch dengan <code>DB::transaction()</code> kalau harus berhasil atau gagal bersama.
 </div>
 
 ---
 
 ## Idempotent: Aman Dijalankan Berkali-kali
 
-Bagaimana kalau file import yang sama di-upload dua kali? Tanpa penjagaan, semua row tercatat dobel. Bayangkan daftar hadir: kalau namamu sudah ada, petugas memperbarui barisnya, bukan menulis nama yang sama lagi.
+File import yang sama di-upload dua kali tidak boleh membuat data dobel.
 
 ```php
 Article::updateOrCreate(
@@ -323,7 +313,7 @@ Article::upsert($batch, ['slug'], ['title']);
 ```
 
 <div class="warn-box">
-<code>upsert()</code> mensyaratkan <b>unique index</b> pada column kuncinya. Tanpa itu, database tidak tahu mana row yang dianggap sama.
+<code>upsert()</code> butuh <b>unique index</b> pada column kuncinya. Tanpa itu, database tidak tahu row mana yang dianggap sama.
 </div>
 
 ---
@@ -335,32 +325,28 @@ Article::upsert($batch, ['slug'], ['title']);
 
 ---
 
-## Daftar vs Laporan: Tumpukan Struk vs Rekap Akhir Bulan
+## Daftar vs Laporan
 
-Halaman daftar itu seperti tumpukan struk di laci kasir: semua ada, tapi kamu yang harus menghitungnya sendiri. Halaman laporan itu seperti rekap akhir bulan: sudah dijumlahkan dan siap dibaca. Pertanyaannya lebih sempit tapi lebih berat: "berapa total X pada rentang waktu tertentu".
+- **Daftar**: menampilkan row satu per satu
+- **Laporan**: merekap, misalnya "total X pada rentang tanggal tertentu"
 
 ```php
-$totalKata = Article::whereBetween('published_at', [
-    $from, $to,
-])->sum('word_count');
+$totalKata = Article::whereBetween('published_at', [$from, $to])
+    ->sum('word_count');   // filter tanggal, lalu jumlahkan satu column
 ```
-
-`whereBetween` memfilter row yang tanggalnya berada di antara dua batas, lalu `sum()` menjumlahkan satu column dari hasil filter itu.
 
 ---
 
 ## Jebakan Umum: Batas Hari yang Terpotong
 
 <div class="warn-box">
-Filter "1 Agustus sampai 31 Agustus" yang ditulis apa adanya berarti "sampai jam 00:00:00 tanggal 31". Seluruh transaksi yang terjadi sepanjang tanggal 31 ikut hilang, seperti toko yang menghitung omzet bulan Agustus tapi berhenti saat baru buka pintu di hari terakhir.
+Filter "1 sampai 31 Agustus" berarti "sampai 31 Agustus pukul 00:00:00". Seluruh transaksi tanggal 31 ikut hilang.
 </div>
 
 ```php
-$from = $request->date('from')->startOfDay();
-$to = $request->date('to')->endOfDay();
+$from = $request->date('from')->startOfDay();   // 00:00:00
+$to = $request->date('to')->endOfDay();         // 23:59:59
 ```
-
-`startOfDay()` mengubah tanggal awal menjadi jam 00:00:00, dan `endOfDay()` mengubah tanggal akhir menjadi jam 23:59:59, supaya seluruh hari terakhir ikut terhitung.
 
 ---
 
@@ -393,8 +379,6 @@ $to = $request->date('to')->endOfDay();
 
 ## Hitung di Database, Bukan di PHP
 
-Bayangkan menanyakan saldo rekening. Kamu bisa meminta bank mengirim seluruh mutasi lalu menjumlahkannya sendiri, atau cukup meminta bank menyebutkan saldonya. Database adalah banknya.
-
 ```php
 // berat: semua row dimuat ke memory, dijumlahkan di PHP
 $total = Article::all()->sum('word_count');
@@ -410,24 +394,24 @@ Article::selectRaw('author_id, COUNT(*) AS jumlah, SUM(word_count) AS total_kata
     ->get();
 ```
 
+<div class="tip-box">
+Seperti menanyakan saldo ke bank, bukan meminta seluruh mutasi lalu menjumlahkannya sendiri.
+</div>
+
 ---
 
-## Total yang Sudah Tersimpan, Tidak Dihitung Ulang
-
-Pertemuan 6 menegaskan: nilai turunan seperti total tidak boleh dipercaya kalau datang dari input klien, dan harus dihitung ulang di server saat data dibuat. Begitu nilai itu tersimpan dengan benar, laporan boleh memakainya apa adanya. Ini seperti total di nota yang sudah dicetak: saat rekap, kamu cukup menjumlahkan angka di nota, bukan mengecek ulang tiap item di dalamnya.
+## Pakai Total yang Sudah Tersimpan
 
 ```php
 // word_count dihitung sekali saat artikel disimpan
 $article->word_count = str_word_count($article->body);
 
 // laporan cukup menjumlahkan column yang sudah tersimpan
-$totalKata = Article::whereBetween('published_at', [$from, $to])
-    ->sum('word_count');
+Article::whereBetween('published_at', [$from, $to])->sum('word_count');
 ```
 
-<div class="tip-box">
-Menghitung ulang nilai dari data mentah (misalnya menghitung kata dari seluruh isi artikel) setiap kali laporan dibuka membebani server tanpa alasan: angkanya sudah benar sejak artikel itu disimpan.
-</div>
+- Nilai turunan dihitung di server saat data dibuat (Pertemuan 6)
+- Laporan tidak perlu menghitung ulang dari data mentah tiap kali dibuka
 
 ---
 
@@ -435,19 +419,17 @@ Menghitung ulang nilai dari data mentah (misalnya menghitung kata dari seluruh i
 
 | Teknik | Dipakai saat | Catatan |
 |---|---|---|
-| `paginate()` | menampilkan daftar ke pengguna | satu halaman per request |
-| `chunkById()` | memproses atau meng-update banyak row | memory per chunk, aman saat row berubah |
-| `lazyById()` | membaca banyak row seperti `foreach` | memory datar, kode sederhana |
-| `cursor()` | membaca satu query panjang | praktis, tapi kurang aman kalau data berubah |
-| `select([...])` | hanya butuh sebagian column | tiap model jadi lebih kecil |
-| `with()` | memakai relasi di dalam loop | menghindari N+1 query |
-| index | filter atau urut pada column tertentu | query tidak scan seluruh tabel |
+| `paginate()` | menampilkan daftar | satu halaman per request |
+| `chunkById()` | meng-update banyak row | aman saat row berubah |
+| `lazyById()` | membaca banyak row seperti `foreach` | memory datar |
+| `cursor()` | satu query panjang | kurang aman kalau data berubah |
+| `select([...])` | hanya butuh sebagian column | model lebih kecil |
+| `with()` | memakai relasi di loop | menghindari N+1 |
+| index | filter atau urut pada column | tidak scan seluruh tabel |
 
 ---
 
 ## Index: Daftar Isi untuk Tabel
-
-Filter tanggal pada laporan akan dijalankan terus-menerus. Tanpa index pada column itu, database harus membaca seluruh tabel row demi row, seperti mencari satu kata di kamus dengan membaca halaman demi halaman. Dengan index, database melompat langsung ke halaman yang tepat lewat daftar isi.
 
 ```php
 Schema::table('articles', function (Blueprint $table) {
@@ -460,6 +442,8 @@ EXPLAIN SELECT * FROM articles WHERE published_at BETWEEN '2026-08-01' AND '2026
 -- type: ALL    = scan seluruh tabel (lambat)
 -- type: range  = memakai index (cepat)
 ```
+
+Tanpa index, database membaca tabel row demi row. Dengan index, ia langsung lompat ke row yang dicari.
 
 <div class="ref-link">Mengingat Pertemuan 4: strategi index dan <code>EXPLAIN</code></div>
 
@@ -474,10 +458,12 @@ EXPLAIN SELECT * FROM articles WHERE published_at BETWEEN '2026-08-01' AND '2026
 
 ## Kenapa Memory Bisa Habis
 
-PHP punya batas `memory_limit` (umumnya 128 MB). Setiap row yang dimuat Eloquent menjadi sebuah **object model** lengkap dengan atribut dan metadata, jauh lebih besar daripada data mentahnya. Bayangkan meja kerja: `get()` menaruh semua dokumen di atas meja sekaligus. Begitu dokumennya ribuan, mejanya penuh dan pekerjaan berhenti.
+- PHP punya batas `memory_limit` (umumnya 128 MB)
+- Tiap row Eloquent menjadi **object model**, jauh lebih besar dari data mentahnya
+- `get()` memuat semua row sekaligus
 
 <div class="warn-box">
-Contoh pengukuran di jobsheet: membaca 52.500 transaksi dengan <code>get()</code> memakai sekitar 96 MB, sedangkan <code>lazyById()</code> hanya sekitar 38 MB. Tambah datanya sedikit lagi, dan <code>get()</code> menabrak <code>memory_limit</code>: error <i>Allowed memory size exhausted</i>.
+Contoh di jobsheet: membaca 52.500 transaksi dengan <code>get()</code> memakai sekitar 96 MB, sedangkan <code>lazyById()</code> hanya sekitar 38 MB. Tambah datanya sedikit lagi dan <code>get()</code> kena error <i>Allowed memory size exhausted</i>.
 </div>
 
 ---
@@ -486,18 +472,18 @@ Contoh pengukuran di jobsheet: membaca 52.500 transaksi dengan <code>get()</code
 
 | Cara | Memory | Query | Cocok untuk |
 |---|---|---|---|
-| `get()` | semua row sekaligus | 1 | data kecil, hasil ditampilkan |
-| `chunkById(n)` | n row per giliran | banyak (per chunk) | update massal, proses per batch |
-| `lazyById(n)` | n row per giliran | banyak (per chunk) | export, `foreach` biasa |
-| `cursor()` | satu row per giliran | 1 | pembacaan sekali jalan, data tidak berubah |
+| `get()` | semua row | 1 | data kecil |
+| `chunkById(n)` | n row | banyak | update massal |
+| `lazyById(n)` | n row | banyak | export, `foreach` biasa |
+| `cursor()` | 1 row | 1 | baca sekali, data tidak berubah |
 
 <div class="tip-box">
-Aturan praktis: kalau datanya bisa ratusan ribu row atau lebih, jangan <code>get()</code>. Pakai <code>lazyById()</code> untuk membaca dan <code>chunkById()</code> untuk meng-update.
+Data bisa ratusan ribu row? Jangan <code>get()</code>. Baca dengan <code>lazyById()</code>, update dengan <code>chunkById()</code>.
 </div>
 
 ---
 
-## Ember vs Keran: Dua Cara Mengirim File Besar
+## Ember vs Keran
 
 <svg viewBox="0 0 1000 310" width="100%" style="display:block;margin:0 auto;max-height:400px" font-family="Helvetica Neue, Arial, sans-serif" font-size="22">
 <text x="40" y="28" font-size="23" font-weight="bold" fill="#1d4ed8">Ember: tampung dulu</text>
@@ -527,8 +513,6 @@ Aturan praktis: kalau datanya bisa ratusan ribu row atau lebih, jangan <code>get
 
 ## Export dengan `streamDownload()` dan `lazyById()`
 
-Cara keran: ambil data per chunk kecil, tulis ke output, lalu lupakan.
-
 ```php
 $articles = Article::with('author')
     ->whereBetween('published_at', [$from, $to]);
@@ -543,9 +527,9 @@ return response()->streamDownload(function () use ($articles) {
 }, 'laporan-artikel.csv');
 ```
 
-`lazyById()` membaca database per chunk, dan `streamDownload()` mengirim tiap row sambil jalan, jadi memory tetap datar.
+`lazyById()` membaca per chunk, `streamDownload()` mengirim per row. Memory tetap datar.
 
-<div class="ref-link">Laravel docs: <code>HTTP Responses &rarr; File Downloads</code> dan <code>Eloquent &rarr; Chunking / lazyById()</code></div>
+<div class="ref-link">Laravel docs: <code>HTTP Responses &rarr; File Downloads</code> dan <code>Eloquent &rarr; Chunking</code></div>
 
 ---
 
@@ -562,20 +546,16 @@ foreach (Article::lazyById() as $a) {
 printf("peak %.1f MB\n", memory_get_peak_usage() / 1048576);
 ```
 
-- `memory_get_peak_usage()` mencatat titik tertinggi pemakaian memory
-- `memory_reset_peak_usage()` (PHP 8.2+) membuat tiap pengukuran berdiri sendiri
-- Bandingkan dua cara pada data yang sama, dan catat angkanya
-
-<div class="tip-box">
-Optimasi tanpa pengukuran hanyalah tebakan. Angka sebelum dan sesudah membuat keputusan "pakai <code>lazyById()</code>" bisa dipertanggungjawabkan.
-</div>
+- `memory_get_peak_usage()`: titik tertinggi pemakaian memory
+- `memory_reset_peak_usage()` (PHP 8.2+): tiap pengukuran berdiri sendiri
+- Bandingkan dua cara pada data yang sama, lalu catat angkanya
 
 ---
 
 ## Jebakan `chunk()`: Row yang Terlewat
 
 ```php
-// BERBAHAYA: filter berdasarkan 'draft', lalu mengubah 'draft' itu sendiri
+// BERBAHAYA: filter 'draft', lalu mengubah 'draft' itu sendiri
 Article::where('status', 'draft')->chunk(100, function ($articles) {
     foreach ($articles as $a) {
         $a->update(['status' => 'published']);
@@ -583,10 +563,10 @@ Article::where('status', 'draft')->chunk(100, function ($articles) {
 });
 ```
 
-Setiap row yang di-update keluar dari filter, sehingga daftar bergeser dan chunk berikutnya melompati sebagian row. Seperti nomor urut di loket: kalau orang yang sudah dilayani langsung pergi, posisi orang di belakangnya ikut bergeser.
+Row yang di-update keluar dari filter, daftar bergeser, dan chunk berikutnya melompati sebagian row.
 
 <div class="tip-box">
-Solusinya <code>chunkById(100, ...)</code>: ia memakai <code>id</code> terakhir sebagai penanda halaman, bukan nomor urut, sehingga aman walau row berubah.
+Solusi: <code>chunkById(100, ...)</code>. Ia memakai <code>id</code> terakhir sebagai penanda, jadi aman walau row berubah.
 </div>
 
 ---
@@ -602,30 +582,27 @@ Solusinya <code>chunkById(100, ...)</code>: ia memakai <code>id</code> terakhir 
 
 | | CSV | Excel (.xlsx) | PDF |
 |---|---|---|---|
-| **Cocok untuk** | data mentah, pertukaran antar sistem | analisis, laporan keuangan | dibaca atau dicetak, tidak diolah lagi |
-| **Format** | teks polos | zip berisi XML, ada styling | dokumen tetap |
-| **Memory** | sangat hemat (stream) | sedang (library mengurus chunk) | berat (seluruh dokumen di memory) |
-| **Library** | PHP bawaan (`fputcsv`) | Laravel Excel | DomPDF |
-| **Data besar** | ya | ya (pakai `FromQuery`) | tidak, batasi row |
+| **Cocok untuk** | data mentah, antar sistem | analisis, laporan keuangan | dibaca atau dicetak |
+| **Memory** | sangat hemat (stream) | sedang | berat (seluruh dokumen) |
+| **Library** | `fputcsv` (bawaan PHP) | Laravel Excel | DomPDF |
+| **Data besar** | ya | ya (`FromQuery`) | tidak, batasi row |
 
 ---
 
 ## CSV: Sederhana tapi Penuh Jebakan
 
-- **Delimiter**: Excel versi Indonesia sering memakai titik koma (`;`), bukan koma
-- **Quoting**: nilai yang mengandung koma atau baris baru harus diapit tanda kutip (`fputcsv` mengurusnya)
-- **Encoding**: file UTF-8 dari Excel sering diawali karakter tak terlihat (**BOM**) yang merusak header pertama
-- **Tanpa tipe**: semua nilai berupa teks, validasi tipe tetap tugasmu
+- **Delimiter**: Excel versi Indonesia sering memakai titik koma (`;`)
+- **Quoting**: nilai berisi koma atau baris baru harus diberi tanda kutip (`fputcsv` mengurusnya)
+- **Encoding**: UTF-8 dari Excel sering diawali karakter tak terlihat (**BOM**) yang merusak header pertama
+- **Tanpa tipe**: semua nilai teks, validasi tipe tetap tugasmu
 
 <div class="warn-box">
-Kalau semua row tiba-tiba ditolak saat import, cek header-nya dulu: delimiter dan BOM adalah tersangka utama.
+Semua row ditolak saat import? Cek header dulu: delimiter dan BOM tersangka utama.
 </div>
 
 ---
 
 ## Laravel Excel: Export
-
-Library spreadsheet mengurus format `.xlsx` yang rumit. Kamu cukup mendeskripsikan isinya lewat interface kecil (`concern`).
 
 ```php
 class ArticlesExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize
@@ -645,6 +622,8 @@ class ArticlesExport implements FromQuery, WithHeadings, WithMapping, ShouldAuto
 
 return Excel::download(new ArticlesExport, 'artikel.xlsx');
 ```
+
+Kamu cukup mendeskripsikan isinya lewat interface kecil (`concern`). Format `.xlsx` diurus library.
 
 <div class="ref-link">docs.laravel-excel.com &rarr; Exports</div>
 
@@ -674,7 +653,7 @@ Excel::import(new ArticlesImport, $request->file('file'));
 ```
 
 <div class="warn-box">
-Secara default, <code>WithValidation</code> menghentikan import pada row cacat pertama. Untuk melewati dan mengumpulkan row cacat, tambahkan <code>SkipsOnFailure</code>.
+Default-nya, <code>WithValidation</code> berhenti di row cacat pertama. Tambahkan <code>SkipsOnFailure</code> untuk melewati dan mengumpulkan row cacat.
 </div>
 
 ---
@@ -695,21 +674,18 @@ Secara default, <code>WithValidation</code> menghentikan import pada row cacat p
 $pdf = Pdf::loadView('reports.articles', ['articles' => $articles])
     ->setPaper('a4', 'landscape');   // tabel lebar: pakai landscape
 
-return $pdf->download('artikel.pdf');
+return $pdf->download('artikel.pdf');   // stream() untuk tampil di browser
 ```
 
-- View-nya Blade biasa, jadi `@foreach`, `{{ }}`, dan CSS dasar langsung dipakai
-- `download()` memaksa browser men-download file, `stream()` menampilkannya di browser
-
 <div class="warn-box">
-DomPDF hanya mendukung sebagian CSS dan memuat seluruh dokumen di memory. Pakai untuk ringkasan dan tabel kecil, bukan untuk puluhan ribu row: untuk data besar pilih CSV atau Excel.
+DomPDF hanya mendukung sebagian CSS dan memuat seluruh dokumen di memory. Pakai untuk ringkasan kecil. Data besar: pilih CSV atau Excel.
 </div>
 
 ---
 
-## Import: Seperti Kasir yang Memindai Belanjaan
+## Import: Satu Row Cacat Tidak Menghentikan yang Lain
 
-Import berjalan ke arah sebaliknya: membaca file CSV, lalu mengubah tiap row-nya jadi row baru di database. Bayangkan kasir memindai belanjaan. Kalau satu barcode rusak, kasir menyisihkan barang itu dan terus memindai sisanya, bukan menyuruh semua pelanggan pulang.
+Seperti kasir memindai belanjaan: barcode rusak disisihkan, sisanya tetap dipindai.
 
 <svg viewBox="0 0 1000 285" width="100%" style="display:block;margin:0 auto;max-height:330px" font-family="Helvetica Neue, Arial, sans-serif" font-size="19">
 <defs>
@@ -775,46 +751,46 @@ foreach ($rows as $row) {
 
 | Strategi | Cara kerja | Cocok untuk |
 |---|---|---|
-| **Skip tanpa jejak** | row cacat dilewati tanpa catatan | hampir tidak pernah: data hilang tanpa ada yang tahu |
-| **Skip dan catat** | row cacat dilewati, nomor row dan alasannya disimpan | import umum (disarankan): pengguna bisa memperbaiki file |
-| **Abort semua** | satu row cacat membatalkan seluruh import (`DB::transaction`) | data keuangan atau data yang harus utuh |
-
-<div class="tip-box">
-Seperti kasir tadi: barang yang barcode-nya rusak disisihkan, <b>dan</b> dicatat di nota "tidak terbaca" supaya pelanggan tahu apa yang perlu diurus.
-</div>
+| **Skip tanpa jejak** | dilewati tanpa catatan | hampir tidak pernah: data hilang diam-diam |
+| **Skip dan catat** | dilewati, nomor row dan alasan disimpan | import umum (disarankan) |
+| **Abort semua** | satu row cacat membatalkan semuanya (`DB::transaction`) | data keuangan atau yang harus utuh |
 
 ---
 
 <!-- _class: divider -->
 
 # Bagian 5
-## Queue: Pekerjaan di Background
+## Queue: Perjalanan Sebuah Job
 
 ---
 
-## Dua Cara Memproses Pekerjaan
+## Kapan Pekerjaan Masuk Queue?
 
 <div class="cols">
 <div>
 
 **Langsung (dalam request)**
 - Pengguna menunggu sampai selesai
-- Kalau gagal, pengguna langsung tahu
-- Cocok untuk pekerjaan singkat, hasilnya dibutuhkan seketika
+- Cocok untuk pekerjaan singkat
 
 </div>
 <div>
 
-**Lewat Queue (job)**
-- Response instan, pekerjaan berjalan di background
-- Pengguna tidak menunggu di depan browser
-- Cocok untuk pekerjaan berat atau berdurasi tidak pasti
+**Lewat queue (job)**
+- Response instan, kerja di background
+- Cocok untuk pekerjaan berat
 
 </div>
 </div>
+
+Layak masuk queue kalau:
+- durasinya tidak terprediksi (tergantung ukuran data)
+- hasilnya tidak perlu terlihat seketika
+- memanggil layanan lambat (email, API pihak ketiga)
+- aman dicoba ulang (idempotent)
 
 <div class="tip-box">
-Analogi laundry: ada cucian satu kaus, kamu rela menunggu di tempat. Ada cucian satu karung, kamu titip, dapat nota, lalu pulang. Import puluhan row itu satu kaus. Import ribuan row itu satu karung, dan HTTP request punya batas waktu tunggu.
+Laundry: satu kaus ditunggu, satu karung dititip dengan nota. HTTP request punya batas waktu tunggu.
 </div>
 
 ---
@@ -863,7 +839,120 @@ Analogi laundry: ada cucian satu kaus, kamu rela menunggu di tempat. Ada cucian 
 
 ---
 
-## Perjalanan Sebuah Job
+## Satu Contoh dari Awal sampai Akhir
+
+Kita ikuti satu pekerjaan: **import artikel dari CSV**.
+
+<div class="flow">
+  <div class="box">1. Job</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">2. dispatch</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">3. jobs</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">4. Worker</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">5. Hasil</div>
+</div>
+
+<div class="tip-box">
+Lima langkah berikut memakai satu job yang sama: <code>ProcessArticleImport</code>.
+</div>
+
+---
+
+## Langkah 1: Buat Class Job
+
+```bash
+php artisan make:job ProcessArticleImport
+```
+
+```php
+class ProcessArticleImport implements ShouldQueue
+{
+    use Queueable;
+
+    public int $tries = 3;               // maksimal 3 attempt
+    public array $backoff = [10, 60];    // jeda 10 detik, lalu 60 detik
+    public int $timeout = 60;            // batalkan kalau lebih dari 60 detik
+
+    public function __construct(public string $path) {}   // bawa path, bukan isi file
+
+    public function handle(): void
+    {
+        $rows = array_map('str_getcsv', file(Storage::path($this->path), FILE_IGNORE_NEW_LINES));
+        $header = array_shift($rows);
+
+        foreach ($rows as $row) {
+            $data = array_combine($header, $row);
+            Article::updateOrCreate(['slug' => $data['slug']], ['title' => $data['title']]);
+        }
+    }
+}
+```
+
+---
+
+## Langkah 2: Controller Mengirim Job
+
+```php
+public function store(Request $request)
+{
+    $request->validate(['file' => ['required', 'file', 'mimes:csv,txt']]);
+
+    $path = $request->file('file')->store('imports');   // simpan file dulu
+
+    ProcessArticleImport::dispatch($path);               // titip job ke queue
+
+    return back()->with('success', 'Import sedang diproses di background.');
+}
+```
+
+- Controller hanya menyimpan file dan mengirim job, lalu langsung response
+- Loop validasi dan simpan pindah ke `handle()`, **belum berjalan**
+
+---
+
+## Langkah 3: Job Menunggu di Tabel `jobs`
+
+`dispatch()` hanya menulis satu row. Belum ada artikel yang diimport.
+
+| id | queue | payload (ringkas) | attempts | reserved_at |
+|---|---|---|---|---|
+| 1 | default | `{"displayName":"App\\Jobs\\ProcessArticleImport", ... "path":"imports/abc.csv"}` | 0 | NULL |
+
+- `payload`: nama class job dan data yang dibawa (path file)
+- `attempts = 0`: belum pernah dicoba
+- `reserved_at = NULL`: belum diambil worker
+
+<div class="warn-box">
+Tanpa worker, row ini menumpuk. Nota bertambah, tapi tidak ada cucian yang selesai.
+</div>
+
+---
+
+## Langkah 4: Worker Mengeksekusi Job
+
+```bash
+php artisan queue:work
+```
+
+```text
+  2026-10-21 10:00:00 App\Jobs\ProcessArticleImport ........ RUNNING
+  2026-10-21 10:00:07 App\Jobs\ProcessArticleImport ... 7s DONE
+```
+
+1. Worker mengambil row dari `jobs`, mengisi `reserved_at`, `attempts` jadi 1
+2. Worker membuat object job dari `payload`, lalu memanggil `handle()`
+3. Berhasil: row dihapus dari `jobs`. Artikel sekarang ada di database
+
+<div class="term-box">
+<b>Worker:</b> proses PHP yang terus berjalan, mengambil job satu per satu, lalu menjalankan <code>handle()</code>-nya.
+</div>
+
+---
+
+## Langkah 5: Kalau Job Gagal
 
 <svg viewBox="0 0 1000 380" width="100%" style="display:block;margin:0 auto;max-height:440px" font-family="Helvetica Neue, Arial, sans-serif" font-size="22">
 <defs>
@@ -899,61 +988,55 @@ Analogi laundry: ada cucian satu kaus, kamu rela menunggu di tempat. Ada cucian 
 
 ---
 
-## Alur Job di Laravel
+## Langkah 5: Gagal, Retry, lalu `failed_jobs`
+
+```text
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 1, tunggu 10 detik
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 2, tunggu 60 detik
+  App\Jobs\ProcessArticleImport ........ RUNNING
+  App\Jobs\ProcessArticleImport ... 1s FAIL     <- attempt 3 = $tries, masuk failed_jobs
+```
+
+```bash
+php artisan queue:failed         # lihat job yang gagal, lengkap dengan exception
+php artisan queue:retry all      # jalankan ulang setelah penyebabnya diperbaiki
+php artisan queue:flush          # hapus catatan job gagal
+```
+
+---
+
+## Rangkuman Alur Satu Job
 
 <div class="flow">
-  <div class="box">Controller</div>
+  <div class="box">make:job</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">dispatch() job</div>
+  <div class="box">dispatch()</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Tabel jobs</div>
+  <div class="box">row di jobs</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Worker (queue:work)</div>
+  <div class="box">queue:work</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">handle()</div>
 </div>
 
-```bash
-php artisan make:job ProcessArticleImport
-```
+<div class="cols">
+<div>
 
-```php
-ProcessArticleImport::dispatch($csvPath);
+**Berhasil**
+- row `jobs` dihapus
+- data sudah tersimpan
 
-return back()->with('success', 'Import sedang diproses di background.');
-```
-
-Controller hanya menyimpan file dan mengirim satu job ke queue, lalu segera memberi response ke pengguna. Pekerjaan sesungguhnya (loop validasi dan penyimpanan) pindah ke metode `handle()` pada class job itu.
-
----
-
-## Worker: Petugas yang Mengerjakan Tumpukan Nota
-
-<div class="term-box">
-<b>Worker:</b> proses PHP terpisah yang terus berjalan, mengambil job dari tabel <code>jobs</code> satu per satu, lalu menjalankan metode <code>handle()</code>-nya.
 </div>
+<div>
 
-```bash
-php artisan queue:work
-```
+**Gagal**
+- retry sesuai `$tries` dan `$backoff`
+- habis: pindah ke `failed_jobs`
 
-Tanpa worker, job hanya menumpuk di tabel `jobs`. Sama seperti laundry tanpa petugas cuci: nota terus bertambah, tapi tidak ada satu pun cucian yang selesai, karena `dispatch()` hanya menyimpan nota, bukan mencuci.
-
-<div class="warn-box">
-Worker adalah proses yang hidup lama, jadi ia <b>tidak</b> otomatis memuat kode baru. Setelah mengubah class job, restart worker (di server production: <code>php artisan queue:restart</code>).
 </div>
-
----
-
-## Driver Queue dan Worker di Production
-
-| Driver | Penyimpanan | Cocok untuk |
-|---|---|---|
-| `sync` | tidak ada: job dijalankan langsung di tempat | development dan testing |
-| `database` | tabel `jobs` | proyek kecil sampai menengah, setup paling mudah |
-| `redis` | Redis (in-memory) | trafik tinggi, butuh throughput besar |
-
-Di production, `queue:work` harus **terus hidup**. Program seperti **Supervisor** bertugas memantau worker dan menyalakannya kembali kalau mati, ibarat supervisor shift yang memastikan petugas cuci selalu ada di tempat.
-
-<div class="ref-link">Laravel docs: <code>Queues &rarr; Supervisor Configuration</code></div>
+</div>
 
 ---
 
@@ -979,33 +1062,8 @@ Di production, `queue:work` harus **terus hidup**. Program seperti **Supervisor*
 </svg>
 
 <div class="warn-box">
-Kalau <code>QUEUE_CONNECTION</code> di <code>.env</code> bertuliskan <code>sync</code>, job tidak pernah masuk queue sungguhan. Ini seperti kasir yang menyuruhmu menunggu sampai cucian kering padahal kamu sudah memegang nota.
+Kalau <code>QUEUE_CONNECTION=sync</code> di <code>.env</code>, job langsung jalan di dalam request. Tidak ada queue sungguhan.
 </div>
-
----
-
-## Job yang Tahan Gagal
-
-Job berjalan di background, jadi tidak ada pengguna yang melihat error-nya. Karena itu job harus dirancang untuk gagal dengan rapi.
-
-```php
-class ProcessArticleImport implements ShouldQueue
-{
-    use Queueable;
-
-    public int $tries = 3;               // maksimal 3 attempt
-    public array $backoff = [10, 60];    // jeda 10 detik, lalu 60 detik
-    public int $timeout = 120;           // batalkan kalau lebih dari 120 detik
-}
-```
-
-```bash
-php artisan queue:failed        # lihat daftar job yang gagal
-php artisan queue:retry all     # coba jalankan ulang semuanya
-php artisan queue:flush         # hapus catatan job gagal
-```
-
-<div class="ref-link">Laravel docs: <code>Queues &rarr; Dealing With Failed Jobs</code></div>
 
 ---
 
@@ -1015,19 +1073,19 @@ php artisan queue:flush         # hapus catatan job gagal
 <div>
 
 **Lakukan**
-- Rancang job **idempotent**: aman dicoba ulang (`updateOrCreate`)
-- Bawa ID atau path file, bukan data besar
-- Atur `$tries`, `$backoff`, dan `$timeout`
-- Gunakan `->afterCommit()` kalau job bergantung pada data di transaksi database
+- Rancang **idempotent** (`updateOrCreate`)
+- Bawa ID atau path, bukan data besar
+- Atur `$tries`, `$backoff`, `$timeout`
+- Pakai `->afterCommit()` kalau job bergantung pada data di transaksi
 
 </div>
 <div>
 
 **Hindari**
-- Memakai `request()`, session, atau user yang sedang login di dalam `handle()`: di background, semuanya tidak ada
-- Menyimpan seluruh isi file di payload job
+- `request()`, session, atau user login di dalam `handle()`: di background semuanya tidak ada
+- Isi file di payload job
 - Mengandalkan urutan job tanpa dirancang
-- Membiarkan job gagal tanpa ada yang memantau
+- Membiarkan job gagal tanpa pemantauan
 
 </div>
 </div>
@@ -1036,35 +1094,168 @@ php artisan queue:flush         # hapus catatan job gagal
 
 ## Memberi Kabar ke Pengguna
 
-Pengguna yang meng-upload file lalu melihat "sedang diproses" ingin tahu kapan selesai. Pilihannya:
-
-- **Column status** pada tabel import (`pending`, `processing`, `done`, `failed`) yang di-update oleh job, lalu ditampilkan di halaman
-- **Notifikasi** (email atau notifikasi di aplikasi) saat job selesai atau gagal
-- **Job batch**: `Bus::batch($jobs)->dispatch()` melacak banyak job sekaligus, dan `$batch->progress()` memberi persentase selesai
+- **Column status** (`pending`, `processing`, `done`, `failed`) yang di-update job dan ditampilkan di halaman
+- **Notifikasi** (email atau in-app) saat job selesai atau gagal
+- **Job batch**: `Bus::batch($jobs)->dispatch()` melacak banyak job, `$batch->progress()` memberi persentase
 
 <div class="ref-link">Laravel docs: <code>Queues &rarr; Job Batching</code></div>
 
 ---
 
-## Tanda-Tanda Pekerjaan Layak Masuk Queue
+<!-- _class: divider -->
 
-- Durasinya tidak bisa diprediksi di muka, tergantung ukuran data yang diproses
-- Hasilnya tidak perlu dilihat pengguna seketika di halaman yang sama
-- Melibatkan panggilan ke layanan eksternal yang lambat, misalnya mengirim email atau memanggil API pihak ketiga
-- Bisa dicoba ulang dengan aman (idempotent)
+# Bagian 6
+## Queue di Production
 
-<div class="warn-box">
-Laporan yang dibuka dan dibaca langsung di halaman biasanya tetap lebih baik dikerjakan langsung, karena pengguna memang menunggu hasilnya saat itu juga. Queue bukan solusi untuk semua pekerjaan berat, hanya untuk yang tidak butuh hasil instan.
+---
+
+## Persiapan: `.env` dan Tabel Queue
+
+```bash
+# .env
+QUEUE_CONNECTION=database
+```
+
+| Driver | Penyimpanan | Cocok untuk |
+|---|---|---|
+| `sync` | tidak ada, job jalan di tempat | development, testing |
+| `database` | tabel `jobs` | proyek kecil sampai menengah |
+| `redis` | Redis (in-memory) | trafik tinggi |
+
+- Proyek Laravel baru sudah punya migration tabel `jobs` dan `failed_jobs`
+- Proyek lama: `php artisan make:queue-table`, lalu `php artisan migrate`
+- Setelah mengubah `.env`: `php artisan config:clear` (atau `config:cache` di production)
+
+---
+
+## `retry_after` vs `--timeout`
+
+```php
+// config/queue.php
+'database' => [
+    'driver' => 'database',
+    'retry_after' => 90,    // setelah 90 detik, job dianggap macet dan diambil worker lain
+],
+```
+
+<div class="cols">
+<div>
+
+**Benar**
+- `--timeout=60`
+- `retry_after = 90`
+- job dihentikan sebelum dianggap macet
+
 </div>
+<div>
+
+**Salah**
+- `--timeout=120`
+- `retry_after = 90`
+- job masih jalan, tapi diambil worker kedua: **diproses dobel**
+
+</div>
+</div>
+
+<div class="tip-box">
+Aturan: <code>timeout</code> harus lebih kecil dari <code>retry_after</code>.
+</div>
+
+---
+
+## Opsi `queue:work` yang Perlu Dikenal
+
+| Opsi | Fungsi |
+|---|---|
+| `--queue=high,default` | proses queue `high` dulu, baru `default` |
+| `--tries=3` | maksimal attempt per job |
+| `--timeout=60` | batas detik per job |
+| `--sleep=3` | jeda detik saat queue kosong |
+| `--max-jobs=1000` | berhenti setelah n job (memory dibersihkan) |
+| `--max-time=3600` | berhenti setelah n detik |
+| `--stop-when-empty` | berhenti kalau queue kosong |
+
+<div class="tip-box">
+Worker yang berhenti sendiri (<code>--max-time</code>, <code>--max-jobs</code>) akan dinyalakan lagi oleh Supervisor, sehingga memory tidak menumpuk.
+</div>
+
+---
+
+## Supervisor: Menjaga Worker Tetap Hidup
+
+`queue:work` di terminal mati saat terminal ditutup atau server restart. Supervisor menyalakannya lagi otomatis.
+
+```ini
+; /etc/supervisor/conf.d/laravel-worker.conf
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/app/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/app/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+---
+
+## Mengaktifkan Supervisor
+
+```bash
+sudo apt-get install supervisor
+
+sudo supervisorctl reread                      # baca file konfigurasi baru
+sudo supervisorctl update                      # terapkan
+sudo supervisorctl start "laravel-worker:*"    # nyalakan semua worker
+```
+
+- `numprocs=2`: dua worker berjalan bersamaan
+- `autorestart=true`: worker mati, Supervisor menyalakannya lagi
+- `stopwaitsecs`: harus lebih besar dari job terlama, supaya job tidak terpotong
+
+<div class="ref-link">Laravel docs: <code>Queues &rarr; Supervisor Configuration</code></div>
+
+---
+
+## Deploy: Restart Worker
+
+Worker hidup lama dan menyimpan kode lama di memory. Setelah deploy, kode baru tidak terbaca sampai worker restart.
+
+```bash
+git pull
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan config:cache
+php artisan queue:restart     # worker berhenti setelah job yang berjalan selesai
+```
+
+<div class="tip-box">
+<code>queue:restart</code> tidak memotong job yang sedang jalan. Worker berhenti dengan rapi, lalu Supervisor menyalakannya dengan kode baru.
+</div>
+
+---
+
+## Naik Kelas: Redis dan Horizon
+
+- Mulai dari `database`. Pindah ke `redis` kalau trafik tinggi atau job sangat banyak
+- Ganti `QUEUE_CONNECTION=redis` dan siapkan server Redis
+- **Horizon**: dashboard dan konfigurasi untuk queue Redis (metrik, job gagal, jumlah worker otomatis)
+- Horizon hanya untuk Redis, dan dijaga Supervisor juga (`php artisan horizon`)
+
+<div class="ref-link">Laravel docs: <code>Horizon</code> dan <code>Queues &rarr; Supervisor Configuration</code></div>
 
 ---
 
 ## Menerapkan pada Simple POS
 
-Konsep pada pertemuan ini akan kamu terapkan langsung pada Simple POS di jobsheet praktikum:
+Di jobsheet, kamu menerapkan konsep ini pada Simple POS:
 
 1. Laporan penjualan dengan filter tanggal, dihitung di database
-2. Export laporan ke CSV (streaming), Excel (Laravel Excel), dan PDF (DomPDF)
+2. Export laporan ke CSV (streaming), Excel, dan PDF
 3. Mengukur memory `get()` vs `lazyById()` pada 50.000 row
 4. Import produk dari CSV yang validasi per row dan aman diulang
 5. Memindahkan import ke queued job dengan `$tries` dan `backoff`, lalu menelusuri job yang gagal
@@ -1073,33 +1264,39 @@ Konsep pada pertemuan ini akan kamu terapkan langsung pada Simple POS di jobshee
 
 ---
 
-## Rangkuman (1/3): ETL, Batch, dan Dataset Besar
+## Rangkuman (1/4): ETL, Batch, dan Laporan
 
-- ETL memisahkan pengolahan data jadi extract, transform, load; import dan export adalah ETL dua arah
-- Batch mengurangi round trip ke database (`array_chunk` + `insert`, `chunkById`); ukuran batch perlu diukur
-- Import yang baik itu idempotent: `updateOrCreate()` atau `upsert()` (dengan unique index)
-- Laporan merekap lewat `whereBetween`, `startOfDay()`/`endOfDay()` mencegah hari terakhir terpotong
-- Hitung di database (`sum`, `groupBy`), jangan di PHP; index mempercepat filter
+- ETL: extract, transform, load. Import dan export adalah ETL dua arah
+- Batch mengurangi round trip (`array_chunk` + `insert`, `chunkById`)
+- Import idempotent: `updateOrCreate()` atau `upsert()` (dengan unique index)
+- Laporan: `whereBetween`, `startOfDay()`/`endOfDay()`, hitung di database, tambah index
 
 ---
 
-## Rangkuman (2/3): Memory dan Format
+## Rangkuman (2/4): Memory dan Format
 
-- Memory habis karena `get()` memuat semua row sebagai object; pakai `lazyById()` untuk membaca dan `chunkById()` untuk meng-update
-- `chunk()` bisa melewatkan row kalau column filter ikut di-update: pakai `chunkById()`
+- `get()` memuat semua row. Baca dengan `lazyById()`, update dengan `chunkById()`
 - Ukur dengan `memory_get_peak_usage()`, jangan menebak
-- CSV untuk data mentah, Excel (Laravel Excel) untuk analisis, PDF (DomPDF) untuk dokumen ringkas
-- Row cacat saat import: skip dan catat adalah pilihan umum, abort untuk data yang harus utuh
+- CSV untuk data mentah, Excel untuk analisis, PDF untuk dokumen ringkas
+- Row cacat saat import: skip dan catat, atau abort untuk data yang harus utuh
 
 ---
 
-## Rangkuman (3/3): Queue
+## Rangkuman (3/4): Perjalanan Job
 
-- Pekerjaan berdurasi tidak terprediksi atau bervolume besar dititipkan ke queue: response instan, pekerjaan menyusul
-- `dispatch()` hanya menyimpan job ke tabel `jobs`; worker (`queue:work`) yang menjalankannya
-- Job tahan gagal: `$tries`, `$backoff`, `$timeout`, dan tabel `failed_jobs` dengan `queue:retry`
-- Rancang job idempotent, bawa ID atau path (bukan data besar), jangan bergantung pada request atau session
-- Di production, worker dijaga Supervisor dan di-restart saat deploy
+- `make:job`, lalu `dispatch()` hanya menulis row ke tabel `jobs`
+- `queue:work` mengambil row dan menjalankan `handle()`
+- Gagal: retry sesuai `$tries` dan `$backoff`, habis masuk `failed_jobs`, lalu `queue:retry`
+- Job idempotent, bawa ID atau path, jangan bergantung pada request atau session
+
+---
+
+## Rangkuman (4/4): Queue di Production
+
+- `QUEUE_CONNECTION=database` (atau `redis`), tabel `jobs` lewat migration
+- `timeout` harus lebih kecil dari `retry_after`
+- Supervisor menjaga `queue:work` tetap hidup (`numprocs`, `autorestart`, `stopwaitsecs`)
+- Deploy: `queue:restart`. Skala besar: Redis dan Horizon
 
 ---
 
@@ -1107,7 +1304,7 @@ Konsep pada pertemuan ini akan kamu terapkan langsung pada Simple POS di jobshee
 
 # Referensi & Diskusi
 
-Dokumentasi resmi Laravel (Queues, File Storage, HTTP Responses, Eloquent Chunking), docs.laravel-excel.com, dan laravel-dompdf
+Dokumentasi resmi Laravel (Queues, Horizon, File Storage, HTTP Responses, Eloquent Chunking), docs.laravel-excel.com, dan laravel-dompdf
 
 Kode lengkap: `github.com/se-polinema/simple-pos-ch08`
 
