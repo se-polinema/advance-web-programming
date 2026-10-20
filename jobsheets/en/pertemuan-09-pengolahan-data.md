@@ -53,7 +53,7 @@ Agree on how steps 2 to 6 are divided among the members.
 
 ### Step 2: A sales report with a date filter
 
-A report page answers a different question than an ordinary transaction page: not "what transactions happened", but "what's the total sales over a given time range".
+A transaction page is like a pile of receipts in the cash drawer: everything is there, but you have to add it up yourself. A report page is like the month-end summary: not "what transactions happened", but "what's the total sales over a given time range", already totaled and ready to read.
 
 Replace the contents of `app/Http/Controllers/ReportController.php` with:
 
@@ -63,6 +63,7 @@ Replace the contents of `app/Http/Controllers/ReportController.php` with:
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -71,11 +72,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -89,16 +90,17 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-`resolveDateRange()` supplies a default (the current month) when the user hasn't filled in a filter at all, and `startOfDay()`/`endOfDay()` make sure the last day isn't cut off at midnight. `filteredTransactions()` gets reused in the next step for CSV export, so the filter logic isn't written twice.
+`resolveDateRange()` supplies a default (the current month) when the user hasn't filled in a filter at all. `startOfDay()`/`endOfDay()` avoid the last-day pitfall: without `endOfDay()`, a filter of "up to August 31" stops at 00:00 on the 31st, so every transaction made during the 31st vanishes from the report.
+
+`filteredQuery()` only prepares the query without running it. `sum()` and `count()` in `index()` are done by the database itself, so thousands of transaction rows don't need to be loaded into memory just to be added up. The same query gets reused in the next step for CSV export, so the filter logic isn't written twice.
 
 Create the view:
 
@@ -178,6 +180,7 @@ Replace the contents of `app/Http/Controllers/ReportController.php` with:
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -187,11 +190,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -200,12 +203,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -220,16 +223,19 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-The new `export()` method reuses `resolveDateRange()` and `filteredTransactions()` from the previous step, so the CSV export honors the same date filter as the report page. `streamDownload()` must be declared with a `StreamedResponse` return type from Symfony, not `Illuminate\Http\Response`; if the type is wrong, PHP throws a `TypeError` the moment this method is called.
+The new `export()` method reuses `resolveDateRange()` and `filteredQuery()` from the previous step, so the CSV export honors the same date filter as the report page.
+
+Think of a bucket and a tap. The bucket way: collect every row in memory first, then send. The tap way: let rows flow one by one. `lazyById()` fetches data from the database in small chunks, and `streamDownload()` writes each row straight to the browser, so server memory stays flat no matter how many transactions there are.
+
+`streamDownload()` must be declared with a `StreamedResponse` return type from Symfony, not `Illuminate\Http\Response`; if the type is wrong, PHP throws a `TypeError` the moment this method is called.
 
 Register the route in `routes/web.php`, right below the `reports.index` route:
 
@@ -257,6 +263,8 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 ### Step 4: Importing products from CSV
 
+An import is like a cashier scanning groceries. If one barcode is damaged, the cashier sets that item aside and keeps scanning the rest, instead of sending every customer home. This import works the same way: bad rows get skipped, valid rows still go in.
+
 Create a new branch off the latest `main`, e.g. `csv-import`:
 
 ```bash
@@ -274,6 +282,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -285,11 +294,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -298,12 +307,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -321,14 +330,17 @@ class ReportController extends Controller
             'csv' => ['required', 'file', 'mimes:csv,txt'],
         ]);
 
-        $rows = array_map('str_getcsv', file($request->file('csv')->getRealPath()));
+        $lines = file($request->file('csv')->getRealPath(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $rows = array_map('str_getcsv', $lines);
         $header = array_shift($rows);
 
         $imported = 0;
         foreach ($rows as $row) {
-            $row = array_combine($header, $row);
+            if (count($row) !== count($header)) {
+                continue;
+            }
 
-            $validator = Validator::make($row, [
+            $validator = Validator::make(array_combine($header, $row), [
                 'name' => ['required', 'string'],
                 'category_id' => ['required', 'exists:categories,id'],
                 'price' => ['required', 'integer', 'min:0'],
@@ -353,16 +365,15 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-`continue` on a row that fails validation keeps the import moving to the next row, instead of stopping entirely just because one row had a typo. Valid rows still get saved, invalid rows just get skipped.
+`continue` on a row that fails validation keeps the import moving to the next row, instead of stopping entirely just because one row had a typo. `FILE_SKIP_EMPTY_LINES` drops blank lines, and the `count($row) !== count($header)` check skips rows with the wrong number of columns, so `array_combine()` doesn't throw an error.
 
 Create the view:
 
@@ -431,11 +442,11 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 > ```
 > (match `category_id` to a category that actually exists in your data). Upload it via `/import`. **Expected:** the message "2 produk berhasil diimpor." (the third row is skipped since `category_id` 999 doesn't exist), and the two valid products show up on `/products`.
 
-> ⚠️ **If it fails:** an `exists:categories,id` error that always fails for every row means the `category_id` values in the CSV don't match real category IDs, check via `php artisan tinker` and `Category::pluck('id', 'name')`.
+> ⚠️ **If it fails:** if every row is always rejected, there are two likely causes. First, the `category_id` values in the CSV don't match real category IDs: check via `php artisan tinker` and `Category::pluck('id', 'name')`. Second, the CSV was saved from Excel with an Indonesian locale, which often uses a semicolon (`;`) as the separator and adds an invisible character (BOM) at the start of the file, so the `name` header isn't recognized. Re-save it as "CSV UTF-8 (Comma delimited)" or write the file in a plain text editor.
 
 ### Step 5: Moving the import to a queued job
 
-Importing a few rows finishes in seconds, fine to run directly like the previous step. Once the volume climbs into the thousands, the same process can take a long time, and the user is stuck waiting in the browser with no way to know if it's still running or already failed silently. This step moves the import to a queued job, so the user gets an instant response while the process runs in the background.
+One T-shirt of laundry you can wait for at the counter. A whole sack you drop off: you get a ticket, go home, and the staff handle it later. Importing a few rows is one T-shirt, fine to run directly like the previous step. Importing thousands of rows is a whole sack: it can take a long time, and the user is stuck waiting in the browser with no way to know if it's still running or already failed silently. This step moves the import to a queued job. `dispatch()` is handing the ticket to the rack, and the **worker** (`queue:work`) is the staff member who works through the pile of tickets.
 
 Create a new branch off the latest `main`, e.g. `import-queue`:
 
@@ -467,13 +478,16 @@ class ProcessProductImport implements ShouldQueue
 
     public function handle(): void
     {
-        $rows = array_map('str_getcsv', file(Storage::path($this->csvPath)));
+        $lines = file(Storage::path($this->csvPath), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $rows = array_map('str_getcsv', $lines);
         $header = array_shift($rows);
 
         foreach ($rows as $row) {
-            $row = array_combine($header, $row);
+            if (count($row) !== count($header)) {
+                continue;
+            }
 
-            $validator = Validator::make($row, [
+            $validator = Validator::make(array_combine($header, $row), [
                 'name' => ['required', 'string'],
                 'category_id' => ['required', 'exists:categories,id'],
                 'price' => ['required', 'integer', 'min:0'],
@@ -491,7 +505,7 @@ class ProcessProductImport implements ShouldQueue
 }
 ```
 
-The validate-and-save loop from `ReportController::import()` moves into the `handle()` method above, with the CSV file path stored through the constructor. `Storage::delete()` at the end cleans up the temporary file once it's been processed.
+The validate-and-save loop from `ReportController::import()` moves into the `handle()` method above, with the CSV file path carried through the constructor. `Storage::delete()` at the end cleans up the temporary file once it's been processed.
 
 Replace the contents of `app/Http/Controllers/ReportController.php` with:
 
@@ -502,6 +516,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessProductImport;
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -512,11 +527,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -525,12 +540,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -563,11 +578,10 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
@@ -584,7 +598,9 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ✅ **Checkpoint:** upload the same CSV as step 4 via `/import`. **Expected:** the message "Impor sedang diproses di latar belakang." appears instantly, but the products don't show up on `/products` right away. Run `php artisan queue:work --once` in a separate terminal, then refresh `/products`: the products from the CSV are now saved.
 
-> ⚠️ **If the products appear immediately without running `queue:work`:** check `QUEUE_CONNECTION` in `.env`, make sure it says `database`, not `sync`. If the job never gets processed at all even after running `queue:work`, check for an error message in that `queue:work` terminal itself.
+> ⚠️ **If the products appear immediately without running `queue:work`:** check `QUEUE_CONNECTION` in `.env`, make sure it says `database`, not `sync`. With `sync` the job runs in place and never enters a real queue, like a clerk telling you to wait until the laundry is dry even though you're already holding a ticket.
+
+> ⚠️ **If `queue:work` runs but no products are added:** failed jobs are recorded in the `failed_jobs` table. List them with `php artisan queue:failed`, read the error message, fix the problem, then run them again with `php artisan queue:retry all`.
 
 ### Step 6: Together, integration test and code review
 

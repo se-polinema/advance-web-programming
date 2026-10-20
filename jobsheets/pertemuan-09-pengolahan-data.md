@@ -53,7 +53,7 @@ Sepakati pembagian langkah 2 sampai 6 antaranggota.
 
 ### Langkah 2: Laporan penjualan dengan filter tanggal
 
-Halaman laporan menjawab pertanyaan yang berbeda dari halaman transaksi biasa: bukan "transaksi apa saja yang terjadi", tapi "berapa total penjualan pada rentang waktu tertentu".
+Halaman transaksi itu seperti tumpukan struk di laci kasir: semua ada, tapi kamu harus menjumlahkannya sendiri. Halaman laporan seperti rekap akhir bulan: bukan "transaksi apa saja yang terjadi", tapi "berapa total penjualan pada rentang waktu tertentu", sudah dijumlahkan dan siap dibaca.
 
 Isi `app/Http/Controllers/ReportController.php` menjadi:
 
@@ -63,6 +63,7 @@ Isi `app/Http/Controllers/ReportController.php` menjadi:
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -71,11 +72,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -89,16 +90,17 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-`resolveDateRange()` memberi nilai default (bulan berjalan) kalau pengguna belum mengisi filter sama sekali, dan `startOfDay()`/`endOfDay()` memastikan hari terakhir tidak terpotong di tengah malam. `filteredTransactions()` dipakai ulang di langkah berikutnya untuk ekspor CSV, supaya logika filter tidak ditulis dua kali.
+`resolveDateRange()` memberi nilai default (bulan berjalan) kalau pengguna belum mengisi filter sama sekali. `startOfDay()`/`endOfDay()` mencegah jebakan hari terakhir: tanpa `endOfDay()`, filter "sampai 31 Agustus" berhenti di jam 00:00 tanggal 31, sehingga semua transaksi yang terjadi sepanjang tanggal 31 ikut hilang dari laporan.
+
+`filteredQuery()` hanya menyiapkan query dan belum menjalankannya. `sum()` dan `count()` di `index()` dikerjakan langsung oleh database, jadi ribuan baris transaksi tidak perlu dimuat ke memori hanya untuk dijumlahkan. Query yang sama dipakai ulang di langkah berikutnya untuk ekspor CSV, supaya logika filter tidak ditulis dua kali.
 
 Buat view-nya:
 
@@ -178,6 +180,7 @@ Isi `app/Http/Controllers/ReportController.php` menjadi:
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -187,11 +190,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -200,12 +203,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -220,16 +223,19 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-Method `export()` baru memakai ulang `resolveDateRange()` dan `filteredTransactions()` dari langkah sebelumnya, jadi ekspor CSV menghormati filter tanggal yang sama dengan halaman laporan. `streamDownload()` perlu dideklarasikan dengan tipe pengembalian `StreamedResponse` dari Symfony, bukan `Illuminate\Http\Response`; kalau tipenya salah, PHP akan melempar `TypeError` begitu method ini dipanggil.
+Method `export()` baru memakai ulang `resolveDateRange()` dan `filteredQuery()` dari langkah sebelumnya, jadi ekspor CSV menghormati filter tanggal yang sama dengan halaman laporan.
+
+Bayangkan ember dan keran. Cara ember: tampung semua baris dulu di memori, baru kirim. Cara keran: alirkan baris demi baris. `lazyById()` mengambil data dari database per potongan kecil, dan `streamDownload()` langsung menulis tiap baris ke browser, jadi memori server tetap datar berapa pun jumlah transaksinya.
+
+`streamDownload()` perlu dideklarasikan dengan tipe pengembalian `StreamedResponse` dari Symfony, bukan `Illuminate\Http\Response`; kalau tipenya salah, PHP akan melempar `TypeError` begitu method ini dipanggil.
 
 Daftarkan route-nya di `routes/web.php`, tepat di bawah route `reports.index`:
 
@@ -257,6 +263,8 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 ### Langkah 4: Impor produk dari CSV
 
+Impor itu seperti kasir yang memindai belanjaan. Kalau satu barcode rusak, kasir menyisihkan barang itu dan terus memindai sisanya, bukan menyuruh semua pelanggan pulang. Begitu pula impor ini: baris yang cacat dilewati, baris yang valid tetap masuk.
+
 Branch baru dari `main` terbaru, misalnya `csv-import`:
 
 ```bash
@@ -274,6 +282,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -285,11 +294,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -298,12 +307,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -321,14 +330,17 @@ class ReportController extends Controller
             'csv' => ['required', 'file', 'mimes:csv,txt'],
         ]);
 
-        $rows = array_map('str_getcsv', file($request->file('csv')->getRealPath()));
+        $lines = file($request->file('csv')->getRealPath(), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $rows = array_map('str_getcsv', $lines);
         $header = array_shift($rows);
 
         $imported = 0;
         foreach ($rows as $row) {
-            $row = array_combine($header, $row);
+            if (count($row) !== count($header)) {
+                continue;
+            }
 
-            $validator = Validator::make($row, [
+            $validator = Validator::make(array_combine($header, $row), [
                 'name' => ['required', 'string'],
                 'category_id' => ['required', 'exists:categories,id'],
                 'price' => ['required', 'integer', 'min:0'],
@@ -353,16 +365,15 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
 
-`continue` pada baris yang gagal validasi membuat proses impor tetap lanjut ke baris berikutnya, bukan berhenti total hanya karena satu baris salah ketik. Baris yang valid tetap tersimpan, baris yang tidak valid dilewati begitu saja.
+`continue` pada baris yang gagal validasi membuat proses impor tetap lanjut ke baris berikutnya, bukan berhenti total hanya karena satu baris salah ketik. `FILE_SKIP_EMPTY_LINES` membuang baris kosong, dan pengecekan `count($row) !== count($header)` melewati baris yang jumlah kolomnya tidak sesuai, supaya `array_combine()` tidak melempar error.
 
 Buat view-nya:
 
@@ -431,11 +442,11 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 > ```
 > (sesuaikan `category_id` dengan kategori yang benar-benar ada di datamu). Unggah lewat `/import`. **Yang diharapkan:** pesan "2 produk berhasil diimpor." (baris ketiga dilewati karena `category_id` 999 tidak ada), dan dua produk yang valid muncul di `/products`.
 
-> ⚠️ **Jika gagal:** error `exists:categories,id` yang selalu gagal untuk semua baris berarti `category_id` di CSV tidak cocok dengan ID kategori yang sebenarnya ada, cek lewat `php artisan tinker` dan `Category::pluck('id', 'name')`.
+> ⚠️ **Jika gagal:** kalau semua baris selalu ditolak, ada dua kemungkinan. Pertama, `category_id` di CSV tidak cocok dengan ID kategori yang benar-benar ada: cek lewat `php artisan tinker` dan `Category::pluck('id', 'name')`. Kedua, CSV disimpan dari Excel berlokalisasi Indonesia, yang sering memakai titik koma (`;`) sebagai pemisah dan menyisipkan karakter tak terlihat (BOM) di awal berkas, sehingga header `name` tidak terbaca. Simpan ulang sebagai "CSV UTF-8 (Comma delimited)" atau tulis berkas lewat editor teks biasa.
 
 ### Langkah 5: Memindahkan impor ke job antrean
 
-Impor beberapa baris selesai dalam hitungan detik, cukup dijalankan langsung seperti langkah sebelumnya. Begitu volumenya naik ke ribuan baris, proses yang sama bisa memakan waktu lama, dan pengguna terpaksa menunggu di depan browser tanpa tahu prosesnya masih berjalan atau tidak. Langkah ini memindahkan proses impor ke job antrean, supaya pengguna langsung mendapat respons sementara prosesnya berjalan di latar belakang.
+Cucian satu kaus bisa ditunggu di tempat. Cucian satu karung dititip: kamu dapat nota, lalu pulang, dan petugas mengerjakannya belakangan. Impor beberapa baris itu satu kaus, cukup dijalankan langsung seperti langkah sebelumnya. Impor ribuan baris itu satu karung: prosesnya bisa memakan waktu lama, dan pengguna terpaksa menunggu di depan browser tanpa tahu prosesnya masih berjalan atau tidak. Langkah ini memindahkan impor ke job antrean. `dispatch()` adalah memberikan nota ke rak, dan **worker** (`queue:work`) adalah petugas yang mengerjakan tumpukan nota itu.
 
 Branch baru dari `main` terbaru, misalnya `import-queue`:
 
@@ -467,13 +478,16 @@ class ProcessProductImport implements ShouldQueue
 
     public function handle(): void
     {
-        $rows = array_map('str_getcsv', file(Storage::path($this->csvPath)));
+        $lines = file(Storage::path($this->csvPath), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $rows = array_map('str_getcsv', $lines);
         $header = array_shift($rows);
 
         foreach ($rows as $row) {
-            $row = array_combine($header, $row);
+            if (count($row) !== count($header)) {
+                continue;
+            }
 
-            $validator = Validator::make($row, [
+            $validator = Validator::make(array_combine($header, $row), [
                 'name' => ['required', 'string'],
                 'category_id' => ['required', 'exists:categories,id'],
                 'price' => ['required', 'integer', 'min:0'],
@@ -491,7 +505,7 @@ class ProcessProductImport implements ShouldQueue
 }
 ```
 
-Loop validasi-dan-simpan dari `ReportController::import()` pindah ke metode `handle()` di atas, dengan path berkas CSV disimpan lewat constructor. `Storage::delete()` di akhir membersihkan berkas sementara setelah selesai diproses.
+Loop validasi-dan-simpan dari `ReportController::import()` pindah ke metode `handle()` di atas, dengan path berkas CSV dibawa lewat constructor. `Storage::delete()` di akhir membersihkan berkas sementara setelah selesai diproses.
 
 Isi `app/Http/Controllers/ReportController.php` menjadi:
 
@@ -502,6 +516,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessProductImport;
 use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -512,11 +527,11 @@ class ReportController extends Controller
     public function index(Request $request): View
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
         return view('reports.index', [
-            'totalPenjualan' => $transactions->sum('total'),
-            'jumlahTransaksi' => $transactions->count(),
+            'totalPenjualan' => $query->sum('total'),
+            'jumlahTransaksi' => $query->count(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
         ]);
@@ -525,12 +540,12 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         [$from, $to] = $this->resolveDateRange($request);
-        $transactions = $this->filteredTransactions($from, $to);
+        $query = $this->filteredQuery($from, $to);
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['ID', 'Tanggal', 'Kasir', 'Total']);
-            foreach ($transactions as $t) {
+            foreach ($query->lazyById() as $t) {
                 fputcsv($out, [$t->id, $t->created_at, $t->user->name, $t->total]);
             }
             fclose($out);
@@ -563,11 +578,10 @@ class ReportController extends Controller
         return [$from, $to];
     }
 
-    private function filteredTransactions($from, $to)
+    private function filteredQuery($from, $to): Builder
     {
         return Transaction::with('user')
-            ->whereBetween('created_at', [$from, $to])
-            ->get();
+            ->whereBetween('created_at', [$from, $to]);
     }
 }
 ```
@@ -584,7 +598,9 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 > ✅ **Checkpoint:** unggah CSV yang sama seperti langkah 4 lewat `/import`. **Yang diharapkan:** pesan "Impor sedang diproses di latar belakang." muncul seketika, tapi produk belum langsung bertambah di `/products`. Jalankan `php artisan queue:work --once` di terminal terpisah, lalu refresh `/products`: produk-produk dari CSV sekarang sudah tersimpan.
 
-> ⚠️ **Jika produk langsung muncul tanpa menjalankan `queue:work`:** periksa `QUEUE_CONNECTION` di `.env`, pastikan bertuliskan `database`, bukan `sync`. Kalau job tidak pernah diproses sama sekali walau `queue:work` sudah dijalankan, periksa apakah ada pesan error di terminal `queue:work` itu sendiri.
+> ⚠️ **Jika produk langsung muncul tanpa menjalankan `queue:work`:** periksa `QUEUE_CONNECTION` di `.env`, pastikan bertuliskan `database`, bukan `sync`. Dengan `sync`, job dikerjakan di tempat dan tidak pernah masuk antrean sungguhan, seperti kasir yang menyuruhmu menunggu cucian kering padahal kamu sudah memegang nota.
+
+> ⚠️ **Jika `queue:work` jalan tapi produk tidak bertambah:** job yang gagal dicatat di tabel `failed_jobs`. Lihat daftarnya dengan `php artisan queue:failed`, baca pesan errornya, perbaiki masalahnya, lalu jalankan ulang dengan `php artisan queue:retry all`.
 
 ### Langkah 6: Bersama, uji integrasi dan review kode
 
