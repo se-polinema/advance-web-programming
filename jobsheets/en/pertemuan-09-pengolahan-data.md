@@ -18,7 +18,7 @@ After completing this group jobsheet, you are able to:
 2. Export the report in three formats (CSV, Excel, PDF) and explain when each format fits.
 3. Measure and compare the memory usage of `get()` and `lazyById()` on a large dataset.
 4. Build a product import from a CSV file that validates each row, skips bad rows, and is safe to repeat (idempotent).
-5. Move the import into a queued job with `$tries` and `backoff`, and trace failed jobs through `failed_jobs`.
+5. Move the import into a queued job with `$tries`, `backoff`, and `$timeout`, inspect the job in the `jobs` table, and trace failed jobs through `failed_jobs`.
 
 ## B. Preparation and Prerequisites
 
@@ -1212,6 +1212,8 @@ class ProcessProductImport implements ShouldQueue
 
     public array $backoff = [10, 60];
 
+    public int $timeout = 60;
+
     public function __construct(private string $csvPath) {}
 
     public function handle(): void
@@ -1249,7 +1251,9 @@ class ProcessProductImport implements ShouldQueue
 
 The validate-and-save loop from `ReportController::import()` moves into the `handle()` method above, with the CSV file path carried through the constructor. The job only carries the path, not the file contents, so the payload in the `jobs` table stays small. `Storage::delete()` at the end cleans up the temporary file once it's been processed.
 
-Two new properties control the job's resilience. `$tries = 3` means the job is attempted at most 3 times. `$backoff = [10, 60]` means the wait before the second attempt is 10 seconds, and before the third attempt 60 seconds: like laundry staff who try again later when the washing machine is broken instead of giving up right away. If all attempts fail, the job is recorded in the `failed_jobs` table. Thanks to `updateOrCreate()` from the previous step, the job is safe to retry without creating duplicate products.
+Three new properties control the job's resilience. `$tries = 3` means the job is attempted at most 3 times. `$backoff = [10, 60]` means the wait before the second attempt is 10 seconds, and before the third attempt 60 seconds: like laundry staff who try again later when the washing machine is broken instead of giving up right away. `$timeout = 60` cancels a job that runs longer than 60 seconds. If all attempts fail, the job is recorded in the `failed_jobs` table. Thanks to `updateOrCreate()` from the previous step, the job is safe to retry without creating duplicate products.
+
+`$timeout` must be smaller than the `database` driver's `retry_after` (default 90 seconds, see `config/queue.php`). If it is the other way round, a job that is still running is considered stuck and picked up by a second worker, so it gets **processed twice**.
 
 Replace the contents of `app/Http/Controllers/ReportController.php` with:
 
@@ -1370,11 +1374,17 @@ git push -u origin import-queue
 
 Open a Pull Request to `main`, merge it, then everyone goes back to `main` and pulls.
 
-> ✅ **Checkpoint 1:** upload the same CSV as in step 7 via `/import`. **Expected:** the message "Import sedang diproses di background." appears instantly, but the products don't increase on `/products` yet. Run `php artisan queue:work --once` in a separate terminal, then refresh `/products`: the products from the CSV are now saved.
+> ✅ **Checkpoint 1:** upload the same CSV as in step 7 via `/import`. **Expected:** the message "Import sedang diproses di background." appears instantly, but the products don't increase on `/products` yet. Before running the worker, peek at the `jobs` table through `php artisan tinker`:
+>
+> ```php
+> DB::table('jobs')->get(['id', 'queue', 'attempts', 'reserved_at']);
+> ```
+>
+> There is one row with `attempts` 0 and `reserved_at` `null`: the job is waiting and has not been picked up by a worker. The `payload` column holds the name of the `ProcessProductImport` class and the CSV file path. Now run `php artisan queue:work --once` in a separate terminal, then refresh `/products`: the products from the CSV are now saved, and the row in the `jobs` table is gone. Also check `config('queue.connections.database.retry_after')` in tinker: it gives 90, larger than our job's `$timeout`.
 
 > ✅ **Checkpoint 2 (failed job test):** upload the CSV once more, then **delete** its uploaded file in `storage/app/private/imports/` before the worker runs. Run `php artisan queue:work` (without `--once`) and let it run for about 1.5 minutes: you will see the job fail, be retried after 10 seconds, be retried after 60 seconds, and then be declared failed. Stop the worker with `Ctrl+C`, then run `php artisan queue:failed`: the job is recorded there along with its time. Clean up with `php artisan queue:flush`.
 
-> ⚠️ **If the products appear immediately without running `queue:work`:** check `QUEUE_CONNECTION` in `.env`, make sure it says `database`, not `sync`. With `sync` the job runs in place and never enters a real queue, like a clerk telling you to wait until the laundry is dry even though you're already holding a ticket.
+> ⚠️ **If the products appear immediately without running `queue:work`:** check `QUEUE_CONNECTION` in `.env`, make sure it says `database`, not `sync`, then run `php artisan config:clear`. With `sync` the job runs in place and never enters a real queue, like a clerk telling you to wait until the laundry is dry even though you're already holding a ticket.
 
 > ⚠️ **If `queue:work` runs but no products are added:** failed jobs are recorded in the `failed_jobs` table. List them with `php artisan queue:failed`, read the error message, fix the problem, then run them again with `php artisan queue:retry all`. Also remember: a worker doesn't pick up new code automatically. After changing the job class, stop the worker with `Ctrl+C` and start it again (on a production server, the command is `php artisan queue:restart`).
 

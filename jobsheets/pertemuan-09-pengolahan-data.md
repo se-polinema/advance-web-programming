@@ -18,7 +18,7 @@ Setelah menyelesaikan jobsheet kelompok ini, kamu mampu:
 2. Meng-export laporan ke tiga format (CSV, Excel, PDF) dan menjelaskan kapan masing-masing format tepat dipakai.
 3. Mengukur dan membandingkan pemakaian memori `get()` dengan `lazyById()` pada dataset besar.
 4. Membangun import produk dari file CSV yang memvalidasi tiap row, melewati row yang cacat, dan aman diulang (idempotent).
-5. Memindahkan import ke queued job dengan `$tries` dan `backoff`, dan menelusuri job yang gagal lewat `failed_jobs`.
+5. Memindahkan import ke queued job dengan `$tries`, `backoff`, dan `$timeout`, memeriksa job di tabel `jobs`, dan menelusuri job yang gagal lewat `failed_jobs`.
 
 ## B. Persiapan dan Prasyarat
 
@@ -1212,6 +1212,8 @@ class ProcessProductImport implements ShouldQueue
 
     public array $backoff = [10, 60];
 
+    public int $timeout = 60;
+
     public function __construct(private string $csvPath) {}
 
     public function handle(): void
@@ -1249,7 +1251,9 @@ class ProcessProductImport implements ShouldQueue
 
 Loop validasi-dan-simpan dari `ReportController::import()` pindah ke metode `handle()` di atas, dengan path file CSV dibawa lewat constructor. Job hanya membawa path-nya, bukan isi file, supaya payload di tabel `jobs` tetap kecil. `Storage::delete()` di akhir membersihkan file sementara setelah selesai diproses.
 
-Dua property baru mengatur ketahanan job. `$tries = 3` berarti job dicoba maksimal 3 attempt. `$backoff = [10, 60]` berarti jeda sebelum attempt kedua 10 detik, sebelum attempt ketiga 60 detik: seperti petugas laundry yang mencoba lagi nanti kalau mesin cuci sedang rusak, bukan langsung menyerah. Kalau semua attempt gagal, job dicatat di tabel `failed_jobs`. Berkat `updateOrCreate()` dari langkah sebelumnya, job aman dicoba ulang tanpa membuat produk dobel.
+Tiga property baru mengatur ketahanan job. `$tries = 3` berarti job dicoba maksimal 3 attempt. `$backoff = [10, 60]` berarti jeda sebelum attempt kedua 10 detik, sebelum attempt ketiga 60 detik: seperti petugas laundry yang mencoba lagi nanti kalau mesin cuci sedang rusak, bukan langsung menyerah. `$timeout = 60` membatalkan job yang berjalan lebih dari 60 detik. Kalau semua attempt gagal, job dicatat di tabel `failed_jobs`. Berkat `updateOrCreate()` dari langkah sebelumnya, job aman dicoba ulang tanpa membuat produk dobel.
+
+`$timeout` harus lebih kecil daripada `retry_after` milik driver `database` (default 90 detik, lihat `config/queue.php`). Kalau terbalik, job yang masih berjalan dianggap macet dan diambil worker kedua, sehingga **diproses dobel**.
 
 Isi `app/Http/Controllers/ReportController.php` menjadi:
 
@@ -1370,11 +1374,17 @@ git push -u origin import-queue
 
 Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
 
-> ✅ **Checkpoint 1:** upload CSV yang sama seperti langkah 7 lewat `/import`. **Yang diharapkan:** pesan "Import sedang diproses di background." muncul seketika, tapi produk belum langsung bertambah di `/products`. Jalankan `php artisan queue:work --once` di terminal terpisah, lalu refresh `/products`: produk-produk dari CSV sekarang sudah tersimpan.
+> ✅ **Checkpoint 1:** upload CSV yang sama seperti langkah 7 lewat `/import`. **Yang diharapkan:** pesan "Import sedang diproses di background." muncul seketika, tapi produk belum langsung bertambah di `/products`. Sebelum menjalankan worker, intip tabel `jobs` lewat `php artisan tinker`:
+>
+> ```php
+> DB::table('jobs')->get(['id', 'queue', 'attempts', 'reserved_at']);
+> ```
+>
+> Ada satu row dengan `attempts` 0 dan `reserved_at` `null`: job menunggu dan belum diambil worker. Isi column `payload` memuat nama class `ProcessProductImport` dan path file CSV-nya. Sekarang jalankan `php artisan queue:work --once` di terminal terpisah, lalu refresh `/products`: produk-produk dari CSV sekarang sudah tersimpan, dan row di tabel `jobs` sudah hilang. Cek juga `config('queue.connections.database.retry_after')` di tinker: hasilnya 90, lebih besar daripada `$timeout` job kita.
 
 > ✅ **Checkpoint 2 (uji job gagal):** upload CSV sekali lagi, lalu **hapus** file hasil upload-nya di `storage/app/private/imports/` sebelum worker jalan. Jalankan `php artisan queue:work` (tanpa `--once`) dan biarkan sekitar 1,5 menit: kamu akan melihat job gagal, dicoba lagi setelah 10 detik, dicoba lagi setelah 60 detik, lalu dinyatakan gagal. Hentikan worker dengan `Ctrl+C`, lalu jalankan `php artisan queue:failed`: job tadi tercatat di sana beserta waktunya. Bersihkan dengan `php artisan queue:flush`.
 
-> ⚠️ **Jika produk langsung muncul tanpa menjalankan `queue:work`:** periksa `QUEUE_CONNECTION` di `.env`, pastikan bertuliskan `database`, bukan `sync`. Dengan `sync`, job dikerjakan di tempat dan tidak pernah masuk queue sungguhan, seperti kasir yang menyuruhmu menunggu cucian kering padahal kamu sudah memegang nota.
+> ⚠️ **Jika produk langsung muncul tanpa menjalankan `queue:work`:** periksa `QUEUE_CONNECTION` di `.env`, pastikan bertuliskan `database`, bukan `sync`, lalu jalankan `php artisan config:clear`. Dengan `sync`, job dikerjakan di tempat dan tidak pernah masuk queue sungguhan, seperti kasir yang menyuruhmu menunggu cucian kering padahal kamu sudah memegang nota.
 
 > ⚠️ **Jika `queue:work` jalan tapi produk tidak bertambah:** job yang gagal dicatat di tabel `failed_jobs`. Lihat daftarnya dengan `php artisan queue:failed`, baca pesan errornya, perbaiki masalahnya, lalu jalankan ulang dengan `php artisan queue:retry all`. Ingat juga: worker tidak otomatis memuat kode baru. Setelah mengubah class job, hentikan worker dengan `Ctrl+C` lalu jalankan lagi (di server production, perintahnya `php artisan queue:restart`).
 
