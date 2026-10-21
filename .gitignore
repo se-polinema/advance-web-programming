@@ -1,2 +1,5 @@
 # Personal Claude Code settings, machine-specific
 .claude/settings.local.json
+
+# Generated slide PDFs (build with the Marp command in CLAUDE.md)
+slides/**/*.pdf

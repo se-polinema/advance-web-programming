@@ -17,6 +17,7 @@
 - For genuinely central mechanisms (e.g. how a template engine works, how migrations form a history, how an index changes a query plan), add a dedicated concept-visualization slide using `.flow`/`.cols`, not just prose.
 - For spec-heavy topics (HTTP methods/status codes, Blade directives, Tailwind classes, Alpine attributes), give a brief in-deck summary plus a `.ref-link` to the official docs rather than reproducing the full spec.
 - Build via the Marp CLI Docker image, not `npx`: `docker run --rm --init -v "$PWD:/home/marp/app" -e LANG="$LANG" --entrypoint node marpteam/marp-cli /home/marp/.cli/marp-cli.js <file> --html|--pdf --allow-local-files -o <out>` (the image's entrypoint silently no-ops without the explicit `--entrypoint node .../marp-cli.js` script path).
+- Slide PDFs are generated output: they are git-ignored (`slides/**/*.pdf`), so build them locally for checks but never commit them.
 - Before considering a deck done: confirm id/en page counts match exactly, visually inspect every slide for overflow/clipping (`pdftoppm -r 60-80` per slide + `montage` into a grid + read the grid image), and grep-sweep for em-dashes and "buku"/"Bab N".
 
 ## Jobsheets (`jobsheets/pertemuan-NN-slug.md`)
