@@ -18,7 +18,8 @@ Setelah menyelesaikan jobsheet kelompok ini, kamu mampu:
 2. Membangun endpoint `GET /api/products` yang dilindungi token dan mengurasi bentuk responsnya lewat API Resource.
 3. Membangun endpoint `POST /api/transactions` yang membedakan penanganan galat 401 dan 422, dan mengonsumsi ketiga endpoint itu lewat klien HTTP sungguhan di luar siklus request web.
 4. Mendokumentasikan ketiga endpoint memakai spesifikasi OpenAPI.
-5. Memanggil endpoint JSON dari halaman web sendiri lewat `fetch` (AJAX): route di `web.php`, token CSRF, header `Accept: application/json`, dan penanganan status 201 dan 422.
+5. Merapikan desain API: pagination dengan batas, filter dan sort lewat query string, galat 404 JSON yang konsisten, dan rate limit pada login.
+6. Memanggil endpoint JSON dari halaman web sendiri lewat `fetch` (AJAX): route di `web.php`, token CSRF, header `Accept: application/json`, dan penanganan status 201 dan 422.
 
 ## B. Persiapan dan Prasyarat
 
@@ -664,7 +665,190 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 > ⚠️ **Jika panel pratinjau menampilkan pesan galat:** itu hampir selalu indentasi YAML yang salah (YAML memakai spasi, bukan tab, dan tiap level indentasi harus konsisten); bandingkan ulang lekukan tiap baris dengan contoh di atas.
 
-### Langkah 7: AJAX dari halaman web
+### Langkah 7: Merapikan desain API
+
+Endpoint `GET /api/products` dari Langkah 3 mengirim semua produk sekaligus. Untuk toko dengan ribuan produk, ini membuat respons besar dan lambat. Di langkah ini kamu menerapkan beberapa keputusan desain dari slide: daftar dipaginasi dengan batas, bisa difilter dan diurutkan lewat query string, galat 404 berbentuk JSON yang konsisten, dan endpoint login diberi rate limit supaya tebak password ditahan.
+
+Buat branch baru dari `main` terbaru, misalnya `api-design`:
+
+```bash
+git checkout main
+git pull
+git checkout -b api-design
+```
+
+Isi `app/Http/Controllers/Api/ProductController.php` menjadi. Parameter `category_id`, `q`, `sort`, dan `per_page` divalidasi dulu. Aturan `in:` pada `sort` adalah daftar putih, jadi input klien tidak pernah masuk langsung ke `orderBy()`, dan `max:100` pada `per_page` mencegah klien meminta ribuan row sekaligus:
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductResource;
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class ProductController extends Controller
+{
+    public function index(Request $request)
+    {
+        $request->validate([
+            'category_id' => ['sometimes', 'integer', 'exists:categories,id'],
+            'q' => ['sometimes', 'string', 'min:2'],
+            'sort' => ['sometimes', 'in:name,-name,price,-price'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $sort = $request->input('sort', 'name');
+        $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
+
+        $products = Product::with('category')
+            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
+            ->when($request->filled('q'), fn ($query) => $query->where('name', 'like', '%'.$request->input('q').'%'))
+            ->orderBy(ltrim($sort, '-'), $direction)
+            ->paginate($request->integer('per_page', 15))
+            ->withQueryString();
+
+        return ProductResource::collection($products);
+    }
+}
+```
+
+Isi `bootstrap/app.php` menjadi. Galat di `api/*` selalu berbentuk JSON, dan route yang tidak ada dijawab `404` dengan bentuk pesan yang sama seperti galat lain:
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+            }
+        });
+    })->create();
+```
+
+Rate limiter didefinisikan di `AppServiceProvider`. Limiter `api` membatasi 60 request per menit per pengguna (atau per IP kalau belum login), sedangkan limiter `login` jauh lebih ketat: 5 percobaan per menit untuk kombinasi email dan IP yang sama. Isi `app/Providers/AppServiceProvider.php` menjadi:
+
+```php
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(5)->by($request->input('email').'|'.$request->ip());
+        });
+    }
+}
+```
+
+Pasang limiter itu pada route. Isi `routes/api.php` menjadi:
+
+```php
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\TransactionController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+});
+```
+
+```bash
+git add .
+git commit -m "rapikan desain api: pagination, filter, galat konsisten, rate limit"
+git push -u origin api-design
+```
+
+Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
+
+> ✅ **Checkpoint:** ambil token baru lewat `/api/login` (Langkah 2), lalu minta lima produk termurah terakhir (urut harga menurun):
+> ```bash
+> curl -i -H "Accept: application/json" \
+>   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
+>   "http://127.0.0.1:8000/api/products?per_page=5&sort=-price"
+> ```
+> **Yang diharapkan:** status `200`, `data` berisi paling banyak 5 produk yang diurutkan dari harga tertinggi, serta `links` dan `meta` (`meta.per_page` bernilai 5 dan `meta.total` berisi jumlah seluruh produk).
+
+> ✅ **Checkpoint:** minta halaman dengan `per_page` yang melebihi batas:
+> ```bash
+> curl -i -H "Accept: application/json" \
+>   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
+>   "http://127.0.0.1:8000/api/products?per_page=500"
+> ```
+> **Yang diharapkan:** status `422` dengan `errors.per_page`, bukan daftar produk. Lalu coba route yang tidak ada:
+> ```bash
+> curl -i -H "Accept: application/json" http://127.0.0.1:8000/api/tidak-ada
+> ```
+> **Yang diharapkan:** status `404` dengan isi `{"message":"Resource tidak ditemukan."}`.
+
+> ✅ **Checkpoint:** kirim enam kali login dengan kata sandi yang salah:
+> ```bash
+> for i in 1 2 3 4 5 6; do
+>   curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/login \
+>     -H "Accept: application/json" -H "Content-Type: application/json" \
+>     -d '{"email":"kasir@pos.test","password":"salah"}'
+> done
+> ```
+> **Yang diharapkan:** lima baris pertama `401`, baris keenam `429` (Too Many Requests). Tunggu satu menit, percobaan berikutnya kembali dijawab `401`.
+
+> ⚠️ **Jika gagal:** (a) `per_page=500` malah mengembalikan daftar atau redirect: header `Accept: application/json` belum disertakan, sehingga `validate()` mengarahkan balik alih-alih mengembalikan 422; (b) `links` dan `meta` tidak muncul: pastikan memakai `->paginate()`, bukan `->get()`; (c) tidak pernah muncul `429`: nama limiter di `routes/api.php` (`throttle:login`) harus sama dengan nama di `RateLimiter::for('login', ...)`; (d) route tidak ada tetap menampilkan halaman HTML: pastikan baris `api: __DIR__.'/../routes/api.php'` ada di `bootstrap/app.php`. Catatan: `php artisan api:demo` dari Langkah 5 tetap berjalan, hanya sekarang ia melihat 15 produk pertama karena daftar sudah dipaginasi.
+
+### Langkah 8: AJAX dari halaman web
 
 Token Sanctum dipakai klien di luar browser. Halaman web Simple POS sendiri juga bisa memanggil server di background lewat `fetch`, tanpa reload, memakai sesi cookie yang sama seperti di Pertemuan 7. Bedanya dengan API di Langkah 1-6: route-nya ada di `routes/web.php` (bukan `api.php`), request yang mengubah data perlu token CSRF, dan klien harus meminta JSON lewat header `Accept` supaya galat validasi kembali sebagai JSON 422, bukan redirect.
 
@@ -888,18 +1072,19 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 > ⚠️ **Jika gagal:** (a) status **419 Page Expired**: tag `<meta name="csrf-token">` belum ada di layout, atau baris `'X-CSRF-TOKEN'` salah ketik; (b) status **405 Method Not Allowed**: pastikan route `quick-categories.store` memakai `Route::post`; (c) status **401** padahal sudah login: pastikan kamu login lewat halaman web, bukan memakai token Sanctum, dan route ada di `web.php`; (d) status **403** atau halaman tidak terbuka: akun yang dipakai bukan admin; (e) error `Alpine is not defined` di console: jalankan `npm run dev` (Pertemuan 3).
 
-### Langkah 8: Bersama, uji integrasi dan review kode
+### Langkah 9: Bersama, uji integrasi dan review kode
 
-Semua anggota `git checkout main && git pull`, jalankan `php artisan migrate:fresh --seed`, lalu ulangi setiap checkpoint di atas secara berurutan: login, produk tanpa token (401), produk dengan token, transaksi valid (201), transaksi tidak valid (422), `php artisan api:demo`, pratinjau `docs/openapi.yaml` di Swagger editor, dan halaman `/quick-categories` (201 dan 422 di tab Network). Setiap checkpoint harus menunjukkan hasil yang sama persis di laptop setiap anggota.
+Semua anggota `git checkout main && git pull`, jalankan `php artisan migrate:fresh --seed`, lalu ulangi setiap checkpoint di atas secara berurutan: login, produk tanpa token (401), produk dengan token, transaksi valid (201), transaksi tidak valid (422), `php artisan api:demo`, pratinjau `docs/openapi.yaml` di Swagger editor, produk dengan `per_page` dan `sort`, rate limit login (429), dan halaman `/quick-categories` (201 dan 422 di tab Network). Setiap checkpoint harus menunjukkan hasil yang sama persis di laptop setiap anggota.
 
 > ✅ **Checkpoint:** seluruh checkpoint di atas berhasil diulang dan menunjukkan hasil yang sama di laptop setiap anggota kelompok.
 
-### Langkah 9: Tantangan mandiri kelompok dan commit `increment 10`
+### Langkah 10: Tantangan mandiri kelompok dan commit `increment 10`
 
 Bagi tugas berikut di antara anggota, supaya setiap anggota tercatat minimal satu commit bermakna lewat Pull Request mandiri.
 
 - Tambahkan endpoint baru `GET /api/categories`, lengkap dengan `CategoryResource`-nya.
 - Lengkapi dokumentasi OpenAPI untuk endpoint `GET /api/products`, termasuk skema query parameter untuk paginasi.
+- Pindahkan semua route API ke prefix `/api/v1` (misalnya dengan `Route::prefix('v1')`), lalu perbarui `php artisan api:demo` dan `docs/openapi.yaml` supaya tetap cocok.
 - Ubah `php artisan api:demo` agar mencoba login dengan kata sandi yang salah lebih dulu, lalu amati bagaimana kode itu berhenti pada langkah pertama alih-alih melanjutkan dengan token kosong.
 - Uji ketiga endpoint lewat Postman atau Insomnia (bukan `curl`), lalu tuliskan satu paragraf perbandingan pengalamannya dengan `curl` di `docs/openapi.yaml` sebagai komentar YAML.
 
@@ -922,6 +1107,7 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 - Link repositori GitHub kelompok.
 - Screenshot terminal yang menampilkan output `php artisan api:demo` secara lengkap.
 - Screenshot panel pratinjau Swagger editor menampilkan `docs/openapi.yaml`.
+- Output `curl` yang menampilkan respons `GET /api/products` berpaginasi (ada `links` dan `meta`) dan satu respons `429` dari login.
 - Screenshot DevTools tab Network pada `/quick-categories` yang menampilkan request `POST` berstatus 201 dan satu request berstatus 422.
 - Output `git log --pretty="%h %an %s"` yang menunjukkan minimal satu commit per anggota.
 - Tabel ringkas tantangan mandiri: anggota, tantangan yang dikerjakan, dan link Pull Request.
@@ -930,7 +1116,7 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 
 | Komponen | Bobot | Kriteria Lengkap (100%) | Kriteria Minimum |
 |---|---|---|---|
-| Langkah kerja tuntas (kelompok) | 40% | Langkah 1-8 selesai: login, produk, transaksi, klien HTTP, OpenAPI, dan AJAX kategori cepat berfungsi sesuai checkpoint | Sebagian besar langkah selesai, minimal login dan satu endpoint terproteksi berjalan |
+| Langkah kerja tuntas (kelompok) | 40% | Langkah 1-9 selesai: login, produk, transaksi, klien HTTP, OpenAPI, desain API rapi (pagination, galat, rate limit), dan AJAX kategori cepat berfungsi sesuai checkpoint | Sebagian besar langkah selesai, minimal login dan satu endpoint terproteksi berjalan |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna dari tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
 | Kerapian repositori dan commit | 10% | Pesan `increment 10` persis, tanpa menyertakan `vendor/`, `node_modules/`, `.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
 | Checkpoint terverifikasi (kelompok) | 25% | Screenshot `api:demo`, Swagger editor, dan tab Network (201 dan 422) lengkap dan menunjukkan hasil yang benar | Sebagian checkpoint terbukti |

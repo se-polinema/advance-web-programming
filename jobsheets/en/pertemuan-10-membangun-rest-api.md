@@ -18,7 +18,8 @@ After completing this group jobsheet, you'll be able to:
 2. Build a `GET /api/products` endpoint protected by a token, curating its response shape with an API Resource.
 3. Build a `POST /api/transactions` endpoint that distinguishes handling 401 and 422 errors, and consume all three endpoints from a real HTTP client outside the web request cycle.
 4. Document all three endpoints using the OpenAPI specification.
-5. Call a JSON endpoint from your own web page through `fetch` (AJAX): a route in `web.php`, the CSRF token, the `Accept: application/json` header, and handling the 201 and 422 statuses.
+5. Tidy the API design: pagination with a cap, filtering and sorting through the query string, a consistent JSON 404 error, and a rate limit on login.
+6. Call a JSON endpoint from your own web page through `fetch` (AJAX): a route in `web.php`, the CSRF token, the `Accept: application/json` header, and handling the 201 and 422 statuses.
 
 ## B. Preparation and Prerequisites
 
@@ -664,7 +665,190 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ⚠️ **If the preview panel shows an error:** it's almost always wrong YAML indentation (YAML uses spaces, not tabs, and every indentation level must be consistent); compare each line's indentation against the example above again.
 
-### Step 7: AJAX from a web page
+### Step 7: Tidying the API design
+
+The `GET /api/products` endpoint from Step 3 sends every product at once. For a shop with thousands of products, that makes the response large and slow. In this step you apply several design decisions from the slides: the list is paginated with a cap, can be filtered and sorted through the query string, the 404 error has a consistent JSON shape, and the login endpoint gets a rate limit so password guessing is slowed down.
+
+Create a new branch from the latest `main`, for example `api-design`:
+
+```bash
+git checkout main
+git pull
+git checkout -b api-design
+```
+
+Change `app/Http/Controllers/Api/ProductController.php` to. The `category_id`, `q`, `sort`, and `per_page` parameters are validated first. The `in:` rule on `sort` is an allow list, so client input never goes straight into `orderBy()`, and `max:100` on `per_page` stops a client from asking for thousands of rows at once:
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductResource;
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class ProductController extends Controller
+{
+    public function index(Request $request)
+    {
+        $request->validate([
+            'category_id' => ['sometimes', 'integer', 'exists:categories,id'],
+            'q' => ['sometimes', 'string', 'min:2'],
+            'sort' => ['sometimes', 'in:name,-name,price,-price'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $sort = $request->input('sort', 'name');
+        $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
+
+        $products = Product::with('category')
+            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', $request->integer('category_id')))
+            ->when($request->filled('q'), fn ($query) => $query->where('name', 'like', '%'.$request->input('q').'%'))
+            ->orderBy(ltrim($sort, '-'), $direction)
+            ->paginate($request->integer('per_page', 15))
+            ->withQueryString();
+
+        return ProductResource::collection($products);
+    }
+}
+```
+
+Change `bootstrap/app.php` to. Errors under `api/*` are always JSON, and a route that doesn't exist is answered with a `404` in the same message shape as other errors:
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+            }
+        });
+    })->create();
+```
+
+The rate limiters are defined in `AppServiceProvider`. The `api` limiter allows 60 requests per minute per user (or per IP when not logged in), while the `login` limiter is much stricter: 5 attempts per minute for the same email and IP combination. Change `app/Providers/AppServiceProvider.php` to:
+
+```php
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(5)->by($request->input('email').'|'.$request->ip());
+        });
+    }
+}
+```
+
+Attach the limiters to the routes. Change `routes/api.php` to:
+
+```php
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\TransactionController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+});
+```
+
+```bash
+git add .
+git commit -m "rapikan desain api: pagination, filter, galat konsisten, rate limit"
+git push -u origin api-design
+```
+
+Open a Pull Request to `main`, merge it, then everyone goes back to `main` and pulls.
+
+> ✅ **Checkpoint:** get a fresh token through `/api/login` (Step 2), then ask for the five most expensive products (price descending):
+> ```bash
+> curl -i -H "Accept: application/json" \
+>   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
+>   "http://127.0.0.1:8000/api/products?per_page=5&sort=-price"
+> ```
+> **Expected:** status `200`, `data` holds at most 5 products ordered from the highest price, plus `links` and `meta` (`meta.per_page` is 5 and `meta.total` holds the total number of products).
+
+> ✅ **Checkpoint:** ask for a page with a `per_page` over the cap:
+> ```bash
+> curl -i -H "Accept: application/json" \
+>   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
+>   "http://127.0.0.1:8000/api/products?per_page=500"
+> ```
+> **Expected:** status `422` with `errors.per_page`, not a product list. Then try a route that doesn't exist:
+> ```bash
+> curl -i -H "Accept: application/json" http://127.0.0.1:8000/api/tidak-ada
+> ```
+> **Expected:** status `404` with the body `{"message":"Resource tidak ditemukan."}`.
+
+> ✅ **Checkpoint:** send six logins with a wrong password:
+> ```bash
+> for i in 1 2 3 4 5 6; do
+>   curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/login \
+>     -H "Accept: application/json" -H "Content-Type: application/json" \
+>     -d '{"email":"kasir@pos.test","password":"salah"}'
+> done
+> ```
+> **Expected:** the first five lines are `401`, the sixth is `429` (Too Many Requests). Wait a minute, and the next attempt is answered with `401` again.
+
+> ⚠️ **If it fails:** (a) `per_page=500` returns a list or a redirect: the `Accept: application/json` header wasn't sent, so `validate()` redirects back instead of returning 422; (b) `links` and `meta` don't appear: make sure you use `->paginate()`, not `->get()`; (c) `429` never appears: the limiter name in `routes/api.php` (`throttle:login`) must match the name in `RateLimiter::for('login', ...)`; (d) a route that doesn't exist still shows an HTML page: make sure the line `api: __DIR__.'/../routes/api.php'` is in `bootstrap/app.php`. Note: `php artisan api:demo` from Step 5 still runs, it just now sees the first 15 products because the list is paginated.
+
+### Step 8: AJAX from a web page
 
 A Sanctum token is used by clients outside the browser. The Simple POS web pages can also call the server in the background through `fetch`, with no reload, using the same session cookie as in Meeting 7. The difference from the API in Steps 1-6: the route lives in `routes/web.php` (not `api.php`), a request that changes data needs a CSRF token, and the client must ask for JSON through the `Accept` header so validation errors come back as a 422 JSON response, not a redirect.
 
@@ -888,18 +1072,19 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ⚠️ **If it fails:** (a) status **419 Page Expired**: the `<meta name="csrf-token">` tag is missing from the layout, or the `'X-CSRF-TOKEN'` line has a typo; (b) status **405 Method Not Allowed**: make sure the `quick-categories.store` route uses `Route::post`; (c) status **401** even though you're logged in: make sure you logged in through the web page, not with a Sanctum token, and that the route is in `web.php`; (d) status **403** or the page won't open: the account used isn't an admin; (e) a console error `Alpine is not defined`: run `npm run dev` (Meeting 3).
 
-### Step 8: Together, integration test and code review
+### Step 9: Together, integration test and code review
 
-Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, previewing `docs/openapi.yaml` in the Swagger editor, and the `/quick-categories` page (201 and 422 in the Network tab). Every checkpoint must show exactly the same result on each member's laptop.
+Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, previewing `docs/openapi.yaml` in the Swagger editor, products with `per_page` and `sort`, the login rate limit (429), and the `/quick-categories` page (201 and 422 in the Network tab). Every checkpoint must show exactly the same result on each member's laptop.
 
 > ✅ **Checkpoint:** every checkpoint above is repeated successfully and shows the same result on every group member's laptop.
 
-### Step 9: Group independent challenges and the `increment 10` commit
+### Step 10: Group independent challenges and the `increment 10` commit
 
 Split the following tasks among the group's members, so each member gets at least one meaningful commit recorded through their own Pull Request.
 
 - Add a new `GET /api/categories` endpoint, complete with its own `CategoryResource`.
 - Complete the OpenAPI documentation for the `GET /api/products` endpoint, including a query parameter schema for pagination.
+- Move all API routes under the `/api/v1` prefix (for example with `Route::prefix('v1')`), then update `php artisan api:demo` and `docs/openapi.yaml` so they still match.
 - Change `php artisan api:demo` to try logging in with the wrong password first, then observe how the code stops at the first step instead of continuing with an empty token.
 - Test all three endpoints via Postman or Insomnia (not `curl`), then write one paragraph comparing that experience to `curl` as a YAML comment in `docs/openapi.yaml`.
 
@@ -922,6 +1107,7 @@ Submit the following in the format your instructor requests:
 - Link to your group's GitHub repository.
 - A screenshot of the terminal showing the full output of `php artisan api:demo`.
 - A screenshot of the Swagger editor preview panel showing `docs/openapi.yaml`.
+- The `curl` output showing a paginated `GET /api/products` response (with `links` and `meta`) and one `429` response from login.
 - A screenshot of DevTools on the Network tab at `/quick-categories` showing a `POST` request with status 201 and one with status 422.
 - Output of `git log --pretty="%h %an %s"` showing at least one commit per member.
 - A short table of independent challenges: member, challenge worked on, and Pull Request link.
@@ -930,7 +1116,7 @@ Submit the following in the format your instructor requests:
 
 | Component | Weight | Full Marks (100%) | Minimum Marks |
 |---|---|---|---|
-| Work steps completed (group) | 40% | Steps 1-8 done: login, products, transactions, HTTP client, OpenAPI, and AJAX quick categories all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
+| Work steps completed (group) | 40% | Steps 1-9 done: login, products, transactions, HTTP client, OpenAPI, a tidy API design (pagination, errors, rate limit), and AJAX quick categories all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
 | Per-member contribution (individual) | 25% | At least one meaningful commit from each member, matching the task-division table | Commits exist but are small or their relevance is unclear |
 | Repository and commit hygiene | 10% | The `increment 10` message is exact, no `vendor/`, `node_modules/`, `.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
 | Checkpoints verified (group) | 25% | Screenshots of `api:demo`, the Swagger editor, and the Network tab (201 and 422) are complete and show correct results | Some checkpoints proven |
