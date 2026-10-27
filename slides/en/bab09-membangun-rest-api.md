@@ -445,7 +445,38 @@ Only the fields sent change.
 </div>
 
 <div class="tip-box">
-In Laravel, PATCH validation rules usually use <code>sometimes</code> so fields that aren't sent are not treated as required.
+PATCH sends only some fields, so its validation rules need adjusting. See the next slide.
+</div>
+
+---
+
+## PATCH Validation: Use `sometimes`
+
+<div class="cols">
+<div>
+
+**Without `sometimes`**
+```php
+'title' => ['required', 'string'],
+'body'  => ['required', 'string'],
+```
+`PATCH {"title": "New"}` gives **422**: "The body field is required", even though the client only wanted to change the title.
+
+</div>
+<div>
+
+**With `sometimes`**
+```php
+'title' => ['sometimes', 'required', 'string'],
+'body'  => ['sometimes', 'required', 'string'],
+```
+`PATCH {"title": "New"}` gives **200**. `body` isn't sent, so it isn't checked and keeps its old value.
+
+</div>
+</div>
+
+<div class="tip-box">
+<code>sometimes</code> means "check this field only if it is sent". When a field is sent, <code>required</code> still applies: <code>{"title": ""}</code> is still rejected with 422.
 </div>
 
 ---

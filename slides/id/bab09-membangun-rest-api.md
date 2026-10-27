@@ -445,7 +445,38 @@ Hanya field yang dikirim yang berubah.
 </div>
 
 <div class="tip-box">
-Di Laravel, aturan validasi PATCH biasanya memakai <code>sometimes</code> supaya field yang tidak dikirim tidak dianggap wajib.
+PATCH hanya mengirim sebagian field, jadi aturan validasinya perlu disesuaikan. Lihat slide berikutnya.
+</div>
+
+---
+
+## Validasi PATCH: Gunakan `sometimes`
+
+<div class="cols">
+<div>
+
+**Tanpa `sometimes`**
+```php
+'title' => ['required', 'string'],
+'body'  => ['required', 'string'],
+```
+`PATCH {"title": "Baru"}` menghasilkan **422**: "The body field is required", padahal klien hanya ingin mengubah judul.
+
+</div>
+<div>
+
+**Dengan `sometimes`**
+```php
+'title' => ['sometimes', 'required', 'string'],
+'body'  => ['sometimes', 'required', 'string'],
+```
+`PATCH {"title": "Baru"}` menghasilkan **200**. `body` tidak dikirim, jadi tidak diperiksa dan isinya tidak berubah.
+
+</div>
+</div>
+
+<div class="tip-box">
+<code>sometimes</code> artinya "periksa field ini hanya kalau dikirim". Kalau field dikirim, <code>required</code> tetap berlaku: <code>{"title": ""}</code> tetap ditolak dengan 422.
 </div>
 
 ---
