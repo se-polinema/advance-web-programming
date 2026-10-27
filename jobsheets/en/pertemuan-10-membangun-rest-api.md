@@ -18,6 +18,7 @@ After completing this group jobsheet, you'll be able to:
 2. Build a `GET /api/products` endpoint protected by a token, curating its response shape with an API Resource.
 3. Build a `POST /api/transactions` endpoint that distinguishes handling 401 and 422 errors, and consume all three endpoints from a real HTTP client outside the web request cycle.
 4. Document all three endpoints using the OpenAPI specification.
+5. Call a JSON endpoint from your own web page through `fetch` (AJAX): a route in `web.php`, the CSRF token, the `Accept: application/json` header, and handling the 201 and 422 statuses.
 
 ## B. Preparation and Prerequisites
 
@@ -663,13 +664,237 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ⚠️ **If the preview panel shows an error:** it's almost always wrong YAML indentation (YAML uses spaces, not tabs, and every indentation level must be consistent); compare each line's indentation against the example above again.
 
-### Step 7: Together, integration test and code review
+### Step 7: AJAX from a web page
 
-Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, and previewing `docs/openapi.yaml` in the Swagger editor. Every checkpoint must show exactly the same result on each member's laptop.
+A Sanctum token is used by clients outside the browser. The Simple POS web pages can also call the server in the background through `fetch`, with no reload, using the same session cookie as in Meeting 7. The difference from the API in Steps 1-6: the route lives in `routes/web.php` (not `api.php`), a request that changes data needs a CSRF token, and the client must ask for JSON through the `Accept` header so validation errors come back as a 422 JSON response, not a redirect.
+
+The feature: a `/quick-categories` page for admins. A form adds a category through `fetch`, the category list grows with no reload, and validation errors appear under the input.
+
+Create a new branch from the latest `main`, for example `ajax-quick-category`, then create the controller and the view through artisan:
+
+```bash
+git checkout main
+git pull
+git checkout -b ajax-quick-category
+php artisan make:controller QuickCategoryController
+php artisan make:view quick-categories.index
+```
+
+`Category::create()` needs `$fillable` (Meeting 6), and the `Category` model doesn't have one yet. Change `app/Models/Category.php` to:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Category extends Model
+{
+    protected $fillable = ['name'];
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+}
+```
+
+The browser needs to know the CSRF token of the active session. The usual way: put the token in a `<meta>` tag in the layout, then let JavaScript read it from there. Change `resources/views/layouts/app.blade.php` to:
+
+```php
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', 'Simple POS')</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body>
+    <x-nav />
+    <main>@yield('content')</main>
+</body>
+</html>
+```
+
+Change `routes/web.php` to (the two `quick-categories` routes are added inside the `role:admin` group, so only admins can open this page):
+
+```php
+<?php
+
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\QuickCategoryController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TransactionController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return redirect()->route('pos.create');
+});
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'create'])->name('login');
+    Route::post('/login', [LoginController::class, 'store']);
+});
+
+Route::post('/logout', [LoginController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('logout');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/pos', [TransactionController::class, 'create'])->name('pos.create');
+    Route::post('/pos', [TransactionController::class, 'store'])->name('transactions.store');
+    Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+
+    Route::middleware('role:admin')->group(function () {
+        Route::resource('categories', CategoryController::class)->except('show');
+        Route::resource('products', ProductController::class)->except(['show', 'destroy']);
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/export/csv', [ReportController::class, 'exportCsv'])->name('reports.export.csv');
+        Route::get('/reports/export/xlsx', [ReportController::class, 'exportExcel'])->name('reports.export.xlsx');
+        Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
+        Route::get('/import', [ReportController::class, 'importForm'])->name('import.create');
+        Route::post('/import', [ReportController::class, 'import'])->name('import.store');
+        Route::get('/quick-categories', [QuickCategoryController::class, 'index'])->name('quick-categories.index');
+        Route::post('/quick-categories', [QuickCategoryController::class, 'store'])->name('quick-categories.store');
+    });
+});
+```
+
+Change `app/Http/Controllers/QuickCategoryController.php` to. The `store` action validates with `validate()` as in Meeting 6, then returns JSON with the `201 Created` status code:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class QuickCategoryController extends Controller
+{
+    public function index(): View
+    {
+        return view('quick-categories.index', [
+            'categories' => Category::orderBy('name')->get(),
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
+        ]);
+
+        $category = Category::create($data);
+
+        return response()->json($category, 201);
+    }
+}
+```
+
+Change `resources/views/quick-categories/index.blade.php` to. The Alpine component inside `x-data` sends `fetch` with three headers (`Accept`, `Content-Type`, `X-CSRF-TOKEN`), then reads `res.status` before reading the response body:
+
+```php
+@extends('layouts.app')
+
+@section('title', 'Kategori Cepat')
+
+@section('content')
+    <h1 class="text-lg font-semibold mb-4">Tambah Kategori Cepat</h1>
+
+    <div x-data="{
+        name: '',
+        errors: {},
+        categories: {{ \Illuminate\Support\Js::from($categories) }},
+        loading: false,
+
+        async submit() {
+            if (this.loading) return;
+            this.loading = true;
+            this.errors = {};
+
+            try {
+                const meta = document.head.querySelector('meta[name=csrf-token]');
+                const res = await fetch('{{ route('quick-categories.store') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': meta.content,
+                    },
+                    body: JSON.stringify({ name: this.name }),
+                });
+
+                if (res.status === 201) {
+                    this.categories.push(await res.json());
+                    this.name = '';
+                } else if (res.status === 422) {
+                    this.errors = (await res.json()).errors;
+                } else if (res.status === 401 || res.status === 419) {
+                    location.reload();
+                } else {
+                    this.errors = { name: ['Terjadi kesalahan, coba lagi.'] };
+                }
+            } catch (e) {
+                this.errors = { name: ['Gagal terhubung ke server.'] };
+            } finally {
+                this.loading = false;
+            }
+        },
+    }" class="max-w-md">
+        <form @submit.prevent="submit()" class="flex gap-2 items-start mb-4">
+            <div class="flex-1">
+                <input type="text" x-model="name" placeholder="Nama kategori baru"
+                       class="w-full border rounded-md px-3 py-2 text-sm">
+                <p x-text="errors.name?.[0]" class="text-sm text-red-600 mt-1"></p>
+            </div>
+            <button type="submit" :disabled="loading"
+                    class="bg-slate-900 text-white px-4 py-2 rounded-md text-sm disabled:opacity-50">
+                <span x-show="!loading">Tambah</span>
+                <span x-show="loading">Mengirim...</span>
+            </button>
+        </form>
+
+        <ul class="list-disc pl-5 text-sm">
+            <template x-for="c in categories" :key="c.id">
+                <li x-text="c.name"></li>
+            </template>
+        </ul>
+    </div>
+@endsection
+```
+
+`@submit.prevent` stops the form from submitting and the page from reloading. `:disabled="loading"` stops a category from being saved twice if the button is clicked twice.
+
+```bash
+git add .
+git commit -m "tambah halaman kategori cepat dengan ajax"
+git push -u origin ajax-quick-category
+```
+
+Open a Pull Request to `main`, merge it, then everyone goes back to `main` and pulls.
+
+> ✅ **Checkpoint:** log in as admin, open `/quick-categories`, then open DevTools (F12) on the **Network** tab, filter **Fetch/XHR**. Type `Minuman Dingin` and click **Tambah**. **Expected:** one `quick-categories` request appears with method `POST` and status **201**; the **Response** tab holds the new category's JSON; the name appears in the list with no page reload (no new request of type `document`).
+
+> ✅ **Checkpoint:** empty the input and click **Tambah**. **Expected:** the `POST` request has status **422**, the **Response** tab holds `{"message": ..., "errors": {"name": [...]}}`, and a red error message appears under the input. Also try sending `Minuman Dingin` once more: the `unique` rule rejects it with 422.
+
+> ✅ **Checkpoint (experiment):** in `resources/views/quick-categories/index.blade.php`, temporarily delete the line `'Accept': 'application/json',`, save, reload the page, then submit the form with an empty input. **Expected:** in the **Network** tab the `POST` request has status **302** (a redirect to the previous page), and the error message under the input changes to "Gagal terhubung ke server." because `res.json()` fails to read HTML. Put the line back when you're done.
+
+> ⚠️ **If it fails:** (a) status **419 Page Expired**: the `<meta name="csrf-token">` tag is missing from the layout, or the `'X-CSRF-TOKEN'` line has a typo; (b) status **405 Method Not Allowed**: make sure the `quick-categories.store` route uses `Route::post`; (c) status **401** even though you're logged in: make sure you logged in through the web page, not with a Sanctum token, and that the route is in `web.php`; (d) status **403** or the page won't open: the account used isn't an admin; (e) a console error `Alpine is not defined`: run `npm run dev` (Meeting 3).
+
+### Step 8: Together, integration test and code review
+
+Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, previewing `docs/openapi.yaml` in the Swagger editor, and the `/quick-categories` page (201 and 422 in the Network tab). Every checkpoint must show exactly the same result on each member's laptop.
 
 > ✅ **Checkpoint:** every checkpoint above is repeated successfully and shows the same result on every group member's laptop.
 
-### Step 8: Group independent challenges and the `increment 10` commit
+### Step 9: Group independent challenges and the `increment 10` commit
 
 Split the following tasks among the group's members, so each member gets at least one meaningful commit recorded through their own Pull Request.
 
@@ -697,6 +922,7 @@ Submit the following in the format your instructor requests:
 - Link to your group's GitHub repository.
 - A screenshot of the terminal showing the full output of `php artisan api:demo`.
 - A screenshot of the Swagger editor preview panel showing `docs/openapi.yaml`.
+- A screenshot of DevTools on the Network tab at `/quick-categories` showing a `POST` request with status 201 and one with status 422.
 - Output of `git log --pretty="%h %an %s"` showing at least one commit per member.
 - A short table of independent challenges: member, challenge worked on, and Pull Request link.
 
@@ -704,7 +930,7 @@ Submit the following in the format your instructor requests:
 
 | Component | Weight | Full Marks (100%) | Minimum Marks |
 |---|---|---|---|
-| Work steps completed (group) | 40% | Steps 1-7 done: login, products, transactions, HTTP client, and OpenAPI all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
+| Work steps completed (group) | 40% | Steps 1-8 done: login, products, transactions, HTTP client, OpenAPI, and AJAX quick categories all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
 | Per-member contribution (individual) | 25% | At least one meaningful commit from each member, matching the task-division table | Commits exist but are small or their relevance is unclear |
 | Repository and commit hygiene | 10% | The `increment 10` message is exact, no `vendor/`, `node_modules/`, `.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
-| Checkpoints verified (group) | 25% | Screenshots of `api:demo` and the Swagger editor are complete and show correct results | Some checkpoints proven |
+| Checkpoints verified (group) | 25% | Screenshots of `api:demo`, the Swagger editor, and the Network tab (201 and 422) are complete and show correct results | Some checkpoints proven |

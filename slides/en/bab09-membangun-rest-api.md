@@ -160,8 +160,10 @@ Consistent endpoints, token authentication, and documentation you can trust
 
 3. Document an API contract using the OpenAPI specification, so other teams don't need to read controller code to know how to call it
 
+4. Call a JSON endpoint from your own web page (AJAX) safely, including the CSRF token and validation error handling
+
 <div class="tip-box">
-This deck covers concepts. Applying REST endpoints, Sanctum, and OpenAPI to Simple POS happens in the practicum jobsheet.
+This deck covers concepts. Applying REST endpoints, Sanctum, OpenAPI, and AJAX to Simple POS happens in the practicum jobsheet.
 </div>
 
 ---
@@ -397,15 +399,219 @@ Plain text notes in a README go stale fast, because nothing forces anyone to upd
 
 ---
 
+<!-- _class: divider -->
+
+# Part 4
+## AJAX: Your Own Page Calls a JSON Endpoint
+
+---
+
+## What Is AJAX?
+
+<div class="flow">
+  <div class="box">Click a button</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">fetch()</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Route + controller</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">JSON response</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Alpine updates the page</div>
+</div>
+
+- The page calls the server in the background, with no reload
+- The server replies with JSON, not HTML
+- JavaScript updates only the part of the page that changed
+
+<div class="tip-box">
+Example: adding a comment to an article without reloading the article page.
+</div>
+
+---
+
+## Two Clients, One JSON Format
+
+| | AJAX from your own page | External API client (Sanctum) |
+|---|---|---|
+| **Route file** | `routes/web.php` | `routes/api.php` |
+| **Proof of identity** | session cookie (web login) | `Authorization: Bearer` header |
+| **CSRF** | required for POST/PUT/PATCH/DELETE | none |
+| **Middleware** | `auth` | `auth:sanctum` |
+| **Response** | JSON + status code | JSON + status code |
+
+<div class="warn-box">
+AJAX from your own page whose route lives in <code>api.php</code> gets a 401: there is no session there, only tokens.
+</div>
+
+---
+
+## Backend: Route and Controller
+
+```php
+// routes/web.php
+Route::middleware('auth')->group(function () {
+    Route::post('/articles/{article}/comments', [CommentController::class, 'store']);
+});
+```
+
+```php
+public function store(Request $request, Article $article): JsonResponse
+{
+    $data = $request->validate(['body' => ['required', 'string', 'max:500']]);
+
+    $comment = $article->comments()->create($data + ['user_id' => $request->user()->id]);
+
+    return response()->json($comment, 201);   // 201 Created, not 200
+}
+```
+
+- Validation is still `validate()` or a Form Request (Meeting 6), no new code
+- The status code follows the outcome: 201 created, 404 not found, 422 input rejected
+
+---
+
+## The `Accept` Header Decides the Error Shape
+
+<div class="cols">
+<div>
+
+**Without `Accept: application/json`**
+- `validate()` fails
+- Laravel replies with a **302 redirect** to the previous page
+- `fetch` follows the redirect and receives **HTML**
+- `res.json()` throws
+
+</div>
+<div>
+
+**With `Accept: application/json`**
+- `validate()` fails
+- Laravel replies **422** with JSON:
+
+```json
+{
+  "message": "The body field is required.",
+  "errors": {
+    "body": ["The body field is required."]
+  }
+}
+```
+
+</div>
+</div>
+
+<div class="tip-box">
+Same as 401 and 403: a request that asks for JSON gets JSON, not a redirect to <code>/login</code>.
+</div>
+
+---
+
+## Frontend (1/3): CSRF Token and `fetch`
+
+```html
+<!-- layout, inside <head> -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+```
+
+```js
+const res = await fetch(`/articles/${articleId}/comments`, {
+    method: 'POST',
+    headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+    },
+    body: JSON.stringify({ body: this.body }),
+});
+```
+
+<div class="warn-box">
+Laravel 13 checks the browser's <code>Sec-Fetch-Site</code> header first. If that does not pass (old browser, proxy, insecure connection), the token decides, and without <code>X-CSRF-TOKEN</code> the result is <b>419 Page Expired</b>. Always send the token.
+</div>
+
+---
+
+## Frontend (2/3): The Alpine Component
+
+```js
+Alpine.data('commentForm', (articleId) => ({
+    body: '', errors: {}, comments: [], loading: false,
+
+    async submit() {
+        if (this.loading) return;
+        this.loading = true;
+        this.errors = {};
+        try {
+            const res = await fetch(`/articles/${articleId}/comments`, { /* as on the previous slide */ });
+
+            if (res.status === 201) {                       // success
+                this.comments.push(await res.json());
+                this.body = '';
+            } else if (res.status === 422) {                // input rejected
+                this.errors = (await res.json()).errors;
+            } else if (res.status === 401 || res.status === 419) {
+                location.reload();                          // session expired
+            } else {
+                this.errors = { body: ['Something went wrong, try again.'] };
+            }
+        } catch (e) {
+            this.errors = { body: ['Could not reach the server.'] };
+        } finally {
+            this.loading = false;
+        }
+    },
+}));
+```
+
+---
+
+## Frontend (3/3): The Form in Blade
+
+```html
+<form x-data="commentForm({{ $article->id }})" @submit.prevent="submit()">
+    <textarea x-model="body" rows="3"></textarea>
+    <p x-text="errors.body?.[0]" class="text-red-600"></p>
+
+    <button type="submit" :disabled="loading">
+        <span x-show="!loading">Send</span>
+        <span x-show="loading">Sending...</span>
+    </button>
+
+    <template x-for="c in comments" :key="c.id">
+        <p x-text="c.body"></p>
+    </template>
+</form>
+```
+
+- `@submit.prevent` stops the form from submitting and the page from reloading
+- `:disabled="loading"` stops a double click from saving the comment twice
+
+---
+
+## Common AJAX Pitfalls
+
+| Symptom | Cause |
+|---|---|
+| **419** Page Expired | the `X-CSRF-TOKEN` header was not sent, and origin verification did not pass |
+| **302**, or `res.json()` throws because the body is HTML | the `Accept: application/json` header was not sent |
+| **401** although you are logged in in the browser | the route is in `api.php`, not `web.php` |
+| **405** Method Not Allowed | wrong method; `@method('PATCH')` only works in HTML forms, `fetch` must use the real method |
+| Data saved twice | the button was not disabled while the request ran |
+
+<div class="ref-link">Laravel docs: <code>CSRF Protection &rarr; X-CSRF-TOKEN</code> and <code>Validation &rarr; Validation Error Response Format</code></div>
+
+---
+
 ## Applying This to Simple POS
 
-You'll design and build `POST /api/login`, `GET /api/products`, and `POST /api/transactions` for Simple POS in the practicum jobsheet: protected by a Sanctum token, consumed by a real HTTP client, and documented with OpenAPI.
+You'll design and build `POST /api/login`, `GET /api/products`, and `POST /api/transactions` for Simple POS in the practicum jobsheet: protected by a Sanctum token, consumed by a real HTTP client, and documented with OpenAPI. You also add one small AJAX feature to a web page: a form that sends JSON through `fetch` and shows validation errors without a reload.
 
 <div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch09</code></div>
 
 ---
 
-## Summary (1/2)
+## Summary (1/3)
 
 - REST endpoints consistently follow HTTP method semantics: `GET` is safe and idempotent, `POST` may change state and risks duplication if retried
 - An API Resource curates the JSON shape returned, separating the API response from the raw table column structure
@@ -413,10 +619,20 @@ You'll design and build `POST /api/login`, `GET /api/products`, and `POST /api/t
 
 ---
 
-## Summary (2/2)
+## Summary (2/3)
 
 - An API client must check `failed()` before reading a response's content, and distinguish handling 401 (log in again) from 422 (fix the input), instead of treating every error the same way
 - An OpenAPI specification documents each endpoint's `paths`, `requestBody`, and `responses` in a structured format that automated tooling can check, not just a passive note that goes stale
+
+---
+
+## Summary (3/3): AJAX
+
+- AJAX from your own page uses a route in `web.php` with the session cookie, not `api.php` with a token
+- Every POST/PUT/PATCH/DELETE should carry the CSRF token in the `X-CSRF-TOKEN` header (from `<meta name="csrf-token">`), because without it you can get a 419
+- The `Accept: application/json` header makes `validate()` reply 422 JSON instead of a 302 redirect
+- The client checks `res.status`: 201 success, 422 show per-field errors, 401/419 session expired
+- Disable the button while the request runs so data is not saved twice
 
 ---
 
@@ -424,7 +640,7 @@ You'll design and build `POST /api/login`, `GET /api/products`, and `POST /api/t
 
 # References & Discussion
 
-Official Laravel Sanctum documentation, the OpenAPI specification, and Fielding's paper on REST architectural principles
+Official Laravel documentation (Sanctum, CSRF Protection, Validation), the OpenAPI specification, and Fielding's paper on REST architectural principles
 
 Full code: `github.com/se-polinema/simple-pos-ch09`
 

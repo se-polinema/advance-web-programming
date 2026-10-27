@@ -160,8 +160,10 @@ Endpoint yang konsisten, autentikasi token, dan dokumentasi yang bisa dipercaya
 
 3. Mendokumentasikan kontrak API memakai spesifikasi OpenAPI, agar tim lain tidak perlu membaca kode controller untuk tahu cara memanggilnya
 
+4. Memanggil endpoint JSON dari halaman web sendiri (AJAX) dengan aman, termasuk token CSRF dan penanganan galat validasi
+
 <div class="tip-box">
-Deck ini membahas konsep. Menerapkan endpoint REST, Sanctum, dan OpenAPI pada Simple POS terjadi di jobsheet praktikum.
+Deck ini membahas konsep. Menerapkan endpoint REST, Sanctum, OpenAPI, dan AJAX pada Simple POS terjadi di jobsheet praktikum.
 </div>
 
 ---
@@ -397,15 +399,219 @@ Catatan teks biasa di README cepat basi karena tidak ada yang memaksa pembaruann
 
 ---
 
+<!-- _class: divider -->
+
+# Bagian 4
+## AJAX: Halaman Sendiri Memanggil Endpoint JSON
+
+---
+
+## Apa Itu AJAX?
+
+<div class="flow">
+  <div class="box">Klik tombol</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">fetch()</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Route + controller</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Respons JSON</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Alpine update halaman</div>
+</div>
+
+- Halaman memanggil server di background, tanpa reload
+- Server membalas JSON, bukan HTML
+- JavaScript memperbarui bagian halaman yang berubah saja
+
+<div class="tip-box">
+Contoh: menambah komentar pada artikel tanpa membuka ulang halaman artikelnya.
+</div>
+
+---
+
+## Dua Klien, Satu Format JSON
+
+| | AJAX dari halaman sendiri | Klien API luar (Sanctum) |
+|---|---|---|
+| **File route** | `routes/web.php` | `routes/api.php` |
+| **Bukti identitas** | cookie sesi (login web) | header `Authorization: Bearer` |
+| **CSRF** | wajib untuk POST/PUT/PATCH/DELETE | tidak ada |
+| **Middleware** | `auth` | `auth:sanctum` |
+| **Respons** | JSON + kode status | JSON + kode status |
+
+<div class="warn-box">
+AJAX dari halaman sendiri yang rutenya ada di <code>api.php</code> dijawab 401: di sana tidak ada sesi, hanya token.
+</div>
+
+---
+
+## Sisi Backend: Route dan Controller
+
+```php
+// routes/web.php
+Route::middleware('auth')->group(function () {
+    Route::post('/articles/{article}/comments', [CommentController::class, 'store']);
+});
+```
+
+```php
+public function store(Request $request, Article $article): JsonResponse
+{
+    $data = $request->validate(['body' => ['required', 'string', 'max:500']]);
+
+    $comment = $article->comments()->create($data + ['user_id' => $request->user()->id]);
+
+    return response()->json($comment, 201);   // 201 Created, bukan 200
+}
+```
+
+- Validasi tetap `validate()` atau Form Request (Pertemuan 6), tidak ada kode baru
+- Kode status mengikuti hasilnya: 201 dibuat, 404 tidak ada, 422 input ditolak
+
+---
+
+## Header `Accept` Menentukan Bentuk Galat
+
+<div class="cols">
+<div>
+
+**Tanpa `Accept: application/json`**
+- `validate()` gagal
+- Laravel membalas **302 redirect** ke halaman sebelumnya
+- `fetch` mengikuti redirect dan menerima **HTML**
+- `res.json()` melempar galat
+
+</div>
+<div>
+
+**Dengan `Accept: application/json`**
+- `validate()` gagal
+- Laravel membalas **422** dan JSON:
+
+```json
+{
+  "message": "The body field is required.",
+  "errors": {
+    "body": ["The body field is required."]
+  }
+}
+```
+
+</div>
+</div>
+
+<div class="tip-box">
+Sama seperti 401 dan 403: request yang meminta JSON dijawab JSON, bukan redirect ke <code>/login</code>.
+</div>
+
+---
+
+## Sisi Frontend (1/3): Token CSRF dan `fetch`
+
+```html
+<!-- layout, di dalam <head> -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+```
+
+```js
+const res = await fetch(`/articles/${articleId}/comments`, {
+    method: 'POST',
+    headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+    },
+    body: JSON.stringify({ body: this.body }),
+});
+```
+
+<div class="warn-box">
+Laravel 13 memeriksa header browser <code>Sec-Fetch-Site</code> lebih dulu. Kalau tidak lolos (browser lama, proxy, koneksi tidak aman), token yang menentukan, dan tanpa <code>X-CSRF-TOKEN</code> hasilnya <b>419 Page Expired</b>. Selalu kirim token.
+</div>
+
+---
+
+## Sisi Frontend (2/3): Komponen Alpine
+
+```js
+Alpine.data('commentForm', (articleId) => ({
+    body: '', errors: {}, comments: [], loading: false,
+
+    async submit() {
+        if (this.loading) return;
+        this.loading = true;
+        this.errors = {};
+        try {
+            const res = await fetch(`/articles/${articleId}/comments`, { /* seperti slide sebelumnya */ });
+
+            if (res.status === 201) {                       // berhasil
+                this.comments.push(await res.json());
+                this.body = '';
+            } else if (res.status === 422) {                // input ditolak
+                this.errors = (await res.json()).errors;
+            } else if (res.status === 401 || res.status === 419) {
+                location.reload();                          // sesi habis
+            } else {
+                this.errors = { body: ['Terjadi kesalahan, coba lagi.'] };
+            }
+        } catch (e) {
+            this.errors = { body: ['Gagal terhubung ke server.'] };
+        } finally {
+            this.loading = false;
+        }
+    },
+}));
+```
+
+---
+
+## Sisi Frontend (3/3): Form di Blade
+
+```html
+<form x-data="commentForm({{ $article->id }})" @submit.prevent="submit()">
+    <textarea x-model="body" rows="3"></textarea>
+    <p x-text="errors.body?.[0]" class="text-red-600"></p>
+
+    <button type="submit" :disabled="loading">
+        <span x-show="!loading">Kirim</span>
+        <span x-show="loading">Mengirim...</span>
+    </button>
+
+    <template x-for="c in comments" :key="c.id">
+        <p x-text="c.body"></p>
+    </template>
+</form>
+```
+
+- `@submit.prevent` mencegah form dikirim dan halaman reload
+- `:disabled="loading"` mencegah komentar tersimpan dobel saat tombol diklik dua kali
+
+---
+
+## Jebakan Umum AJAX
+
+| Gejala | Penyebab |
+|---|---|
+| **419** Page Expired | header `X-CSRF-TOKEN` tidak dikirim, dan verifikasi origin tidak lolos |
+| **302**, atau `res.json()` galat karena isinya HTML | header `Accept: application/json` tidak dikirim |
+| **401** padahal sudah login di browser | rute ada di `api.php`, bukan `web.php` |
+| **405** Method Not Allowed | method salah; `@method('PATCH')` hanya berlaku di form HTML, `fetch` harus memakai method aslinya |
+| Data tersimpan dobel | tombol tidak dinonaktifkan selama request berjalan |
+
+<div class="ref-link">Laravel docs: <code>CSRF Protection &rarr; X-CSRF-TOKEN</code> dan <code>Validation &rarr; Validation Error Response Format</code></div>
+
+---
+
 ## Menerapkan pada Simple POS
 
-Kamu akan merancang dan membangun endpoint `POST /api/login`, `GET /api/products`, dan `POST /api/transactions` untuk Simple POS di jobsheet praktikum: dilindungi token Sanctum, dikonsumsi lewat klien HTTP sungguhan, dan didokumentasikan dengan OpenAPI.
+Kamu akan merancang dan membangun endpoint `POST /api/login`, `GET /api/products`, dan `POST /api/transactions` untuk Simple POS di jobsheet praktikum: dilindungi token Sanctum, dikonsumsi lewat klien HTTP sungguhan, dan didokumentasikan dengan OpenAPI. Kamu juga menambahkan satu fitur AJAX kecil pada halaman web: form yang mengirim JSON lewat `fetch` dan menampilkan galat validasi tanpa reload.
 
 <div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch09</code></div>
 
 ---
 
-## Rangkuman (1/2)
+## Rangkuman (1/3)
 
 - Endpoint REST mengikuti semantik HTTP method secara konsisten: `GET` aman dan idempoten, `POST` boleh mengubah state dan berisiko tergandakan kalau diulang
 - API Resource mengurasi bentuk JSON yang dikembalikan, memisahkan respons API dari struktur kolom tabel apa adanya
@@ -413,10 +619,20 @@ Kamu akan merancang dan membangun endpoint `POST /api/login`, `GET /api/products
 
 ---
 
-## Rangkuman (2/2)
+## Rangkuman (2/3)
 
 - Klien API wajib memeriksa `failed()` sebelum membaca isi respons, dan membedakan penanganan 401 (login ulang) dari 422 (perbaiki input), bukan menyamaratakan semua galat
 - Spesifikasi OpenAPI mendokumentasikan `paths`, `requestBody`, dan `responses` tiap endpoint dalam format terstruktur yang bisa diperiksa alat otomatis, bukan sekadar catatan pasif yang cepat basi
+
+---
+
+## Rangkuman (3/3): AJAX
+
+- AJAX dari halaman sendiri memakai route di `web.php` dengan sesi cookie, bukan `api.php` dengan token
+- Setiap POST/PUT/PATCH/DELETE sebaiknya membawa token CSRF lewat header `X-CSRF-TOKEN` (dari `<meta name="csrf-token">`), karena tanpa itu bisa 419
+- Header `Accept: application/json` membuat `validate()` membalas 422 JSON, bukan 302 redirect
+- Klien memeriksa `res.status`: 201 berhasil, 422 tampilkan galat per field, 401/419 sesi habis
+- Nonaktifkan tombol selama request berjalan supaya data tidak tersimpan dobel
 
 ---
 
@@ -424,7 +640,7 @@ Kamu akan merancang dan membangun endpoint `POST /api/login`, `GET /api/products
 
 # Referensi & Diskusi
 
-Dokumentasi resmi Laravel Sanctum, spesifikasi OpenAPI, dan makalah Fielding tentang prinsip arsitektur REST
+Dokumentasi resmi Laravel (Sanctum, CSRF Protection, Validation), spesifikasi OpenAPI, dan makalah Fielding tentang prinsip arsitektur REST
 
 Kode lengkap: `github.com/se-polinema/simple-pos-ch09`
 
