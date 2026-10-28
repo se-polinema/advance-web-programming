@@ -19,7 +19,8 @@ After completing this group jobsheet, you'll be able to:
 3. Build a `POST /api/transactions` endpoint that distinguishes handling 401 and 422 errors, and consume all three endpoints from a real HTTP client outside the web request cycle.
 4. Document all three endpoints using the OpenAPI specification.
 5. Tidy the API design: pagination with a cap, filtering and sorting through the query string, a consistent JSON 404 error, and a rate limit on login.
-6. Call a JSON endpoint from your own web page through `fetch` (AJAX): a route in `web.php`, the CSRF token, the `Accept: application/json` header, and handling the 201 and 422 statuses.
+6. Prevent duplicate transactions when a request is repeated with an idempotency key: reserve the key, replay the old result, and handle 400, 409, and 422.
+7. Call a JSON endpoint from your own web page through `fetch` (AJAX): a route in `web.php`, the CSRF token, the `Accept: application/json` header, and handling the 201 and 422 statuses.
 
 ## B. Preparation and Prerequisites
 
@@ -848,9 +849,329 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ⚠️ **If it fails:** (a) `per_page=500` returns a list or a redirect: the `Accept: application/json` header wasn't sent, so `validate()` redirects back instead of returning 422; (b) `links` and `meta` don't appear: make sure you use `->paginate()`, not `->get()`; (c) `429` never appears: the limiter name in `routes/api.php` (`throttle:login`) must match the name in `RateLimiter::for('login', ...)`; (d) a route that doesn't exist still shows an HTML page: make sure the line `api: __DIR__.'/../routes/api.php'` is in `bootstrap/app.php`. Note: `php artisan api:demo` from Step 5 still runs, it just now sees the first 15 products because the list is paginated.
 
-### Step 8: AJAX from a web page
+### Step 8: Idempotency key on transactions
 
-A Sanctum token is used by clients outside the browser. The Simple POS web pages can also call the server in the background through `fetch`, with no reload, using the same session cookie as in Meeting 7. The difference from the API in Steps 1-6: the route lives in `routes/web.php` (not `api.php`), a request that changes data needs a CSRF token, and the client must ask for JSON through the `Accept` header so validation errors come back as a 422 JSON response, not a redirect.
+Picture a cashier pressing **Pay**, the signal is slow, the screen freezes, so they press it again. Without a safeguard, the customer pays twice. The same happens with `POST /api/transactions`: a mobile client that hits a timeout repeats the request, and the server creates a second transaction. `GET`, `PUT`, and `DELETE` are safe to repeat, but `POST` is not. The fix is an **idempotency key**: the client gives each action one unique number (a UUID), and the server remembers the result. The same request with the same number is not processed again, the old result is replayed.
+
+The flow, with `Idempotency-Key` as a request header:
+
+| Request | Result |
+|---|---|
+| New key | processed, the result is stored |
+| Same key, same body | the old result is **replayed** (header `Idempotent-Replayed: true`), no second transaction |
+| Same key, different body | **422**: a key must not be reused for another request |
+| Same key, first request still running | **409**: wait, then try again |
+| No header | **400** |
+
+Create a new branch off the latest `main`, e.g. `api-idempotency`, then generate the migration, model, and middleware with artisan:
+
+```bash
+git checkout main
+git pull
+git checkout -b api-idempotency
+php artisan make:migration create_idempotency_keys_table
+php artisan make:model IdempotencyKey
+php artisan make:middleware EnsureIdempotency
+```
+
+Replace the contents of the newest migration file (`database/migrations/xxxx_xx_xx_xxxxxx_create_idempotency_keys_table.php`, the number prefix differs on every laptop) with the code below. A `response_status` that is still `null` means the first request hasn't finished, and the unique index on `user_id` + `key` is the main guard: if two requests with the same key arrive at the same time, only one manages to create the row.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('idempotency_keys', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('key', 64);
+            $table->string('request_hash', 64);
+            $table->unsignedSmallInteger('response_status')->nullable();
+            $table->longText('response_body')->nullable();
+            $table->timestamps();
+
+            $table->unique(['user_id', 'key']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('idempotency_keys');
+    }
+};
+```
+
+```bash
+php artisan migrate
+```
+
+Replace the contents of `app/Models/IdempotencyKey.php` with:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class IdempotencyKey extends Model
+{
+    protected $fillable = ['user_id', 'key', 'request_hash', 'response_status', 'response_body'];
+}
+```
+
+Replace the contents of `app/Http/Middleware/EnsureIdempotency.php` with the code below. This middleware **reserves the key first**, before running the request. `request_hash` is a fingerprint of the request body, used to detect a key reused with a different body. If the request fails (not 2xx), the row is deleted so the client may try again with the same key:
+
+```php
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Models\IdempotencyKey;
+use Closure;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class EnsureIdempotency
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        $key = $request->header('Idempotency-Key');
+
+        if (! $key) {
+            return response()->json(['message' => 'Header Idempotency-Key wajib diisi.'], 400);
+        }
+
+        $userId = $request->user()->id;
+        $hash = hash('sha256', $request->getContent());
+
+        try {
+            // reservasi key: kalau sudah ada, unique index menolak dan masuk ke catch
+            $record = IdempotencyKey::create([
+                'user_id' => $userId,
+                'key' => $key,
+                'request_hash' => $hash,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            $record = IdempotencyKey::where('user_id', $userId)->where('key', $key)->firstOrFail();
+
+            if ($record->request_hash !== $hash) {
+                return response()->json(['message' => 'Key ini sudah dipakai untuk request lain.'], 422);
+            }
+
+            if ($record->response_status === null) {
+                return response()->json(['message' => 'Request dengan key ini masih diproses.'], 409);
+            }
+
+            // request yang sama: putar ulang hasil lama, jangan jalankan lagi
+            return response($record->response_body, $record->response_status)
+                ->header('Content-Type', 'application/json')
+                ->header('Idempotent-Replayed', 'true');
+        }
+
+        $response = $next($request);
+
+        if ($response->isSuccessful()) {
+            $record->update([
+                'response_status' => $response->getStatusCode(),
+                'response_body' => $response->getContent(),
+            ]);
+        } else {
+            // gagal: bebaskan key supaya klien boleh mencoba lagi
+            $record->delete();
+        }
+
+        return $response;
+    }
+}
+```
+
+Register the middleware alias. Replace the contents of `bootstrap/app.php` with:
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'idempotent' => \App\Http\Middleware\EnsureIdempotency::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+            }
+        });
+    })->create();
+```
+
+Attach it to the transactions route only, because only `POST` creates new data. Replace the contents of `routes/api.php` with:
+
+```php
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\TransactionController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store'])->middleware('idempotent');
+});
+```
+
+The client must now send the `Idempotency-Key` header, including the demo client from Step 5. Replace the contents of `app/Console/Commands/ApiClientDemo.php` with the code below. The UUID is made **once** per action (`Str::uuid()`), then reused on the retry: if every attempt made a new key, the safeguard would be useless.
+
+```php
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Product;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+
+class ApiClientDemo extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'api:demo';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Demonstrate consuming the Simple POS API as an external client';
+
+    /**
+     * Execute the console command.
+     */
+    public function handle(): int
+    {
+        $baseUrl = 'http://127.0.0.1:8000';
+
+        $login = Http::acceptJson()->post("{$baseUrl}/api/login", [
+            'email' => 'kasir@pos.test',
+            'password' => 'password',
+        ]);
+
+        if ($login->failed()) {
+            $this->error('Login gagal: '.$login->json('message'));
+
+            return self::FAILURE;
+        }
+
+        $token = $login->json('token');
+        $this->info("Login berhasil, token: {$token}");
+
+        $products = Http::acceptJson()->withToken($token)->get("{$baseUrl}/api/products");
+
+        if ($products->failed()) {
+            $this->error('Token kedaluwarsa/dicabut, atau server sedang bermasalah.');
+
+            return self::FAILURE;
+        }
+
+        $this->info('Jumlah produk: '.count($products->json('data')));
+
+        $productId = Product::first()->id;
+        $payload = ['items' => [['product_id' => $productId, 'qty' => 1]]];
+        $key = (string) Str::uuid();
+
+        $transaction = Http::acceptJson()->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->post("{$baseUrl}/api/transactions", $payload);
+
+        match ($transaction->status()) {
+            201 => $this->info('Transaksi tersimpan: '.json_encode($transaction->json('data'))),
+            401 => $this->error('Token tidak valid, login ulang.'),
+            422 => $this->error('Input ditolak: '.$transaction->json('message')),
+            default => $this->error('Galat lain: '.$transaction->status()),
+        };
+
+        // simulasi retry setelah timeout: request yang sama dengan key yang sama
+        $retry = Http::acceptJson()->withToken($token)
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->post("{$baseUrl}/api/transactions", $payload);
+
+        $this->info('Ulang dengan key yang sama: '.$retry->status().', replayed = '.$retry->header('Idempotent-Replayed'));
+
+        return self::SUCCESS;
+    }
+}
+```
+
+```bash
+git add .
+git commit -m "tambah idempotency key pada endpoint transaksi"
+git push -u origin api-idempotency
+```
+
+Open a Pull Request to `main`, merge it, then everyone goes back to `main`, pulls, and runs `php artisan migrate`.
+
+> ✅ **Checkpoint 1 (repeated request):** get a fresh token through `/api/login` (Step 2). Check the transaction count in `php artisan tinker` with `App\Models\Transaction::count()`, then send the same request twice:
+> ```bash
+> curl -i -X POST http://127.0.0.1:8000/api/transactions \
+>   -H "Accept: application/json" -H "Content-Type: application/json" \
+>   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
+>   -H "Idempotency-Key: kunci-uji-1" \
+>   -d '{"items":[{"product_id":1,"qty":2}]}'
+> ```
+> **Expected:** the first request is `201 Created` with `{"data":{"id":...,"total":...}}`. The second request (the exact same command) is also `201` with the same `id` and the header `Idempotent-Replayed: true`. Check `Transaction::count()` again: it grew by only **one**.
+
+> ✅ **Checkpoint 2 (error cases):** (a) send without the `Idempotency-Key` header: **expected** `400`. (b) Send `kunci-uji-1` again but with `"qty":5`: **expected** `422` with the message "Key ini sudah dipakai untuk request lain.". (c) Send a new key `kunci-uji-3` with a `product_id` that doesn't exist (for example `99999`): **expected** a `422` validation error. Send `kunci-uji-3` again with a valid `product_id`: **expected** `201`, because the key is freed after a failed request.
+
+> ✅ **Checkpoint 3 (first request still running):** simulate it in `php artisan tinker`:
+> ```php
+> App\Models\IdempotencyKey::create([
+>     'user_id' => App\Models\User::where('email', 'kasir@pos.test')->value('id'),
+>     'key' => 'kunci-uji-2',
+>     'request_hash' => hash('sha256', '{"items":[{"product_id":1,"qty":2}]}'),
+> ]);
+> ```
+> Then send the `curl` from Checkpoint 1 with `Idempotency-Key: kunci-uji-2` and the exact same `-d` body. **Expected:** `409 Conflict` with the message "Request dengan key ini masih diproses.", because the row exists but its `response_status` is still `null`.
+
+> ✅ **Checkpoint 4 (demo client):** run `php artisan api:demo` (the server is still running on port 8000). **Expected:** four lines of output, the last two being "Transaksi tersimpan: {...}" and "Ulang dengan key yang sama: 201, replayed = true". The fourth line simulates a retry after a timeout: the request is repeated with the same key, and no second transaction is created.
+
+> ⚠️ **If it fails:** (a) every `POST /api/transactions` gets `400`: the `Idempotency-Key` header was not sent, including on the old `curl` commands from Step 4; (b) the error `Target class [idempotent] does not exist` or the middleware doesn't run: the `idempotent` alias in `bootstrap/app.php` is missing; (c) the error `no such table: idempotency_keys`: run `php artisan migrate`; (d) the second request always creates a new transaction: the key differs every time, make sure the UUID is made once and reused; (e) a permanent `409` after a process died midway: a row with a `null` `response_status` was left behind. Delete it in tinker (`App\Models\IdempotencyKey::whereNull('response_status')->delete()`). In production, such rows get an expiry time.
+
+### Step 9: AJAX from a web page
+
+A Sanctum token is used by clients outside the browser. The Simple POS web pages can also call the server in the background through `fetch`, with no reload, using the same session cookie as in Meeting 7. The difference from the API in Steps 1-8: the route lives in `routes/web.php` (not `api.php`), a request that changes data needs a CSRF token, and the client must ask for JSON through the `Accept` header so validation errors come back as a 422 JSON response, not a redirect.
 
 The feature: a `/quick-categories` page for admins. A form adds a category through `fetch`, the category list grows with no reload, and validation errors appear under the input.
 
@@ -1072,19 +1393,21 @@ Open a Pull Request to `main`, merge it, then everyone goes back to `main` and p
 
 > ⚠️ **If it fails:** (a) status **419 Page Expired**: the `<meta name="csrf-token">` tag is missing from the layout, or the `'X-CSRF-TOKEN'` line has a typo; (b) status **405 Method Not Allowed**: make sure the `quick-categories.store` route uses `Route::post`; (c) status **401** even though you're logged in: make sure you logged in through the web page, not with a Sanctum token, and that the route is in `web.php`; (d) status **403** or the page won't open: the account used isn't an admin; (e) a console error `Alpine is not defined`: run `npm run dev` (Meeting 3).
 
-### Step 9: Together, integration test and code review
+### Step 10: Together, integration test and code review
 
-Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, previewing `docs/openapi.yaml` in the Swagger editor, products with `per_page` and `sort`, the login rate limit (429), and the `/quick-categories` page (201 and 422 in the Network tab). Every checkpoint must show exactly the same result on each member's laptop.
+Everyone runs `git checkout main && git pull`, runs `php artisan migrate:fresh --seed`, then repeats every checkpoint above in order: login, products without a token (401), products with a token, a valid transaction (201), an invalid transaction (422), `php artisan api:demo`, previewing `docs/openapi.yaml` in the Swagger editor, products with `per_page` and `sort`, the login rate limit (429), the idempotency key (201 then replayed, 400, 422, 409, and `php artisan api:demo` with four lines), and the `/quick-categories` page (201 and 422 in the Network tab). Because `POST /api/transactions` now requires an `Idempotency-Key` header, add that header (any unique value) to the transaction `curl` command from Step 4. Every checkpoint must show exactly the same result on each member's laptop.
 
 > ✅ **Checkpoint:** every checkpoint above is repeated successfully and shows the same result on every group member's laptop.
 
-### Step 10: Group independent challenges and the `increment 10` commit
+### Step 11: Group independent challenges and the `increment 10` commit
 
 Split the following tasks among the group's members, so each member gets at least one meaningful commit recorded through their own Pull Request.
 
 - Add a new `GET /api/categories` endpoint, complete with its own `CategoryResource`.
 - Complete the OpenAPI documentation for the `GET /api/products` endpoint, including a query parameter schema for pagination.
 - Move all API routes under the `/api/v1` prefix (for example with `Route::prefix('v1')`), then update `php artisan api:demo` and `docs/openapi.yaml` so they still match.
+- Write one feature test (`postJson` with `Sanctum::actingAs`) that proves a repeated request with the same key does not create a second transaction.
+- Delete old keys automatically (for example after 24 hours) using the `Prunable` trait on the `IdempotencyKey` model and a scheduled `model:prune`.
 - Change `php artisan api:demo` to try logging in with the wrong password first, then observe how the code stops at the first step instead of continuing with an empty token.
 - Test all three endpoints via Postman or Insomnia (not `curl`), then write one paragraph comparing that experience to `curl` as a YAML comment in `docs/openapi.yaml`.
 
@@ -1108,6 +1431,7 @@ Submit the following in the format your instructor requests:
 - A screenshot of the terminal showing the full output of `php artisan api:demo`.
 - A screenshot of the Swagger editor preview panel showing `docs/openapi.yaml`.
 - The `curl` output showing a paginated `GET /api/products` response (with `links` and `meta`) and one `429` response from login.
+- The `curl` output showing a transaction request repeated with the same `Idempotency-Key`: the first response `201`, the second `201` with the header `Idempotent-Replayed: true`, and a `Transaction::count()` that grew by only one.
 - A screenshot of DevTools on the Network tab at `/quick-categories` showing a `POST` request with status 201 and one with status 422.
 - Output of `git log --pretty="%h %an %s"` showing at least one commit per member.
 - A short table of independent challenges: member, challenge worked on, and Pull Request link.
@@ -1116,7 +1440,7 @@ Submit the following in the format your instructor requests:
 
 | Component | Weight | Full Marks (100%) | Minimum Marks |
 |---|---|---|---|
-| Work steps completed (group) | 40% | Steps 1-9 done: login, products, transactions, HTTP client, OpenAPI, a tidy API design (pagination, errors, rate limit), and AJAX quick categories all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
+| Work steps completed (group) | 40% | Steps 1-10 done: login, products, transactions, HTTP client, OpenAPI, a tidy API design (pagination, errors, rate limit), the idempotency key, and AJAX quick categories all work as the checkpoints show | Most steps done, at minimum login and one protected endpoint work |
 | Per-member contribution (individual) | 25% | At least one meaningful commit from each member, matching the task-division table | Commits exist but are small or their relevance is unclear |
 | Repository and commit hygiene | 10% | The `increment 10` message is exact, no `vendor/`, `node_modules/`, `.env` included, PRs merged cleanly (not squashed) | Commits exist, but the message is messy or a PR was squashed |
 | Checkpoints verified (group) | 25% | Screenshots of `api:demo`, the Swagger editor, and the Network tab (201 and 422) are complete and show correct results | Some checkpoints proven |
