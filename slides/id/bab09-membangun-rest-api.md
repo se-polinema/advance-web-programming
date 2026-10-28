@@ -148,21 +148,20 @@ style: |
 
 Pertemuan 10: **Merancang dan Membangun REST API**
 
-Dari use case ke resource, respons yang konsisten, autentikasi token, dan dokumentasi yang bisa dipercaya
+Dari use case ke resource, response yang konsisten, autentikasi token, sampai API dipakai klien
 
 ---
 
 ## Yang Akan Kamu Pelajari
 
 1. Menjelaskan prinsip **REST** dan menyusun **proses merancang API** dari use case sampai kontrak
-2. Memodelkan **resource dan URL**, dan memilih method HTTP yang tepat (aman, idempotent)
-3. Merancang **respons**: kode status, bentuk JSON, pagination, filter, format galat, dan versioning
-4. Mengamankan API dengan **token Sanctum**, abilities, otorisasi, dan rate limiting
-5. Mendokumentasikan kontrak dengan **OpenAPI**, menguji, dan mengonsumsi API dengan benar
-6. Memanggil endpoint JSON dari halaman web sendiri (**AJAX**) dengan aman
+2. Memodelkan **resource, URL, dan method HTTP** yang tepat (aman, idempotent)
+3. Merancang **response**: kode status, bentuk JSON, pagination, format error, dan versioning
+4. Mengamankan API dengan **token Sanctum**, otorisasi, dan rate limiting
+5. Mendokumentasikan dengan **OpenAPI**, menguji, dan **mengonsumsi** API dari klien (HTTP client dan AJAX)
 
 <div class="tip-box">
-Deck ini membahas konsep. Menerapkannya pada Simple POS dikerjakan di jobsheet praktikum.
+Deck ini terbagi dalam 5 bagian yang berdiri sendiri. Menerapkannya pada Simple POS dikerjakan di jobsheet praktikum.
 </div>
 
 ---
@@ -170,15 +169,15 @@ Deck ini membahas konsep. Menerapkannya pada Simple POS dikerjakan di jobsheet p
 ## Peta Pertemuan
 
 <div class="flow">
-  <div class="box">Use case</div>
+  <div class="box">1. Dasar</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Resource</div>
+  <div class="box">2. Resource</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Respons</div>
+  <div class="box">3. Response</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Keamanan</div>
+  <div class="box">4. Keamanan</div>
   <div class="arrow">&rarr;</div>
-  <div class="box">Dokumentasi</div>
+  <div class="box">5. Konsumsi</div>
 </div>
 
 <div class="tip-box">
@@ -194,7 +193,7 @@ API adalah menu restoran: pelanggan (klien) tidak perlu tahu isi dapur, cukup ta
 
 ---
 
-## Istilah Penting
+## Apa Itu API dan REST?
 
 | Istilah | Artinya |
 |---|---|
@@ -203,34 +202,10 @@ API adalah menu restoran: pelanggan (klien) tidak perlu tahu isi dapur, cukup ta
 | **Resource** | benda yang dikelola API (artikel, komentar, penulis) |
 | **Endpoint** | satu kombinasi method dan URL, misalnya `GET /api/v1/articles` |
 | **Representasi** | bentuk resource yang dikirim, biasanya JSON |
-| **Stateless** | tiap request membawa semua informasi yang dibutuhkan server |
 | **Kontrak** | kesepakatan tertulis tentang endpoint, input, dan output |
 
----
-
-## Kenapa Butuh API?
-
-<div class="cols">
-<div>
-
-**Tanpa API**
-- Tiap klien punya logika sendiri
-- Aturan bisnis ditulis berkali-kali
-- Satu perubahan, banyak tempat diperbaiki
-
-</div>
-<div>
-
-**Dengan API**
-- Satu backend, banyak klien: web, mobile, mitra
-- Aturan bisnis ada di satu tempat
-- Klien baru cukup membaca kontrak
-
-</div>
-</div>
-
 <div class="tip-box">
-Klien API sering ditulis orang lain, di bahasa lain, dan tidak bisa kamu perbaiki. Karena itu API harus dirancang, bukan sekadar "jalan".
+Satu backend, banyak klien (web, mobile, mitra), dan aturan bisnis ada di satu tempat. Klien API sering ditulis orang lain, jadi API harus dirancang, bukan sekadar "jalan".
 </div>
 
 ---
@@ -242,7 +217,7 @@ Klien API sering ditulis orang lain, di bahasa lain, dan tidak bisa kamu perbaik
 | **Client-server** | klien mengurus tampilan, server mengurus data dan aturan |
 | **Stateless** | server tidak mengingat request sebelumnya, token dikirim tiap kali |
 | **Uniform interface** | resource dan method HTTP dipakai seragam di semua endpoint |
-| **Cacheable** | respons boleh menyatakan apakah bisa disimpan klien |
+| **Cacheable** | response boleh menyatakan apakah bisa disimpan klien |
 | **Layered** | klien tidak tahu apakah bicara langsung ke server atau lewat proxy |
 
 <div class="tip-box">
@@ -251,7 +226,7 @@ REST bukan protokol baku, melainkan kumpulan konvensi. Yang diuji adalah apakah 
 
 ---
 
-## Anatomi Request dan Respons
+## Anatomi Request dan Response
 
 <div class="cols">
 <div>
@@ -269,7 +244,7 @@ Authorization: Bearer 1|abc...
 </div>
 <div>
 
-**Respons**
+**Response**
 ```http
 HTTP/1.1 201 Created
 Content-Type: application/json
@@ -282,7 +257,7 @@ Location: /api/v1/articles/7
 </div>
 
 - Method + URL: apa yang diminta. Header: konteks. Body: data
-- Status code: hasilnya. Body: representasi resource atau galat
+- Status code: hasilnya. Body: representasi resource atau error
 
 ---
 
@@ -298,7 +273,7 @@ Location: /api/v1/articles/7
   <div class="box">4. Representasi</div>
 </div>
 <div class="flow">
-  <div class="box">5. Galat</div>
+  <div class="box">5. Error</div>
   <div class="arrow">&rarr;</div>
   <div class="box">6. Keamanan</div>
   <div class="arrow">&rarr;</div>
@@ -313,27 +288,36 @@ Rancang dulu di kertas, baru tulis kode. Mengubah URL atau bentuk JSON setelah k
 
 ---
 
-<!-- _class: divider -->
+## Contoh yang Kita Pakai: API Blog
 
-# Bagian 2
-## Merancang Resource dan URL
+Aplikasi mobile blog dengan **penulis**, **artikel**, dan **komentar**.
+
+| Use case | Siapa | Resource |
+|---|---|---|
+| Lihat daftar dan detail artikel | siapa saja | `articles` |
+| Tulis, ubah, hapus artikel | penulis (pemilik) | `articles` |
+| Terbitkan artikel | penulis (pemilik) | status pada `articles` |
+| Lihat dan tulis komentar | lihat: siapa saja, tulis: pengguna login | `comments` (anak `articles`) |
+| Masuk dan keluar | pengguna | `login`, `logout` |
+
+- Cari **kata benda**, bukan kata kerja. Satu resource = satu konsep dengan identitas (ID)
 
 ---
 
-## Dari Use Case ke Resource
+## Ringkas Bagian 1
 
-Contoh domain: blog dengan **penulis**, **artikel**, dan **komentar**.
+- API = antarmuka untuk program lain, dan harus **dirancang** karena klien tidak bisa kamu perbaiki
+- REST: client-server, stateless, uniform interface, cacheable, layered
+- Request = method + URL + header + body. Response = status code + body
+- Proses: use case, resource, operasi, representasi, error, keamanan, versi, dokumentasi
+- Rancang di kertas dulu: mengubah kontrak setelah dipakai klien itu mahal
 
-| Use case | Kata benda (resource) |
-|---|---|
-| Pembaca melihat daftar artikel | artikel |
-| Pembaca membaca satu artikel | artikel |
-| Pengguna menulis komentar | komentar |
-| Penulis menerbitkan artikel | artikel (status berubah) |
-| Melihat artikel milik satu penulis | penulis, artikel |
+---
 
-- Cari **kata benda**, bukan kata kerja
-- Satu resource = satu konsep yang punya identitas (ID)
+<!-- _class: divider -->
+
+# Bagian 2
+## Resource, URL, dan Method
 
 ---
 
@@ -353,7 +337,7 @@ Method HTTP sudah menjadi kata kerjanya. <code>GET /articles</code> dibaca "ambi
 
 ---
 
-## Operasi CRUD Menjadi Method + URL
+## CRUD Menjadi Method + URL
 
 | Operasi | Method + URL | Sukses |
 |---|---|---|
@@ -365,7 +349,7 @@ Method HTTP sudah menjadi kata kerjanya. <code>GET /articles</code> dibaca "ambi
 | Hapus | `DELETE /articles/{id}` | 204 |
 
 ```php
-Route::apiResource('articles', ArticleController::class);   // 5 route: index, store, show, update, destroy
+Route::apiResource('articles', ArticleController::class);   // index, store, show, update, destroy
 ```
 
 ---
@@ -395,10 +379,6 @@ GET  /comments/31                satu komentar (ID sudah unik)
 </div>
 </div>
 
-<div class="tip-box">
-Kalau anak sudah punya ID unik, akses satuannya cukup <code>/comments/31</code>. Nesting untuk daftar dan pembuatan.
-</div>
-
 ---
 
 ## Method Aman dan Idempotent
@@ -406,13 +386,12 @@ Kalau anak sudah punya ID unik, akses satuannya cukup <code>/comments/31</code>.
 | Method | Aman (tidak ubah data) | Idempotent (diulang = efek sama) |
 |---|---|---|
 | `GET` | ya | ya |
-| `PUT` | tidak | ya |
+| `PUT`, `DELETE` | tidak | ya |
 | `PATCH` | tidak | tergantung desain |
-| `DELETE` | tidak | ya |
 | `POST` | tidak | **tidak** |
 
 <div class="warn-box">
-<code>POST /transactions</code> yang diulang karena timeout bisa membuat dua transaksi. <code>GET</code>, <code>PUT</code>, dan <code>DELETE</code> aman diulang oleh klien.
+<code>POST /transactions</code> yang diulang karena timeout bisa membuat dua transaksi. Solusi: <b>idempotency key</b>, yaitu klien mengirim header <code>Idempotency-Key: &lt;uuid&gt;</code> dan server mengembalikan hasil lama untuk key yang sama. Laravel tidak menyediakannya bawaan: simpan key di tabel dengan unique index.
 </div>
 
 ---
@@ -425,8 +404,7 @@ Kalau anak sudah punya ID unik, akses satuannya cukup <code>/comments/31</code>.
 **PUT**: ganti seluruh resource
 ```json
 PUT /articles/7
-{ "title": "Baru",
-  "body": "Isi baru",
+{ "title": "Baru", "body": "Isi baru",
   "status": "draft" }
 ```
 Field yang tidak dikirim dianggap kosong.
@@ -444,39 +422,14 @@ Hanya field yang dikirim yang berubah.
 </div>
 </div>
 
-<div class="tip-box">
-PATCH hanya mengirim sebagian field, jadi aturan validasinya perlu disesuaikan. Lihat slide berikutnya.
-</div>
-
----
-
-## Validasi PATCH: Gunakan `sometimes`
-
-<div class="cols">
-<div>
-
-**Tanpa `sometimes`**
 ```php
-'title' => ['required', 'string'],
-'body'  => ['required', 'string'],
-```
-`PATCH {"title": "Baru"}` menghasilkan **422**: "The body field is required", padahal klien hanya ingin mengubah judul.
-
-</div>
-<div>
-
-**Dengan `sometimes`**
-```php
+// validasi PATCH: periksa field hanya kalau dikirim
 'title' => ['sometimes', 'required', 'string'],
 'body'  => ['sometimes', 'required', 'string'],
 ```
-`PATCH {"title": "Baru"}` menghasilkan **200**. `body` tidak dikirim, jadi tidak diperiksa dan isinya tidak berubah.
-
-</div>
-</div>
 
 <div class="tip-box">
-<code>sometimes</code> artinya "periksa field ini hanya kalau dikirim". Kalau field dikirim, <code>required</code> tetap berlaku: <code>{"title": ""}</code> tetap ditolak dengan 422.
+Tanpa <code>sometimes</code>, <code>PATCH {"title": "Baru"}</code> ditolak 422 karena <code>body</code> wajib. Kalau field dikirim, <code>required</code> tetap berlaku: <code>{"title": ""}</code> tetap 422.
 </div>
 
 ---
@@ -497,44 +450,35 @@ Jangan membuat <code>POST /publishArticle</code>. Cari kata benda atau status ya
 
 ---
 
-## Idempotency Key: Membuat POST Aman Diulang
+## Ringkas Bagian 2
 
-<div class="flow">
-  <div class="box">Klien buat key</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">POST + key</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Server simpan</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Ulang: hasil lama</div>
-</div>
-
-```http
-POST /api/v1/transactions
-Idempotency-Key: 8f14e45f-ceea-467f-a0e1-8b1c2e1d9f10
-```
-
-- Key yang sama = request yang sama, server tidak membuat data kedua
-- Dipakai pada operasi yang tidak boleh ganda: pembayaran, transaksi
-- Laravel tidak menyediakannya bawaan: simpan key di tabel dengan unique index
+- URL = kata benda jamak, method HTTP = kata kerja, nesting maksimal 2 tingkat
+- `apiResource` menghasilkan 5 route CRUD sekaligus
+- `GET`, `PUT`, `DELETE` aman diulang. `POST` tidak, kecuali memakai idempotency key
+- PUT mengganti semua, PATCH mengubah sebagian (validasi pakai `sometimes`)
+- Aksi non-CRUD: ubah status atau buat sub-resource, bukan kata kerja di URL
 
 ---
 
 <!-- _class: divider -->
 
 # Bagian 3
-## Merancang Respons
+## Merancang Response
 
 ---
 
-## Kode Status: Lima Kelompok
+## Kode Status
 
-| Kelompok | Arti | Contoh |
-|---|---|---|
-| **2xx** | berhasil | 200 OK, 201 Created, 204 No Content |
-| **3xx** | dialihkan | 301 Moved Permanently, 304 Not Modified |
-| **4xx** | salah di sisi klien | 401, 403, 404, 422, 429 |
-| **5xx** | salah di sisi server | 500, 503 |
+Lima kelompok: **2xx** berhasil, **3xx** dialihkan, **4xx** salah di sisi klien, **5xx** salah di sisi server.
+
+| Kode | Pakai saat |
+|---|---|
+| **200** OK / **201** Created | GET, PUT, PATCH berhasil / POST membuat resource (sertakan `Location`) |
+| **204** No Content | DELETE berhasil, tanpa body |
+| **400** / **422** | request rusak (JSON tidak valid) / format benar tapi validasi gagal |
+| **401** / **403** | tidak ada identitas atau token tidak valid / identitas valid tapi tidak boleh |
+| **404** / **409** | resource tidak ada / bentrok dengan keadaan saat ini |
+| **429** | terkena rate limit |
 
 <div class="tip-box">
 Klien memutuskan tindakan dari <b>kode status</b> dulu, baru membaca isi. Jangan membalas <code>200</code> dengan isi <code>{"error": ...}</code>.
@@ -542,24 +486,7 @@ Klien memutuskan tindakan dari <b>kode status</b> dulu, baru membaca isi. Jangan
 
 ---
 
-## Kode Status yang Sering Dipakai
-
-| Kode | Pakai saat |
-|---|---|
-| **200** OK | GET, PUT, PATCH berhasil |
-| **201** Created | POST membuat resource baru, sertakan header `Location` |
-| **204** No Content | DELETE berhasil, tanpa body |
-| **400** Bad Request | request rusak (JSON tidak valid) |
-| **401** Unauthorized | tidak ada identitas atau token tidak valid |
-| **403** Forbidden | identitas valid tapi tidak boleh mengakses |
-| **404** Not Found | resource tidak ada |
-| **409** Conflict | bentrok dengan keadaan saat ini (data ganda, versi basi) |
-| **422** Unprocessable | format benar, tapi isi gagal validasi |
-| **429** Too Many Requests | terkena rate limit |
-
----
-
-## 401 vs 403 vs 404
+## 401 vs 403 vs 404 vs 422
 
 <div class="cols">
 <div>
@@ -576,8 +503,7 @@ Klien memutuskan tindakan dari <b>kode status</b> dulu, baru membaca isi. Jangan
 <div>
 
 **404: tidak ada**
-- Resource memang tidak ada
-- Atau sengaja disembunyikan dari yang tidak berhak (artikel draft milik orang lain)
+- Resource memang tidak ada, atau sengaja disembunyikan dari yang tidak berhak (draft milik orang lain)
 
 **422: isi salah**
 - Validasi gagal, sertakan field mana yang salah
@@ -591,85 +517,35 @@ Menyamaratakan semuanya jadi "gagal" membuat klien tidak tahu harus apa: login u
 
 ---
 
-## Bentuk Respons: Satu Resource dan Koleksi
+## Bentuk Response dan Konvensi JSON
 
 ```json
-// GET /api/v1/articles/7
-{
-  "data": { "id": 7, "title": "Belajar REST", "status": "published" }
-}
-
 // GET /api/v1/articles
 {
-  "data": [ { "id": 7, "title": "Belajar REST" }, { "id": 8, "title": "Belajar JSON" } ],
+  "data": [ { "id": 7, "title": "Belajar REST" } ],
   "links": { "next": "/api/v1/articles?page=2" },
   "meta": { "current_page": 1, "per_page": 15, "total": 42 }
 }
 ```
 
-- Pakai **bentuk yang sama** di semua endpoint: data di `data`, info tambahan di `meta` dan `links`
-- Koleksi selalu array, walau kosong (`[]`), bukan `null`
-
----
-
-## Konvensi Data di JSON
-
-| Hal | Aturan | Contoh |
-|---|---|---|
-| Nama field | satu gaya saja, `snake_case` | `published_at` |
-| Tanggal | ISO 8601, zona waktu jelas | `"2026-08-20T10:30:00Z"` |
-| Uang | bilangan bulat satuan terkecil | `"price": 15000` |
-| Boolean | `true` / `false`, bukan `"yes"` | `"is_active": true` |
-| Kosong | `null` untuk "tidak ada nilai", tetap tampil | `"image": null` |
-| ID | konsisten, jangan bocorkan urutan jika sensitif | `"id": 7` |
-
-<div class="warn-box">
-Uang jangan memakai desimal float (<code>0.1 + 0.2</code> tidak sama dengan <code>0.3</code>). Simpan dan kirim sebagai bilangan bulat.
-</div>
+- Bentuk yang sama di semua endpoint: data di `data`, info tambahan di `meta` dan `links`. Koleksi selalu array (`[]`, bukan `null`)
+- Field `snake_case`, tanggal ISO 8601 (`"2026-08-20T10:30:00Z"`), boolean `true`/`false`, kosong tetap tampil sebagai `null`
+- Uang sebagai bilangan bulat satuan terkecil (`15000`), bukan float: `0.1 + 0.2` tidak sama dengan `0.3`
 
 ---
 
 ## API Resource: Menyaring Apa yang Keluar
 
-<div class="cols">
-<div>
-
-**Tanpa Resource**
-```php
-return Article::find($id);
-```
-Semua column keluar, termasuk yang internal (`user_id`, `deleted_at`) dan kolom baru yang kelak ditambahkan.
-
-</div>
-<div>
-
-**Dengan Resource**
-```php
-return new ArticleResource($article);
-```
-Hanya field yang kamu pilih. Tabel boleh berubah, kontrak tetap.
-
-</div>
-</div>
-
-```bash
-php artisan make:resource ArticleResource
-```
-
----
-
-## API Resource: Kode dan Relasi
+Tanpa Resource, **semua** column ikut keluar (termasuk yang internal). Dengan Resource, hanya field pilihanmu.
 
 ```php
-class ArticleResource extends JsonResource
+class ArticleResource extends JsonResource   // php artisan make:resource ArticleResource
 {
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'status' => $this->status,
-            'published_at' => $this->published_at,
             'author' => new AuthorResource($this->whenLoaded('author')),
             'comments_count' => $this->whenCounted('comments'),
         ];
@@ -677,103 +553,60 @@ class ArticleResource extends JsonResource
 }
 ```
 
-- `whenLoaded()` memasukkan relasi **hanya kalau sudah di-load**, jadi tidak memicu N+1 diam-diam
-- Koleksi: `ArticleResource::collection($articles)`. Paginator ikut menghasilkan `links` dan `meta`
+- `whenLoaded()` hanya memasukkan relasi yang sudah di-load (tanpa N+1 diam-diam). Koleksi: `ArticleResource::collection($articles)`
 
 ---
 
-## Pagination: Jangan Kirim Semuanya
+## Pagination, Filter, Sort, dan Search
 
 | | Offset (`paginate`) | Cursor (`cursorPaginate`) |
 |---|---|---|
-| **Query** | `limit 15 offset 30` | `where id > 45 limit 15` |
 | **Parameter** | `?page=3` | `?cursor=eyJpZCI6NDV9` |
 | **Lompat ke halaman N** | bisa | tidak |
-| **Data berubah saat dibaca** | bisa terlewat atau ganda | stabil |
-| **Data sangat besar** | melambat (scan offset) | tetap cepat (butuh index) |
+| **Data berubah / sangat besar** | bisa terlewat atau melambat | stabil dan cepat (butuh index) |
 
 ```php
-return ArticleResource::collection(
-    Article::latest('id')->paginate(15)->withQueryString()
-);
-```
-
-<div class="tip-box">
-Batasi juga <code>per_page</code> maksimal (misalnya 100), supaya klien tidak meminta 100.000 row sekaligus.
-</div>
-
----
-
-## Filter, Sort, dan Search lewat Query String
-
-```text
-GET /api/v1/articles?status=published&author_id=3&sort=-published_at&q=rest&per_page=20
-```
-
-```php
-$articles = Article::query()
-    ->when($request->status, fn ($q, $v) => $q->where('status', $v))
-    ->when($request->author_id, fn ($q, $v) => $q->where('author_id', $v))
+Article::query()
+    ->when($request->status, fn ($q, $v) => $q->where('status', $v))        // ?status=published
     ->when($request->q, fn ($q, $v) => $q->where('title', 'like', "%{$v}%"))
-    ->orderBy(ltrim($sort, '-'), str_starts_with($sort, '-') ? 'desc' : 'asc')
-    ->paginate(min($request->integer('per_page', 15), 100));
+    ->orderBy($sortColumn, $direction)                                       // ?sort=-published_at
+    ->paginate(min($request->integer('per_page', 15), 100));                 // batasi per_page
 ```
 
 <div class="warn-box">
-Daftarkan column yang boleh dipakai untuk sort (<code>in_array</code> ke daftar putih). Jangan memasukkan input klien langsung ke <code>orderBy()</code>.
+Column untuk sort harus dari daftar putih, dan <code>per_page</code> dibatasi. Jangan memasukkan input klien langsung ke <code>orderBy()</code>.
 </div>
 
 ---
 
-## Format Galat yang Konsisten
-
-Semua galat, dari endpoint mana pun, memakai bentuk yang sama.
+## Format Error yang Konsisten
 
 ```json
 // 422: validasi gagal
-{ "message": "The title field is required.",
-  "errors": { "title": ["The title field is required."] } }
+{ "message": "The title field is required.", "errors": { "title": ["The title field is required."] } }
 
 // 404: tidak ditemukan
-{ "message": "Artikel tidak ditemukan." }
+{ "message": "Resource tidak ditemukan." }
 ```
 
-- `message`: ringkasan yang bisa dibaca manusia
-- `errors`: per field, hanya untuk 422
-- Jangan bocorkan stack trace atau nama tabel di produksi (`APP_DEBUG=false`)
-
-<div class="ref-link">Standar lain yang lebih ketat: RFC 9457 (Problem Details for HTTP APIs)</div>
-
----
-
-## Mengatur Galat 404 untuk API di Laravel
-
 ```php
-// bootstrap/app.php
+// bootstrap/app.php: error di api/* selalu JSON
 ->withExceptions(function (Exceptions $exceptions): void {
-    $exceptions->shouldRenderJsonWhen(
-        fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
-    );
-
-    $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-        if ($request->is('api/*')) {
-            return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
-        }
-    });
+    $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
 })
 ```
 
-- `shouldRenderJsonWhen`: galat di `api/*` selalu JSON, tidak pernah halaman HTML
-- Route model binding yang gagal (`Article $article`) ikut menjadi 404 di sini
+- `message` untuk manusia, `errors` per field hanya untuk 422. Route model binding yang gagal ikut menjadi 404 JSON
+- Production: `APP_DEBUG=false`, jangan bocorkan stack trace atau nama tabel
+- Standar yang lebih ketat: RFC 9457 (Problem Details for HTTP APIs)
 
 ---
 
-## Versioning: API Berubah, Klien Lama Jangan Rusak
+## Versioning dan Performa
 
 | Perubahan | Merusak klien lama? |
 |---|---|
-| Menambah field di respons | tidak |
-| Menambah endpoint baru | tidak |
+| Menambah field atau endpoint baru | tidak |
 | Menghapus atau mengganti nama field | **ya** |
 | Mengubah tipe data (`"15000"` jadi `15000`) | **ya** |
 | Menambah field wajib di request | **ya** |
@@ -784,28 +617,18 @@ Route::prefix('v1')->group(function () {          // /api/v1/articles
 });
 ```
 
-- Perubahan yang merusak = versi baru (`/api/v2`). Versi lama tetap hidup sampai klien pindah
-- Umumkan penghentian lewat header `Deprecation` dan `Sunset`
+- Perubahan yang merusak = versi baru (`/api/v2`). Versi lama hidup sampai klien pindah, umumkan lewat header `Deprecation` dan `Sunset`
+- Response murah: `with('author')` (hindari N+1), `paginate()`, index pada column filter, `Cache-Control`/`ETag` (304), gzip
 
 ---
 
-## Performa: Respons yang Murah
+## Ringkas Bagian 3
 
-| Teknik | Efek |
-|---|---|
-| `with('author')` | menghindari N+1 query saat relasi ikut dikirim |
-| `paginate()` + batas `per_page` | ukuran respons terkendali |
-| index pada column filter dan sort | query tidak scan seluruh tabel |
-| `Cache-Control` / `ETag` | klien boleh memakai ulang respons (304 Not Modified) |
-| kompresi (gzip) di web server | payload lebih kecil |
-
-```php
-return ArticleResource::collection(Article::with('author')->paginate(15));
-```
-
-<div class="tip-box">
-Rancang respons dari kebutuhan klien: kalau klien mobile hanya butuh judul, jangan kirim seluruh isi artikel di daftar.
-</div>
+- Kode status memberi tahu klien tindakan berikutnya: 201, 204, 401, 403, 404, 422, 429
+- Bentuk JSON konsisten: `data`, `meta`, `links`. Error selalu `message` dan `errors`
+- API Resource menyaring field, `whenLoaded()` mencegah N+1
+- `paginate` atau `cursorPaginate` dengan batas `per_page`. Filter dan sort lewat query string dengan daftar putih
+- Prefix versi (`/v1`) untuk perubahan yang merusak. `shouldRenderJsonWhen` membuat error API selalu JSON
 
 ---
 
@@ -816,7 +639,7 @@ Rancang respons dari kebutuhan klien: kalau klien mobile hanya butuh judul, jang
 
 ---
 
-## Sesi Cookie vs Token: Beda Klien, Beda Mekanisme
+## Sesi Cookie vs Token
 
 <div class="cols">
 <div>
@@ -824,15 +647,13 @@ Rancang respons dari kebutuhan klien: kalau klien mobile hanya butuh judul, jang
 **Halaman web (Pertemuan 7)**
 - Browser menyimpan cookie otomatis
 - Sesi dicocokkan lewat cookie itu
-- Cocok untuk klien yang punya cookie jar
 
 </div>
 <div>
 
 **Klien API (mobile, skrip luar)**
 - Tidak punya cookie jar seperti browser
-- Token disimpan sendiri oleh klien
-- Dikirim ulang eksplisit tiap request
+- Token disimpan klien, dikirim ulang eksplisit tiap request
 
 </div>
 </div>
@@ -843,7 +664,7 @@ Keduanya sama-sama membuktikan "siapa yang sedang request ini". Yang beda hanya 
 
 ---
 
-## Alur Autentikasi Sanctum
+## Sanctum: Alur dan Endpoint Login
 
 <div class="flow">
   <div class="box">POST /api/login</div>
@@ -856,79 +677,38 @@ Keduanya sama-sama membuktikan "siapa yang sedang request ini". Yang beda hanya 
 </div>
 
 ```php
-$token = $user->createToken('klien-mobile')->plainTextToken;
-```
+$user = User::where('email', $data['email'])->first();
 
-- Token disimpan **hash**-nya di tabel `personal_access_tokens`
-- `plainTextToken` hanya terlihat **sekali**, saat dibuat. Klien wajib menyimpannya
-
----
-
-## Endpoint Login
-
-```php
-public function login(Request $request): JsonResponse
-{
-    $data = $request->validate([
-        'email' => ['required', 'email'],
-        'password' => ['required'],
-    ]);
-
-    $user = User::where('email', $data['email'])->first();
-
-    if (! $user || ! Hash::check($data['password'], $user->password)) {
-        return response()->json(['message' => 'Kredensial tidak valid.'], 401);
-    }
-
-    return response()->json([
-        'token' => $user->createToken('klien-mobile')->plainTextToken,
-    ]);
+if (! $user || ! Hash::check($data['password'], $user->password)) {
+    return response()->json(['message' => 'Kredensial tidak valid.'], 401);   // pesan sama untuk email/password salah
 }
+
+return response()->json(['token' => $user->createToken('klien-mobile')->plainTextToken]);
 ```
 
-<div class="tip-box">
-Pesan galat sengaja sama untuk email salah dan password salah, supaya penyerang tidak bisa mengetahui email mana yang terdaftar.
-</div>
+- Token disimpan sebagai **hash** di `personal_access_tokens`. `plainTextToken` hanya terlihat sekali, klien wajib menyimpannya
 
 ---
 
-## Melindungi Route dengan `auth:sanctum`
+## Melindungi Route dan Token Abilities
 
 ```php
-Route::post('/login', [AuthController::class, 'login']);         // publik
+Route::post('/login', [AuthController::class, 'login']);                  // publik
 
-Route::middleware('auth:sanctum')->group(function () {           // wajib token
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::apiResource('articles', ArticleController::class);
+Route::middleware('auth:sanctum')->group(function () {                    // wajib token
+    Route::apiResource('articles', ArticleController::class)->only(['index', 'show']);
+    Route::post('/articles', [ArticleController::class, 'store'])
+        ->middleware('abilities:articles:write');                        // butuh ability
 });
 ```
 
-- Tanpa header `Authorization: Bearer <token>` yang valid: **401** sebelum sampai ke controller
-- Pola sama seperti `role:admin` di Pertemuan 7, hanya buktinya token, bukan sesi
-
----
-
-## Token Abilities: Izin per Token
-
-Satu pengguna bisa punya beberapa token dengan izin berbeda.
-
 ```php
-$user->createToken('laporan-bot', ['articles:read'])->plainTextToken;
-$user->createToken('editor-app', ['articles:read', 'articles:write'])->plainTextToken;
+$user->createToken('laporan-bot', ['articles:read']);                       // izin sekecil mungkin
+$user->createToken('editor-app', ['articles:read', 'articles:write']);
 ```
 
-```php
-// bootstrap/app.php: daftarkan alias middleware
-$middleware->alias(['abilities' => CheckAbilities::class, 'ability' => CheckForAnyAbility::class]);
-
-// routes/api.php
-Route::post('/articles', [ArticleController::class, 'store'])
-    ->middleware(['auth:sanctum', 'abilities:articles:write']);
-```
-
-<div class="tip-box">
-Token tanpa ability yang cukup ditolak dengan <b>403</b>. Beri izin sekecil mungkin: bot laporan tidak perlu bisa menulis.
-</div>
+- Tanpa token yang valid: **401** sebelum sampai ke controller. Token tanpa ability cukup: **403**
+- Alias middleware `abilities` dan `ability` didaftarkan di `bootstrap/app.php`
 
 ---
 
@@ -960,43 +740,30 @@ public function update(Request $request, Article $article): ArticleResource
 }
 ```
 
-- Policy dan role dari Pertemuan 7 dipakai ulang di API, tidak ditulis ulang
-- Batasi query ke milik user: `$request->user()->articles()`, bukan `Article::find($id)` dari input klien
+- Policy dan role dari Pertemuan 7 dipakai ulang di API
+- Batasi query ke milik user: `$request->user()->articles()`, bukan `Article::find($id)` dari input klien (cegah IDOR)
 
 ---
 
-## Siklus Hidup Token
+## Siklus Hidup Token dan Rate Limiting
 
 | Hal | Cara |
 |---|---|
 | Logout (cabut token ini) | `$request->user()->currentAccessToken()->delete()` |
 | Cabut semua token | `$user->tokens()->delete()` |
-| Kedaluwarsa | `'expiration' => 525600` (menit) di `config/sanctum.php`, atau argumen ke-3 `createToken()` |
-| Bersihkan token basi | `php artisan sanctum:prune-expired --hours=24` (dijadwalkan harian) |
+| Kedaluwarsa | `'expiration' => 525600` di `config/sanctum.php` |
+| Bersihkan token basi | `php artisan sanctum:prune-expired --hours=24` |
+
+```php
+RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(/* ... */);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');   // login lebih ketat
+```
 
 <div class="warn-box">
-Secara default token Sanctum <b>tidak pernah kedaluwarsa</b>. Untuk aplikasi nyata, atur masa berlaku dan sediakan jalan bagi pengguna untuk mencabut token yang hilang.
+Token Sanctum secara default <b>tidak pernah kedaluwarsa</b>. Terlampaui rate limit: <b>429</b> dengan header <code>Retry-After</code>.
 </div>
-
----
-
-## Rate Limiting: Melindungi dari Banjir Request
-
-```php
-// AppServiceProvider::boot()
-RateLimiter::for('api', function (Request $request) {
-    return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-});
-```
-
-```php
-Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () { /* ... */ });
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');   // 5 kali per menit
-```
-
-- Terlampaui: **429 Too Many Requests** dengan header `Retry-After`
-- Kuncinya per user (atau IP kalau belum login), bukan satu batas untuk semua
-- Login diberi batas lebih ketat untuk menahan tebak password
 
 ---
 
@@ -1018,15 +785,25 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,
 
 **Sering terlupa**
 - Cek kepemilikan resource (IDOR)
-- Batasi `per_page` dan kolom yang boleh di-sort
+- Batasi `per_page` dan column untuk sort
 - Jangan kembalikan model mentah (`password`, `remember_token`)
-- CORS hanya untuk origin yang dikenal (`config/cors.php`)
-- Pesan galat tidak membocorkan detail internal
+- CORS hanya untuk origin yang dikenal
+- Pesan error tidak membocorkan detail internal
 
 </div>
 </div>
 
 <div class="ref-link">Laravel docs: <code>Sanctum</code>, <code>Routing &rarr; Rate Limiting</code>, dan <code>Routing &rarr; CORS</code></div>
+
+---
+
+## Ringkas Bagian 4
+
+- Web memakai sesi cookie, klien API memakai token Bearer (Sanctum: `createToken()`, `auth:sanctum`)
+- Autentikasi gagal = 401, otorisasi gagal = 403. Abilities membatasi token, policy membatasi aksi
+- Cek kepemilikan resource lewat query milik user atau policy (cegah IDOR)
+- Atur masa berlaku token, sediakan pencabutan, dan pasang `throttle` (login lebih ketat)
+- HTTPS, `APP_DEBUG=false`, dan jangan kembalikan model mentah
 
 ---
 
@@ -1040,27 +817,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,
 ## OpenAPI: Kontrak, Bukan Catatan yang Cepat Basi
 
 <div class="term-box">
-<b>OpenAPI:</b> spesifikasi terstruktur (YAML atau JSON) yang mendeskripsikan endpoint, input, output, dan autentikasi. Bisa dibaca alat: dokumentasi interaktif, generator kode klien, validator.
+<b>OpenAPI:</b> spesifikasi terstruktur (YAML atau JSON) yang mendeskripsikan endpoint, input, output, dan autentikasi. Bisa dibaca alat: dokumentasi interaktif (Swagger UI), generator klien, validator.
 </div>
-
-```yaml
-openapi: 3.0.0
-info: { title: Blog API, version: 1.0.0 }
-paths:
-  /api/v1/articles:
-    get:
-      summary: Daftar artikel
-      responses:
-        '200': { description: Daftar artikel }
-```
-
-<div class="tip-box">
-Catatan teks di README basi begitu satu field berganti nama. Format terstruktur bisa diperiksa alat otomatis.
-</div>
-
----
-
-## OpenAPI: Skema dan Keamanan
 
 ```yaml
 paths:
@@ -1068,46 +826,18 @@ paths:
     post:
       security: [ { bearerAuth: [] } ]
       requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ArticleInput' }
+        content: { application/json: { schema: { $ref: '#/components/schemas/ArticleInput' } } }
       responses:
         '201': { description: Dibuat }
         '401': { description: Token tidak valid }
         '422': { description: Validasi gagal }
 components:
-  securitySchemes:
-    bearerAuth: { type: http, scheme: bearer }
+  securitySchemes: { bearerAuth: { type: http, scheme: bearer } }
   schemas:
-    ArticleInput:
-      type: object
-      required: [title]
-      properties:
-        title: { type: string }
+    ArticleInput: { type: object, required: [title], properties: { title: { type: string } } }
 ```
 
----
-
-## Alur Kerja Contract-First
-
-<div class="flow">
-  <div class="box">Tulis kontrak</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Sepakati</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Implementasi</div>
-  <div class="arrow">&rarr;</div>
-  <div class="box">Uji kontrak</div>
-</div>
-
-- Tim mobile dan backend bekerja paralel dari kontrak yang sama
-- Perubahan kontrak jadi pembicaraan, bukan kejutan
-- Kontrak ikut masuk repositori dan di-review seperti kode
-
-<div class="tip-box">
-Alat seperti Swagger UI membuat kontrak bisa dicoba langsung dari browser, tanpa menulis klien dulu.
-</div>
+- **Contract-first**: tulis kontrak, sepakati, implementasi, uji. Tim mobile dan backend bekerja paralel, dan kontrak ikut di repositori
 
 ---
 
@@ -1116,8 +846,7 @@ Alat seperti Swagger UI membuat kontrak bisa dicoba langsung dari browser, tanpa
 ```php
 public function test_guest_cannot_create_article(): void
 {
-    $this->postJson('/api/v1/articles', ['title' => 'X'])
-        ->assertUnauthorized();                                  // 401
+    $this->postJson('/api/v1/articles', ['title' => 'X'])->assertUnauthorized();          // 401
 }
 
 public function test_create_article_validates_title(): void
@@ -1125,8 +854,7 @@ public function test_create_article_validates_title(): void
     Sanctum::actingAs(User::factory()->create(), ['articles:write']);
 
     $this->postJson('/api/v1/articles', [])
-        ->assertUnprocessable()                                  // 422
-        ->assertJsonValidationErrors('title');
+        ->assertUnprocessable()->assertJsonValidationErrors('title');                     // 422
 }
 
 public function test_create_article_returns_created(): void
@@ -1134,43 +862,27 @@ public function test_create_article_returns_created(): void
     Sanctum::actingAs(User::factory()->create(), ['articles:write']);
 
     $this->postJson('/api/v1/articles', ['title' => 'Belajar REST'])
-        ->assertCreated()                                        // 201
-        ->assertJsonPath('data.title', 'Belajar REST');
+        ->assertCreated()->assertJsonPath('data.title', 'Belajar REST');                  // 201
 }
 ```
 
 ---
 
-## Klien Wajib Memeriksa Status Sebelum Membaca Isi
+## Klien HTTP: Status, Error, dan Retry
 
 ```php
-$login = Http::post("{$baseUrl}/api/login", [
-    'email' => $email,
-    'password' => $password,
-]);
+$login = Http::post("{$baseUrl}/api/login", ['email' => $email, 'password' => $password]);
 
-if ($login->failed()) {
-    // tangani galat di sini, jangan lanjut ke langkah berikutnya
-}
+if ($login->failed()) { /* tangani error, jangan lanjut */ }   // bukan langsung ->json('token')
 
 $token = $login->json('token');
-```
 
-<div class="warn-box">
-Klien yang langsung membaca <code>$login->json('token')</code> tanpa memeriksa <code>failed()</code> gagal diam-diam: <code>$token</code> bernilai <code>null</code>, dan galatnya baru meledak di tempat yang membingungkan.
-</div>
-
----
-
-## Membedakan Jenis Galat dan Mengulang dengan Benar
-
-```php
 match ($response->status()) {
     201 => /* tersimpan, baca $response->json('data') */,
     401 => /* token tidak valid, login ulang */,
     422 => /* input ditolak, perbaiki input */,
-    429 => /* terlalu sering, tunggu sesuai header Retry-After */,
-    default => /* galat lain, tampilkan ke pengguna */,
+    429 => /* terlalu sering, tunggu sesuai Retry-After */,
+    default => /* error lain, tampilkan ke pengguna */,
 };
 ```
 
@@ -1178,196 +890,11 @@ match ($response->status()) {
 |---|---|
 | 4xx (kecuali 429) | tidak, request-nya yang salah |
 | 429, 503 | ya, setelah jeda (`Retry-After`) |
-| 5xx pada `GET` | ya, dengan jeda yang makin panjang (backoff) |
-| 5xx pada `POST` | hanya kalau memakai idempotency key |
+| 5xx pada `GET` | ya, dengan backoff. Pada `POST`: hanya dengan idempotency key |
 
 ---
 
-<!-- _class: divider -->
-
-# Bagian 6
-## Studi Kasus: Merancang API Blog dari Nol
-
----
-
-## Langkah 1-2: Use Case dan Resource
-
-**Kebutuhan:** aplikasi mobile blog. Pembaca melihat artikel dan komentar. Penulis menulis dan menerbitkan artikel. Pembaca yang login boleh berkomentar.
-
-| Use case | Siapa | Resource |
-|---|---|---|
-| Lihat daftar dan detail artikel | siapa saja | `articles` |
-| Tulis, ubah, hapus artikel | penulis (pemilik) | `articles` |
-| Terbitkan artikel | penulis (pemilik) | status pada `articles` |
-| Lihat dan tulis komentar | lihat: siapa saja, tulis: pengguna login | `comments` (anak `articles`) |
-| Masuk dan keluar | pengguna | `login`, `logout` |
-
----
-
-## Langkah 3: Daftar Endpoint
-
-| Method + URL | Auth | Sukses | Galat |
-|---|---|---|---|
-| `POST /api/v1/login` | publik | 200 | 401, 422, 429 |
-| `GET /api/v1/articles` | publik | 200 | 429 |
-| `GET /api/v1/articles/{id}` | publik | 200 | 404 |
-| `POST /api/v1/articles` | token | 201 | 401, 403, 422 |
-| `PATCH /api/v1/articles/{id}` | pemilik | 200 | 401, 403, 404, 422 |
-| `DELETE /api/v1/articles/{id}` | pemilik | 204 | 401, 403, 404 |
-| `GET /api/v1/articles/{id}/comments` | publik | 200 | 404 |
-| `POST /api/v1/articles/{id}/comments` | token | 201 | 401, 404, 422 |
-
----
-
-## Langkah 4: Bentuk Representasi
-
-<div class="cols">
-<div>
-
-**Artikel (detail)**
-```json
-{
-  "data": {
-    "id": 7,
-    "title": "Belajar REST",
-    "body": "Isi artikel...",
-    "status": "published",
-    "published_at": "2026-08-20T10:30:00Z",
-    "author": { "id": 3, "name": "Sari" },
-    "comments_count": 12
-  }
-}
-```
-
-</div>
-<div>
-
-**Komentar**
-```json
-{
-  "data": {
-    "id": 31,
-    "body": "Tulisan bagus",
-    "created_at": "2026-08-21T08:00:00Z",
-    "user": { "id": 9, "name": "Budi" }
-  }
-}
-```
-
-- Daftar artikel: tanpa `body` (hemat payload)
-- Tidak ada `password`, `email`, atau `user_id` mentah
-
-</div>
-</div>
-
----
-
-## Langkah 5: Parameter Daftar
-
-```text
-GET /api/v1/articles?status=published&author_id=3&q=rest&sort=-published_at&per_page=20&page=2
-```
-
-| Parameter | Arti | Aturan |
-|---|---|---|
-| `status` | filter status | `draft` hanya terlihat oleh penulisnya |
-| `author_id` | filter penulis | integer yang ada |
-| `q` | cari di judul | min 2 huruf |
-| `sort` | urutan | daftar putih: `published_at`, `title`; awalan `-` = menurun |
-| `per_page` | ukuran halaman | default 15, maksimal 100 |
-
----
-
-## Langkah 6: Galat dan Keamanan
-
-| Situasi | Status | Isi |
-|---|---|---|
-| Body POST artikel tanpa `title` | 422 | `message` + `errors.title` |
-| Artikel 999 tidak ada | 404 | `message` |
-| Token tidak dikirim | 401 | `message` |
-| Mengubah artikel milik penulis lain | 403 | `message` |
-| Melihat draft milik orang lain | 404 | disembunyikan, bukan 403 |
-| Lebih dari 60 request per menit | 429 | `Retry-After` |
-
-- Rate limit `throttle:api`, login lebih ketat
-- Token punya ability `articles:write` untuk operasi tulis
-- Semua POST/PATCH memakai `validate()` atau Form Request
-
----
-
-## Langkah 7: Kontrak dan Versi
-
-```yaml
-paths:
-  /api/v1/articles/{id}/comments:
-    post:
-      summary: Tambah komentar
-      security: [ { bearerAuth: [] } ]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [body]
-              properties:
-                body: { type: string, maxLength: 500 }
-      responses:
-        '201': { description: Komentar dibuat }
-        '401': { description: Token tidak valid }
-        '404': { description: Artikel tidak ada }
-        '422': { description: Validasi gagal }
-```
-
-- Semua route di bawah `/api/v1`. Perubahan yang merusak = `/api/v2`
-
----
-
-## Checklist Review Desain API (1/2)
-
-**Resource, URL, dan respons**
-
-- URL kata benda jamak, tanpa kata kerja
-- Method sesuai makna (aman, idempotent)
-- Nesting maksimal 2 tingkat
-- Aksi non-CRUD dimodelkan sebagai status atau sub-resource
-- Kode status tepat, bukan selalu 200
-- Bentuk sukses dan galat konsisten
-- Koleksi dipaginasi dengan batas
-
----
-
-## Checklist Review Desain API (2/2)
-
-<div class="cols">
-<div>
-
-**Keamanan**
-- Autentikasi dan otorisasi terpisah (401 vs 403)
-- Cek kepemilikan resource
-- Rate limit dan HTTPS
-
-</div>
-<div>
-
-**Evolusi dan dokumentasi**
-- Ada prefix versi
-- Kontrak OpenAPI ikut di repositori
-- Ada test untuk 401, 403, 422, dan jalur sukses
-
-</div>
-</div>
-
----
-
-<!-- _class: divider -->
-
-# Bagian 7
 ## AJAX: Halaman Sendiri Memanggil Endpoint JSON
-
----
-
-## Apa Itu AJAX?
 
 <div class="flow">
   <div class="box">Klik</div>
@@ -1381,25 +908,12 @@ paths:
   <div class="box">Alpine update</div>
 </div>
 
-- Halaman memanggil server di background, tanpa reload
-- Server membalas JSON, bukan HTML
-- JavaScript memperbarui bagian halaman yang berubah saja
-
-<div class="tip-box">
-Contoh: menambah komentar pada artikel tanpa membuka ulang halaman artikelnya.
-</div>
-
----
-
-## Dua Klien, Satu Format JSON
-
 | | AJAX dari halaman sendiri | Klien API luar (Sanctum) |
 |---|---|---|
 | **File route** | `routes/web.php` | `routes/api.php` |
 | **Bukti identitas** | cookie sesi (login web) | header `Authorization: Bearer` |
 | **CSRF** | wajib untuk POST/PUT/PATCH/DELETE | tidak ada |
 | **Middleware** | `auth` | `auth:sanctum` |
-| **Respons** | JSON + kode status | JSON + kode status |
 
 <div class="warn-box">
 AJAX dari halaman sendiri yang rutenya ada di <code>api.php</code> dijawab 401: di sana tidak ada sesi, hanya token.
@@ -1407,93 +921,43 @@ AJAX dari halaman sendiri yang rutenya ada di <code>api.php</code> dijawab 401: 
 
 ---
 
-## Sisi Backend: Route dan Controller
+## AJAX Backend: Route, Controller, dan Header `Accept`
 
 ```php
-// routes/web.php
-Route::middleware('auth')->group(function () {
-    Route::post('/articles/{article}/comments', [CommentController::class, 'store']);
-});
-```
+Route::middleware('auth')->post('/articles/{article}/comments', [CommentController::class, 'store']);   // web.php
 
-```php
 public function store(Request $request, Article $article): JsonResponse
 {
     $data = $request->validate(['body' => ['required', 'string', 'max:500']]);
 
-    $comment = $article->comments()->create($data + ['user_id' => $request->user()->id]);
-
-    return response()->json($comment, 201);   // 201 Created, bukan 200
+    return response()->json($article->comments()->create($data + ['user_id' => $request->user()->id]), 201);
 }
 ```
-
-- Validasi tetap `validate()` atau Form Request (Pertemuan 6), tidak ada kode baru
-- Kode status mengikuti hasilnya: 201 dibuat, 404 tidak ada, 422 input ditolak
-
----
-
-## Header `Accept` Menentukan Bentuk Galat
 
 <div class="cols">
 <div>
 
 **Tanpa `Accept: application/json`**
-- `validate()` gagal
-- Laravel membalas **302 redirect** ke halaman sebelumnya
-- `fetch` mengikuti redirect dan menerima **HTML**
-- `res.json()` melempar galat
+- `validate()` gagal: **302 redirect**
+- `fetch` menerima HTML, `res.json()` melempar error
 
 </div>
 <div>
 
 **Dengan `Accept: application/json`**
-- `validate()` gagal
-- Laravel membalas **422** dan JSON:
-
-```json
-{
-  "message": "The body field is required.",
-  "errors": {
-    "body": ["The body field is required."]
-  }
-}
-```
+- `validate()` gagal: **422** + JSON
+- `{"message": "...", "errors": {"body": [...]}}`
 
 </div>
-</div>
-
-<div class="tip-box">
-Sama seperti 401 dan 403: request yang meminta JSON dijawab JSON, bukan redirect ke <code>/login</code>.
 </div>
 
 ---
 
-## Sisi Frontend (1/3): Token CSRF dan `fetch`
+## AJAX Frontend: CSRF, `fetch`, dan Alpine
 
 ```html
-<!-- layout, di dalam <head> -->
-<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">   <!-- di <head> layout -->
 ```
-
-```js
-const res = await fetch(`/articles/${articleId}/comments`, {
-    method: 'POST',
-    headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-    },
-    body: JSON.stringify({ body: this.body }),
-});
-```
-
-<div class="warn-box">
-Laravel 13 memeriksa header browser <code>Sec-Fetch-Site</code> lebih dulu. Kalau tidak lolos (browser lama, proxy, koneksi tidak aman), token yang menentukan, dan tanpa <code>X-CSRF-TOKEN</code> hasilnya <b>419 Page Expired</b>. Selalu kirim token.
-</div>
-
----
-
-## Sisi Frontend (2/3): Komponen Alpine
 
 ```js
 Alpine.data('commentForm', (articleId) => ({
@@ -1501,52 +965,20 @@ Alpine.data('commentForm', (articleId) => ({
 
     async submit() {
         if (this.loading) return;
-        this.loading = true;
-        this.errors = {};
-        try {
-            const res = await fetch(`/articles/${articleId}/comments`, { /* seperti slide sebelumnya */ });
-
-            if (res.status === 201) {                       // berhasil
-                this.comments.push(await res.json());
-                this.body = '';
-            } else if (res.status === 422) {                // input ditolak
-                this.errors = (await res.json()).errors;
-            } else if (res.status === 401 || res.status === 419) {
-                location.reload();                          // sesi habis
-            } else {
-                this.errors = { body: ['Terjadi kesalahan, coba lagi.'] };
-            }
-        } catch (e) {
-            this.errors = { body: ['Gagal terhubung ke server.'] };
-        } finally {
-            this.loading = false;
-        }
+        this.loading = true; this.errors = {};
+        const res = await fetch(`/articles/${articleId}/comments`, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+            body: JSON.stringify({ body: this.body }),
+        });
+        if (res.status === 201) { this.comments.push(await res.json()); this.body = ''; }
+        else if (res.status === 422) { this.errors = (await res.json()).errors; }
+        else if (res.status === 401 || res.status === 419) { location.reload(); }
+        this.loading = false;
     },
 }));
 ```
-
----
-
-## Sisi Frontend (3/3): Form di Blade
-
-```html
-<form x-data="commentForm({{ $article->id }})" @submit.prevent="submit()">
-    <textarea x-model="body" rows="3"></textarea>
-    <p x-text="errors.body?.[0]" class="text-red-600"></p>
-
-    <button type="submit" :disabled="loading">
-        <span x-show="!loading">Kirim</span>
-        <span x-show="loading">Mengirim...</span>
-    </button>
-
-    <template x-for="c in comments" :key="c.id">
-        <p x-text="c.body"></p>
-    </template>
-</form>
-```
-
-- `@submit.prevent` mencegah form dikirim dan halaman reload
-- `:disabled="loading"` mencegah komentar tersimpan dobel saat tombol diklik dua kali
 
 ---
 
@@ -1554,13 +986,50 @@ Alpine.data('commentForm', (articleId) => ({
 
 | Gejala | Penyebab |
 |---|---|
-| **419** Page Expired | header `X-CSRF-TOKEN` tidak dikirim, dan verifikasi origin tidak lolos |
-| **302**, atau `res.json()` galat karena isinya HTML | header `Accept: application/json` tidak dikirim |
+| **419** Page Expired | header `X-CSRF-TOKEN` tidak dikirim (kalau verifikasi origin `Sec-Fetch-Site` tidak lolos, token yang menentukan) |
+| **302**, atau `res.json()` error karena isinya HTML | header `Accept: application/json` tidak dikirim |
 | **401** padahal sudah login di browser | rute ada di `api.php`, bukan `web.php` |
-| **405** Method Not Allowed | method salah; `@method('PATCH')` hanya berlaku di form HTML, `fetch` harus memakai method aslinya |
-| Data tersimpan dobel | tombol tidak dinonaktifkan selama request berjalan |
+| **405** Method Not Allowed | `@method('PATCH')` hanya berlaku di form HTML, `fetch` harus memakai method aslinya |
+| Data tersimpan dobel | tombol tidak dinonaktifkan (`:disabled="loading"`) selama request berjalan |
 
 <div class="ref-link">Laravel docs: <code>CSRF Protection &rarr; X-CSRF-TOKEN</code> dan <code>Validation &rarr; Validation Error Response Format</code></div>
+
+---
+
+## Ringkas Bagian 5
+
+- OpenAPI = kontrak yang bisa dibaca alat. Contract-first: tulis, sepakati, implementasi, uji
+- Uji dengan `getJson`, `postJson`, `Sanctum::actingAs`: minimal 401, 403, 422, dan jalur sukses
+- Klien memeriksa status sebelum membaca isi, dan hanya mengulang error yang boleh diulang
+- AJAX dari halaman sendiri memakai `web.php` + sesi + CSRF, bukan `api.php` + token
+- Kirim `Accept: application/json` dan `X-CSRF-TOKEN`, periksa `res.status`, dan nonaktifkan tombol saat request berjalan
+
+---
+
+## Checklist Review Desain API
+
+<div class="cols">
+<div>
+
+**Resource, URL, dan response**
+- URL kata benda jamak, tanpa kata kerja
+- Method sesuai makna (aman, idempotent), nesting maksimal 2 tingkat
+- Aksi non-CRUD sebagai status atau sub-resource
+- Kode status tepat, bentuk sukses dan error konsisten
+- Koleksi dipaginasi dengan batas
+
+</div>
+<div>
+
+**Keamanan, evolusi, dokumentasi**
+- Autentikasi dan otorisasi terpisah (401 vs 403)
+- Cek kepemilikan resource, rate limit, HTTPS
+- Ada prefix versi
+- Kontrak OpenAPI ikut di repositori
+- Ada test untuk 401, 403, 422, dan jalur sukses
+
+</div>
+</div>
 
 ---
 
@@ -1570,49 +1039,11 @@ Di jobsheet, kamu menerapkan konsep ini pada Simple POS:
 
 1. Memasang Sanctum, endpoint `POST /api/login`, dan token
 2. Endpoint produk dan transaksi dengan API Resource, 401 dan 422
-3. Merapikan desain: prefix versi, pagination, filter, dan format galat konsisten
+3. Merapikan desain: prefix versi, pagination, filter, dan format error konsisten
 4. Klien HTTP sungguhan dan dokumentasi OpenAPI
 5. Satu fitur AJAX kecil pada halaman web: form yang mengirim JSON lewat `fetch`
 
 <div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch09</code></div>
-
----
-
-## Rangkuman (1/4): Proses Desain, Resource, dan URL
-
-- Rancang dari use case: cari kata benda, petakan ke operasi, baru tulis kode
-- URL kata benda jamak, method HTTP sebagai kata kerja, nesting maksimal 2 tingkat
-- `GET`, `PUT`, `DELETE` aman diulang. `POST` tidak, kecuali memakai idempotency key
-- Aksi non-CRUD dimodelkan sebagai perubahan status atau sub-resource
-
----
-
-## Rangkuman (2/4): Merancang Respons
-
-- Kode status memberi tahu klien tindakan berikutnya: 201, 204, 401, 403, 404, 422, 429
-- Bentuk JSON konsisten: `data`, `meta`, `links`. Galat selalu `message` dan `errors`
-- API Resource menyaring field. `paginate` atau `cursorPaginate` dengan batas `per_page`
-- Filter dan sort lewat query string dengan daftar putih. Prefix versi untuk perubahan yang merusak
-
----
-
-## Rangkuman (3/4): Keamanan, Dokumentasi, dan Pengujian
-
-- Sanctum: `createToken()`, header `Authorization: Bearer`, middleware `auth:sanctum`
-- Abilities membatasi token, policy membatasi aksi, `throttle` membatasi frekuensi
-- Atur masa berlaku token dan sediakan pencabutan
-- OpenAPI sebagai kontrak, dites dengan `getJson`, `postJson`, dan `Sanctum::actingAs`
-- Klien memeriksa status sebelum membaca isi, dan hanya mengulang galat yang memang boleh diulang
-
----
-
-## Rangkuman (4/4): AJAX
-
-- AJAX dari halaman sendiri memakai route di `web.php` dengan sesi cookie, bukan `api.php` dengan token
-- Setiap POST/PUT/PATCH/DELETE sebaiknya membawa token CSRF lewat header `X-CSRF-TOKEN` (dari `<meta name="csrf-token">`), karena tanpa itu bisa 419
-- Header `Accept: application/json` membuat `validate()` membalas 422 JSON, bukan 302 redirect
-- Klien memeriksa `res.status`: 201 berhasil, 422 tampilkan galat per field, 401/419 sesi habis
-- Nonaktifkan tombol selama request berjalan supaya data tidak tersimpan dobel
 
 ---
 
