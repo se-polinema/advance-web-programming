@@ -1201,11 +1201,12 @@ Alpine.data('commentForm', (articleId) => ({
 
 Di jobsheet, kamu menerapkan konsep ini pada Simple POS:
 
-1. Memasang Sanctum, endpoint `POST /api/login`, dan token
+1. Memasang Sanctum, endpoint `POST /api/login`, token dengan ability dan masa berlaku
 2. Endpoint produk dan transaksi dengan API Resource, 401 dan 422
-3. Merapikan desain: prefix versi, pagination, filter, dan format error konsisten
-4. Klien HTTP sungguhan dan dokumentasi OpenAPI
-5. Satu fitur AJAX kecil pada halaman web: form yang mengirim JSON lewat `fetch`
+3. Merapikan desain: pagination, filter, format error konsisten, dan rate limit
+4. Idempotency key pada transaksi, serta otorisasi dengan ability dan Policy (403)
+5. Klien HTTP dengan retry, dokumentasi OpenAPI, dan feature test
+6. Satu fitur AJAX kecil pada halaman web: form yang mengirim JSON lewat `fetch`
 
 <div class="ref-link">Kode lengkap: <code>github.com/se-polinema/simple-pos-ch09</code></div>
 

@@ -15,12 +15,14 @@
 Setelah menyelesaikan jobsheet kelompok ini, kamu mampu:
 
 1. Memasang Sanctum dan merancang endpoint `POST /api/login` yang menerbitkan token untuk klien yang tidak punya cookie jar.
-2. Membangun endpoint `GET /api/products` yang dilindungi token dan mengurasi bentuk responsnya lewat API Resource.
-3. Membangun endpoint `POST /api/transactions` yang membedakan penanganan galat 401 dan 422, dan mengonsumsi ketiga endpoint itu lewat klien HTTP sungguhan di luar siklus request web.
+2. Membangun endpoint `GET /api/products` yang dilindungi token dan mengurasi bentuk response-nya lewat API Resource.
+3. Membangun endpoint `POST /api/transactions` yang membedakan penanganan error 401 dan 422, dan mengonsumsi ketiga endpoint itu lewat klien HTTP sungguhan di luar siklus request web.
 4. Mendokumentasikan ketiga endpoint memakai spesifikasi OpenAPI.
-5. Merapikan desain API: pagination dengan batas, filter dan sort lewat query string, galat 404 JSON yang konsisten, dan rate limit pada login.
+5. Merapikan desain API: pagination dengan batas, filter dan sort lewat query string, error 404 JSON yang konsisten, dan rate limit pada login.
 6. Mencegah transaksi ganda saat request diulang dengan idempotency key: reservasi key, putar ulang hasil lama, dan tangani 400, 409, 422.
-7. Memanggil endpoint JSON dari halaman web sendiri lewat `fetch` (AJAX): route di `web.php`, token CSRF, header `Accept: application/json`, dan penanganan status 201 dan 422.
+7. Membatasi token dengan ability dan membatasi akses per data dengan Policy (403), memberi token masa berlaku, dan menguji logout.
+8. Menguji endpoint dengan feature test (401, 403, 422, 201, dan idempotency key).
+9. Memanggil endpoint JSON dari halaman web sendiri lewat `fetch` (AJAX): route di `web.php`, token CSRF, header `Accept: application/json`, dan penanganan status 201 dan 422.
 
 ## B. Persiapan dan Prasyarat
 
@@ -187,7 +189,7 @@ class AuthController extends Controller
 }
 ```
 
-`createToken('mobile-kasir')` menghasilkan token baru yang tersimpan dalam bentuk hash di tabel `personal_access_tokens`, dan `->plainTextToken` adalah satu-satunya kesempatan token mentah itu terlihat. Setelah respons ini, server tidak bisa lagi menunjukkan ulang token yang sama dalam bentuk terbaca.
+`createToken('mobile-kasir')` menghasilkan token baru yang tersimpan dalam bentuk hash di tabel `personal_access_tokens`, dan `->plainTextToken` adalah satu-satunya kesempatan token mentah itu terlihat. Setelah response ini, server tidak bisa lagi menunjukkan ulang token yang sama dalam bentuk terbaca.
 
 Isi `routes/api.php` menjadi:
 
@@ -215,7 +217,7 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 > curl -X POST http://127.0.0.1:8000/api/login \
 >   -d "email=kasir@pos.test&password=password"
 > ```
-> **Yang diharapkan:** respons JSON berisi `{"token":"1|xxxxxxxxxxxxxxxxxxxx"}`. Salin nilai token itu (termasuk angka dan tanda `|` di depannya), akan dipakai pada langkah berikutnya.
+> **Yang diharapkan:** response JSON berisi `{"token":"1|xxxxxxxxxxxxxxxxxxxx"}`. Salin nilai token itu (termasuk angka dan tanda `|` di depannya), akan dipakai pada langkah berikutnya.
 
 > ⚠️ **Jika gagal:** pesan `{"message":"Kredensial tidak valid."}` berarti email atau password salah ketik, bukan masalah kode; pastikan database sudah di-seed ulang lewat `migrate:fresh --seed` di langkah B.
 
@@ -254,13 +256,13 @@ class ProductResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'price' => $this->price,
-            'category' => $this->category->name,
+            'category' => $this->whenLoaded('category', fn () => $this->category->name),
         ];
     }
 }
 ```
 
-`JsonResource` memastikan endpoint mengembalikan bentuk JSON yang sudah dikurasi, bukan hasil `toJson()` mentah dari model Eloquent yang bisa saja ikut membocorkan kolom internal seperti `created_at` atau relasi yang tidak relevan bagi klien.
+`JsonResource` memastikan endpoint mengembalikan bentuk JSON yang sudah dikurasi, bukan hasil `toJson()` mentah dari model Eloquent yang bisa saja ikut membocorkan column internal seperti `created_at` atau relasi yang tidak relevan bagi klien. `whenLoaded('category', ...)` hanya memasukkan nama kategori kalau relasinya sudah di-load (controller memakai `with('category')`), jadi tidak ada query N+1 yang terjadi diam-diam.
 
 Isi `app/Http/Controllers/Api/ProductController.php` menjadi:
 
@@ -313,15 +315,15 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 > ```bash
 > curl -i -H "Accept: application/json" http://127.0.0.1:8000/api/products
 > ```
-> **Yang diharapkan:** respons `401 Unauthorized` dengan pesan `{"message":"Unauthenticated."}`. Lalu coba dengan token dari Langkah 2:
+> **Yang diharapkan:** response `401 Unauthorized` dengan pesan `{"message":"Unauthenticated."}`. Lalu coba dengan token dari Langkah 2:
 > ```bash
 > curl -H "Accept: application/json" \
 >   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxx" \
 >   http://127.0.0.1:8000/api/products
 > ```
-> **Yang diharapkan:** respons JSON berisi daftar produk, dibungkus `{"data": [...]}`.
+> **Yang diharapkan:** response JSON berisi daftar produk, dibungkus `{"data": [...]}`.
 
-> ⚠️ **Jika permintaan tanpa token malah mengembalikan redirect ke `/login`, bukan 401:** periksa apakah header `Accept: application/json` sudah disertakan di perintah `curl`. Tanpa header ini, Laravel tidak tahu klien mengharapkan JSON dan menganggapnya permintaan browser biasa, lalu mengarahkan ke halaman login web alih-alih mengembalikan 401. Setiap permintaan ke endpoint API, termasuk yang dikirim lewat klien HTTP, sebaiknya selalu menyertakan header ini.
+> ⚠️ **Jika request tanpa token malah mengembalikan redirect ke `/login`, bukan 401:** periksa apakah header `Accept: application/json` sudah disertakan di perintah `curl`. Tanpa header ini, Laravel tidak tahu klien mengharapkan JSON dan menganggapnya request browser biasa, lalu mengarahkan ke halaman login web alih-alih mengembalikan 401. Setiap request ke endpoint API, termasuk yang dikirim lewat klien HTTP, sebaiknya selalu menyertakan header ini.
 
 ### Langkah 4: Endpoint transaksi
 
@@ -427,7 +429,7 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 >   -X POST http://127.0.0.1:8000/api/transactions \
 >   -d '{"items":[{"product_id":1,"qty":2}]}'
 > ```
-> **Yang diharapkan:** respons `201 Created` berisi `{"data":{"id":...,"total":...}}`. Coba juga dengan `product_id` yang tidak ada (misalnya `99999`); **yang diharapkan:** respons `422 Unprocessable Content` dengan pesan validasi, bukan 500.
+> **Yang diharapkan:** response `201 Created` berisi `{"data":{"id":...,"total":...}}`. Coba juga dengan `product_id` yang tidak ada (misalnya `99999`); **yang diharapkan:** response `422 Unprocessable Content` dengan pesan validasi, bukan 500.
 
 > ⚠️ **Jika gagal dengan 401 padahal token baru saja didapat:** token di atas sudah dipakai sebagai contoh di dokumen ini, nilainya tidak benar-benar valid di databasemu; pakai token asli hasil `curl` ke `/api/login` pada Langkah 2, bukan menyalin contoh ini apa adanya.
 
@@ -512,7 +514,7 @@ class ApiClientDemo extends Command
             201 => $this->info('Transaksi tersimpan: '.json_encode($transaction->json('data'))),
             401 => $this->error('Token tidak valid, login ulang.'),
             422 => $this->error('Input ditolak: '.$transaction->json('message')),
-            default => $this->error('Galat lain: '.$transaction->status()),
+            default => $this->error('Error lain: '.$transaction->status()),
         };
 
         return self::SUCCESS;
@@ -520,7 +522,7 @@ class ApiClientDemo extends Command
 }
 ```
 
-`$login->failed()` diperiksa sebelum kode lanjut membaca `$login->json('token')`; tanpa pemeriksaan ini, kredensial yang salah (401) akan membuat `$token` bernilai `null` tanpa pernah jelas kenapa, dan galat itu baru muncul beberapa langkah kemudian di tempat yang membingungkan. `Http::acceptJson()` menambahkan header `Accept: application/json` secara otomatis pada setiap request, mencegah masalah redirect-ke-login yang ditemukan di Langkah 3.
+`$login->failed()` diperiksa sebelum kode lanjut membaca `$login->json('token')`; tanpa pemeriksaan ini, kredensial yang salah (401) akan membuat `$token` bernilai `null` tanpa pernah jelas kenapa, dan error itu baru muncul beberapa langkah kemudian di tempat yang membingungkan. `Http::acceptJson()` menambahkan header `Accept: application/json` secara otomatis pada setiap request, mencegah masalah redirect-ke-login yang ditemukan di Langkah 3.
 
 ```bash
 git add .
@@ -540,7 +542,7 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 ### Langkah 6: Mendokumentasikan API dengan OpenAPI
 
-Dokumentasi API yang hanya berupa catatan teks di README cepat basi: begitu satu field respons berubah nama, tidak ada yang memaksa siapa pun memperbarui catatan itu. OpenAPI mendeskripsikan endpoint dalam format terstruktur yang bisa dibaca alat lain.
+Dokumentasi API yang hanya berupa catatan teks di README cepat basi: begitu satu field response berubah nama, tidak ada yang memaksa siapa pun memperbarui catatan itu. OpenAPI mendeskripsikan endpoint dalam format terstruktur yang bisa dibaca alat lain.
 
 Buat branch baru dari `main` terbaru, misalnya `api-docs`:
 
@@ -550,7 +552,7 @@ git pull
 git checkout -b api-docs
 ```
 
-Buat berkas `docs/openapi.yaml` di root proyek (belum ada bawaan Laravel; ini berkas baru yang berdiri sendiri, tidak dibaca otomatis oleh aplikasi) berisi:
+Buat file `docs/openapi.yaml` di root proyek (belum ada bawaan Laravel; ini file baru yang berdiri sendiri, tidak dibaca otomatis oleh aplikasi) berisi:
 
 ```yaml
 openapi: 3.0.0
@@ -662,13 +664,13 @@ git push -u origin api-docs
 
 Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
 
-> ✅ **Checkpoint:** buka `editor.swagger.io`, tempel isi `docs/openapi.yaml` ke sana. **Yang diharapkan:** panel pratinjau di sisi kanan menampilkan ketiga endpoint sebagai daftar interaktif yang bisa diklik, tanpa galat sintaks YAML.
+> ✅ **Checkpoint:** buka `editor.swagger.io`, tempel isi `docs/openapi.yaml` ke sana. **Yang diharapkan:** panel pratinjau di sisi kanan menampilkan ketiga endpoint sebagai daftar interaktif yang bisa diklik, tanpa error sintaks YAML.
 
-> ⚠️ **Jika panel pratinjau menampilkan pesan galat:** itu hampir selalu indentasi YAML yang salah (YAML memakai spasi, bukan tab, dan tiap level indentasi harus konsisten); bandingkan ulang lekukan tiap baris dengan contoh di atas.
+> ⚠️ **Jika panel pratinjau menampilkan pesan error:** itu hampir selalu indentasi YAML yang salah (YAML memakai spasi, bukan tab, dan tiap level indentasi harus konsisten); bandingkan ulang lekukan tiap baris dengan contoh di atas.
 
 ### Langkah 7: Merapikan desain API
 
-Endpoint `GET /api/products` dari Langkah 3 mengirim semua produk sekaligus. Untuk toko dengan ribuan produk, ini membuat respons besar dan lambat. Di langkah ini kamu menerapkan beberapa keputusan desain dari slide: daftar dipaginasi dengan batas, bisa difilter dan diurutkan lewat query string, galat 404 berbentuk JSON yang konsisten, dan endpoint login diberi rate limit supaya tebak password ditahan.
+Endpoint `GET /api/products` dari Langkah 3 mengirim semua produk sekaligus. Untuk toko dengan ribuan produk, ini membuat response besar dan lambat. Di langkah ini kamu menerapkan beberapa keputusan desain dari slide: daftar dipaginasi dengan batas, bisa difilter dan diurutkan lewat query string, error 404 berbentuk JSON yang konsisten, dan endpoint login diberi rate limit supaya tebak password ditahan.
 
 Buat branch baru dari `main` terbaru, misalnya `api-design`:
 
@@ -716,7 +718,7 @@ class ProductController extends Controller
 }
 ```
 
-Isi `bootstrap/app.php` menjadi. Galat di `api/*` selalu berbentuk JSON, dan route yang tidak ada dijawab `404` dengan bentuk pesan yang sama seperti galat lain:
+Isi `bootstrap/app.php` menjadi. Error di `api/*` selalu berbentuk JSON, dan route yang tidak ada dijawab `404` dengan bentuk pesan yang sama seperti error lain:
 
 ```php
 <?php
@@ -752,7 +754,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })->create();
 ```
 
-Rate limiter didefinisikan di `AppServiceProvider`. Limiter `api` membatasi 60 request per menit per pengguna (atau per IP kalau belum login), sedangkan limiter `login` jauh lebih ketat: 5 percobaan per menit untuk kombinasi email dan IP yang sama. Isi `app/Providers/AppServiceProvider.php` menjadi:
+Rate limiter didefinisikan di `AppServiceProvider`. Limiter `api` membatasi 60 request per menit per pengguna (atau per IP kalau belum login), sedangkan limiter `login` jauh lebih ketat: 5 attempt per menit untuk kombinasi email dan IP yang sama. Isi `app/Providers/AppServiceProvider.php` menjadi:
 
 ```php
 <?php
@@ -811,7 +813,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
 ```bash
 git add .
-git commit -m "rapikan desain api: pagination, filter, galat konsisten, rate limit"
+git commit -m "rapikan desain api: pagination, filter, error konsisten, rate limit"
 git push -u origin api-design
 ```
 
@@ -845,7 +847,7 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 >     -d '{"email":"kasir@pos.test","password":"salah"}'
 > done
 > ```
-> **Yang diharapkan:** lima baris pertama `401`, baris keenam `429` (Too Many Requests). Tunggu satu menit, percobaan berikutnya kembali dijawab `401`.
+> **Yang diharapkan:** lima baris pertama `401`, baris keenam `429` (Too Many Requests). Tunggu satu menit, attempt berikutnya kembali dijawab `401`.
 
 > ⚠️ **Jika gagal:** (a) `per_page=500` malah mengembalikan daftar atau redirect: header `Accept: application/json` belum disertakan, sehingga `validate()` mengarahkan balik alih-alih mengembalikan 422; (b) `links` dan `meta` tidak muncul: pastikan memakai `->paginate()`, bukan `->get()`; (c) tidak pernah muncul `429`: nama limiter di `routes/api.php` (`throttle:login`) harus sama dengan nama di `RateLimiter::for('login', ...)`; (d) route tidak ada tetap menampilkan halaman HTML: pastikan baris `api: __DIR__.'/../routes/api.php'` ada di `bootstrap/app.php`. Catatan: `php artisan api:demo` dari Langkah 5 tetap berjalan, hanya sekarang ia melihat 15 produk pertama karena daftar sudah dipaginasi.
 
@@ -874,7 +876,7 @@ php artisan make:model IdempotencyKey
 php artisan make:middleware EnsureIdempotency
 ```
 
-Isi file migration terbaru (`database/migrations/xxxx_xx_xx_xxxxxx_create_idempotency_keys_table.php`, awalan angkanya berbeda di tiap laptop) menjadi. Column `response_status` yang masih `null` berarti request pertama belum selesai, dan unique index pada `user_id` + `key` adalah penjaga utama: kalau dua request dengan key yang sama datang bersamaan, hanya satu yang berhasil membuat barisnya.
+Isi file migration terbaru (`database/migrations/xxxx_xx_xx_xxxxxx_create_idempotency_keys_table.php`, awalan angkanya berbeda di tiap laptop) menjadi. Column `response_status` yang masih `null` berarti request pertama belum selesai, dan unique index pada `user_id` + `key` adalah penjaga utama: kalau dua request dengan key yang sama datang bersamaan, hanya satu yang berhasil membuat row-nya.
 
 ```php
 <?php
@@ -926,7 +928,7 @@ class IdempotencyKey extends Model
 }
 ```
 
-Isi `app/Http/Middleware/EnsureIdempotency.php` menjadi. Middleware ini **mereservasi key lebih dulu** sebelum menjalankan request. `request_hash` adalah sidik jari isi request, dipakai untuk mendeteksi key yang dipakai ulang dengan isi berbeda. Kalau request gagal (bukan 2xx), barisnya dihapus supaya klien boleh mencoba lagi dengan key yang sama:
+Isi `app/Http/Middleware/EnsureIdempotency.php` menjadi. Middleware ini **mereservasi key lebih dulu** sebelum menjalankan request. `request_hash` adalah sidik jari isi request, dipakai untuk mendeteksi key yang dipakai ulang dengan isi berbeda. Kalau request gagal (bukan 2xx), row-nya dihapus supaya klien boleh mencoba lagi dengan key yang sama:
 
 ```php
 <?php
@@ -1049,7 +1051,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 });
 ```
 
-Sekarang klien wajib mengirim header `Idempotency-Key`, termasuk klien demo dari Langkah 5. Isi `app/Console/Commands/ApiClientDemo.php` menjadi. UUID dibuat **sekali** per aksi (`Str::uuid()`), lalu dipakai ulang pada retry: kalau tiap attempt membuat key baru, penjagaannya tidak berguna.
+Sekarang klien wajib mengirim header `Idempotency-Key`, termasuk klien demo dari Langkah 5. Isi `app/Console/Commands/ApiClientDemo.php` menjadi. UUID dibuat **sekali** per aksi (`Str::uuid()`), lalu dipakai ulang pada retry: kalau tiap attempt membuat key baru, penjagaannya tidak berguna. Klien ini juga memakai `retry()` dengan backoff (jeda 1 detik, 2 detik, 3 detik), tetapi hanya untuk error yang layak diulang: gangguan koneksi, 429, 502, 503, dan 504. Error 4xx lain (401, 422) tidak diulang karena request-nya yang salah, dan `POST` aman diulang karena membawa key yang sama.
 
 ```php
 <?php
@@ -1058,6 +1060,7 @@ namespace App\Console\Commands;
 
 use App\Models\Product;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -1084,6 +1087,11 @@ class ApiClientDemo extends Command
     {
         $baseUrl = 'http://127.0.0.1:8000';
 
+        // klien yang baik mengulang hanya error yang memang layak diulang, dengan jeda yang makin panjang
+        $when = fn ($e) => $e instanceof ConnectionException
+            || in_array($e->response->status(), [429, 502, 503, 504]);
+        $backoff = fn (int $attempt) => $attempt * 1000;
+
         $login = Http::acceptJson()->post("{$baseUrl}/api/login", [
             'email' => 'kasir@pos.test',
             'password' => 'password',
@@ -1098,7 +1106,7 @@ class ApiClientDemo extends Command
         $token = $login->json('token');
         $this->info("Login berhasil, token: {$token}");
 
-        $products = Http::acceptJson()->withToken($token)->get("{$baseUrl}/api/products");
+        $products = Http::acceptJson()->withToken($token)->retry(3, $backoff, $when, throw: false)->get("{$baseUrl}/api/products");
 
         if ($products->failed()) {
             $this->error('Token kedaluwarsa/dicabut, atau server sedang bermasalah.');
@@ -1114,18 +1122,20 @@ class ApiClientDemo extends Command
 
         $transaction = Http::acceptJson()->withToken($token)
             ->withHeaders(['Idempotency-Key' => $key])
+            ->retry(3, $backoff, $when, throw: false)
             ->post("{$baseUrl}/api/transactions", $payload);
 
         match ($transaction->status()) {
             201 => $this->info('Transaksi tersimpan: '.json_encode($transaction->json('data'))),
             401 => $this->error('Token tidak valid, login ulang.'),
             422 => $this->error('Input ditolak: '.$transaction->json('message')),
-            default => $this->error('Galat lain: '.$transaction->status()),
+            default => $this->error('Error lain: '.$transaction->status()),
         };
 
         // simulasi retry setelah timeout: request yang sama dengan key yang sama
         $retry = Http::acceptJson()->withToken($token)
             ->withHeaders(['Idempotency-Key' => $key])
+            ->retry(3, $backoff, $when, throw: false)
             ->post("{$baseUrl}/api/transactions", $payload);
 
         $this->info('Ulang dengan key yang sama: '.$retry->status().', replayed = '.$retry->header('Idempotent-Replayed'));
@@ -1163,17 +1173,386 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main`, pull, 
 >     'request_hash' => hash('sha256', '{"items":[{"product_id":1,"qty":2}]}'),
 > ]);
 > ```
-> Lalu kirim `curl` dari Checkpoint 1 dengan `Idempotency-Key: kunci-uji-2` dan isi `-d` yang persis sama. **Yang diharapkan:** `409 Conflict` dengan pesan "Request dengan key ini masih diproses.", karena barisnya ada tetapi `response_status`-nya masih `null`.
+> Lalu kirim `curl` dari Checkpoint 1 dengan `Idempotency-Key: kunci-uji-2` dan isi `-d` yang persis sama. **Yang diharapkan:** `409 Conflict` dengan pesan "Request dengan key ini masih diproses.", karena row-nya ada tetapi `response_status`-nya masih `null`.
 
 > ✅ **Checkpoint 4 (klien demo):** jalankan `php artisan api:demo` (server masih berjalan di port 8000). **Yang diharapkan:** empat baris output, dua baris terakhirnya "Transaksi tersimpan: {...}" dan "Ulang dengan key yang sama: 201, replayed = true". Baris keempat itu simulasi retry setelah timeout: request diulang dengan key yang sama, dan tidak ada transaksi kedua.
 
 > ⚠️ **Jika gagal:** (a) semua `POST /api/transactions` mendapat `400`: header `Idempotency-Key` belum disertakan, termasuk pada perintah `curl` lama dari Langkah 4; (b) error `Target class [idempotent] does not exist` atau middleware tidak berjalan: alias `idempotent` di `bootstrap/app.php` belum ada; (c) error `no such table: idempotency_keys`: jalankan `php artisan migrate`; (d) request kedua selalu membuat transaksi baru: key-nya berbeda tiap kali, pastikan UUID dibuat sekali dan dipakai ulang; (e) `409` terus-menerus setelah proses sempat mati di tengah jalan: row dengan `response_status` `null` tertinggal. Hapus row-nya lewat tinker (`App\Models\IdempotencyKey::whereNull('response_status')->delete()`). Di production, row seperti ini diberi batas waktu kedaluwarsa.
 
-### Langkah 9: AJAX dari halaman web
+### Langkah 9: Otorisasi dengan ability token dan Policy
 
-Token Sanctum dipakai klien di luar browser. Halaman web Simple POS sendiri juga bisa memanggil server di background lewat `fetch`, tanpa reload, memakai sesi cookie yang sama seperti di Pertemuan 7. Bedanya dengan API di Langkah 1-8: route-nya ada di `routes/web.php` (bukan `api.php`), request yang mengubah data perlu token CSRF, dan klien harus meminta JSON lewat header `Accept` supaya galat validasi kembali sebagai JSON 422, bukan redirect.
+Sampai di sini, token yang valid boleh melakukan apa saja. Dua lapis pembatas menutup celah itu. **Ability** membatasi apa yang boleh dilakukan *token*, seperti kartu akses karyawan magang yang hanya membuka pintu gudang, bukan brankas. **Policy** membatasi apa yang boleh dilakukan *pengguna* terhadap satu data: kasir hanya boleh melihat transaksinya sendiri, admin boleh melihat semuanya. Gagal di lapis mana pun dijawab **403**, bukan 401, karena identitasnya sudah dikenal. Kita juga memberi token masa berlaku dan memeriksa `logout`.
 
-Fitur yang dibuat: halaman `/quick-categories` untuk admin. Form menambah kategori lewat `fetch`, daftar kategori bertambah tanpa reload, dan galat validasi muncul di bawah kolom isian.
+Buat branch baru dari `main` terbaru, misalnya `api-authorization`, lalu buat resource dan policy-nya lewat artisan:
+
+```bash
+git checkout main
+git pull
+git checkout -b api-authorization
+php artisan make:resource TransactionResource
+php artisan make:policy TransactionPolicy --model=Transaction
+```
+
+Isi `app/Http/Controllers/Api/AuthController.php` menjadi. `createToken()` sekarang menerima daftar ability dan waktu kedaluwarsa (besok, `now()->addDay()`), karena secara default token Sanctum tidak pernah kedaluwarsa:
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AuthController extends Controller
+{
+    public function login(Request $request)
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (! Auth::attempt($credentials)) {
+            return response()->json(['message' => 'Kredensial tidak valid.'], 401);
+        }
+
+        $user = Auth::user();
+        $token = $user->createToken(
+            'mobile-kasir',
+            ['products:read', 'transactions:create', 'transactions:read'],
+            now()->addDay(),
+        )->plainTextToken;
+
+        return response()->json(['token' => $token]);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json(['message' => 'Logout berhasil.']);
+    }
+}
+```
+
+Isi `app/Http/Resources/TransactionResource.php` menjadi:
+
+```php
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class TransactionResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'total' => $this->total,
+            'created_at' => $this->created_at,
+        ];
+    }
+}
+```
+
+Isi `app/Policies/TransactionPolicy.php` menjadi. Laravel menemukan policy ini otomatis dari namanya (`TransactionPolicy` untuk model `Transaction`), jadi tidak perlu didaftarkan:
+
+```php
+<?php
+
+namespace App\Policies;
+
+use App\Models\Transaction;
+use App\Models\User;
+
+class TransactionPolicy
+{
+    public function view(User $user, Transaction $transaction): bool
+    {
+        return $user->isAdmin() || $user->id === $transaction->user_id;
+    }
+}
+```
+
+Isi `app/Http/Controllers/Api/TransactionController.php` menjadi. Method `show` baru memanggil `Gate::authorize('view', $transaction)`, yang melempar 403 otomatis kalau policy menolak:
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreTransactionRequest;
+use App\Http\Resources\TransactionResource;
+use App\Models\Product;
+use App\Models\Transaction;
+use App\Models\TransactionDetail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+
+class TransactionController extends Controller
+{
+    public function store(StoreTransactionRequest $request)
+    {
+        $validated = $request->validated();
+
+        $transaction = DB::transaction(function () use ($validated, $request) {
+            $transaction = Transaction::create([
+                'user_id' => $request->user()->id,
+                'total' => 0,
+            ]);
+
+            $total = 0;
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::findOrFail($item['product_id']);
+                $subtotal = $product->price * $item['qty'];
+                $total += $subtotal;
+
+                TransactionDetail::create([
+                    'transaction_id' => $transaction->id,
+                    'product_id' => $product->id,
+                    'qty' => $item['qty'],
+                    'subtotal' => $subtotal,
+                ]);
+            }
+
+            $transaction->update(['total' => $total]);
+
+            return $transaction;
+        });
+
+        return response()->json([
+            'data' => [
+                'id' => $transaction->id,
+                'total' => $transaction->total,
+            ],
+        ], 201);
+    }
+
+    public function show(Transaction $transaction)
+    {
+        Gate::authorize('view', $transaction);
+
+        return new TransactionResource($transaction);
+    }
+}
+```
+
+Daftarkan alias middleware ability milik Sanctum. Isi `bootstrap/app.php` menjadi:
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'idempotent' => \App\Http\Middleware\EnsureIdempotency::class,
+            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+            }
+        });
+    })->create();
+```
+
+Pasang ability pada route. `abilities:transactions:create` berarti token wajib punya ability itu (`ability:` dengan satu `s` berarti salah satu cukup). Isi `routes/api.php` menjadi:
+
+```php
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\TransactionController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/products', [ProductController::class, 'index'])->middleware('abilities:products:read');
+    Route::post('/transactions', [TransactionController::class, 'store'])
+        ->middleware(['abilities:transactions:create', 'idempotent']);
+    Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
+        ->middleware('abilities:transactions:read');
+});
+```
+
+```bash
+git add .
+git commit -m "tambah ability token, policy transaksi, dan masa berlaku token"
+git push -u origin api-authorization
+```
+
+Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull. Token lama (dibuat sebelum langkah ini) tidak punya ability, jadi login ulang untuk mendapat token baru.
+
+> ✅ **Checkpoint 1 (Policy):** login sebagai kasir (`kasir@pos.test`), lalu login sebagai admin (`admin@pos.test`), dan simpan kedua token. Transaksi nomor 1 dari seeder bukan milik kasir:
+> ```bash
+> curl -i -H "Accept: application/json" -H "Authorization: Bearer TOKEN_KASIR" http://127.0.0.1:8000/api/transactions/1
+> ```
+> **Yang diharapkan:** `403 Forbidden`. Ulangi dengan `TOKEN_ADMIN`: **yang diharapkan** `200` karena admin boleh melihat semua transaksi. Lalu buat transaksi baru sebagai kasir (perintah `curl` dari Langkah 8, dengan key baru) dan buka `/api/transactions/{id}` miliknya sendiri dengan `TOKEN_KASIR`: **yang diharapkan** `200`. Nomor yang tidak ada (`/api/transactions/999999`) menghasilkan `404` JSON.
+
+> ✅ **Checkpoint 2 (ability):** buat token yang hanya boleh membaca produk lewat `php artisan tinker`:
+> ```php
+> App\Models\User::where('email', 'kasir@pos.test')->first()
+>     ->createToken('laporan-bot', ['products:read'])->plainTextToken;
+> ```
+> Pakai token itu: `GET /api/products` **yang diharapkan** `200`, tetapi `POST /api/transactions` (dengan header `Idempotency-Key`) **yang diharapkan** `403`, karena token tidak punya ability `transactions:create`.
+
+> ✅ **Checkpoint 3 (masa berlaku):** di tinker, `Laravel\Sanctum\PersonalAccessToken::where('name', 'mobile-kasir')->latest('id')->first()`. **Yang diharapkan:** `abilities` berisi tiga ability dan `expires_at` kira-kira 24 jam dari sekarang.
+
+> ✅ **Checkpoint 4 (logout):** kirim `curl -X POST -H "Accept: application/json" -H "Authorization: Bearer TOKEN_KASIR" http://127.0.0.1:8000/api/logout`. **Yang diharapkan:** pesan "Logout berhasil.". Lalu panggil `GET /api/products` dengan token yang sama: **yang diharapkan** `401`, karena tokennya sudah dihapus dari database.
+
+> ⚠️ **Jika gagal:** (a) semua endpoint terproteksi menjawab `403` setelah langkah ini: token yang dipakai dibuat sebelum langkah ini dan tidak punya ability, login ulang; (b) error `Target class [abilities] does not exist`: alias di `bootstrap/app.php` belum ada; (c) transaksi nomor 1 dijawab `200` untuk kasir atau `403` untuk admin: pastikan file policy ada di `app/Policies/TransactionPolicy.php` dan `role` admin di database bernilai `admin`; (d) `GET /api/transactions/1` dijawab `404`: seeder belum dijalankan (`php artisan migrate:fresh --seed`).
+
+### Langkah 10: Menguji API dengan feature test
+
+Mengecek endpoint dengan `curl` itu pekerjaan sekali jalan. Test otomatis mengulang pengecekan yang sama setiap kali kode berubah, sehingga perubahan di satu endpoint tidak diam-diam merusak yang lain. Test kita memeriksa jalur-jalur yang sudah dibangun: 401, 403, 422, 201, idempotency, dan Policy.
+
+Buat branch baru dari `main` terbaru, misalnya `api-tests`, lalu buat file test-nya:
+
+```bash
+git checkout main
+git pull
+git checkout -b api-tests
+php artisan make:test ApiTransactionTest
+```
+
+Isi `tests/Feature/ApiTransactionTest.php` menjadi. `Sanctum::actingAs()` membuat user yang sedang login dengan ability tertentu tanpa lewat `/api/login`, dan `RefreshDatabase` membuat database test yang bersih di setiap test:
+
+```php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\Transaction;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class ApiTransactionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function payload(): array
+    {
+        $category = Category::forceCreate(['name' => 'Minuman']);
+        $product = Product::create(['category_id' => $category->id, 'name' => 'Kopi', 'price' => 15000, 'stock' => 10]);
+
+        return ['items' => [['product_id' => $product->id, 'qty' => 2]]];
+    }
+
+    public function test_guest_cannot_create_transaction(): void
+    {
+        $this->postJson('/api/transactions', $this->payload())->assertUnauthorized();      // 401
+    }
+
+    public function test_token_without_ability_is_forbidden(): void
+    {
+        Sanctum::actingAs(User::factory()->create(), ['products:read']);
+
+        $this->postJson('/api/transactions', $this->payload(), ['Idempotency-Key' => 'k1'])
+            ->assertForbidden();                                                           // 403
+    }
+
+    public function test_invalid_items_are_rejected(): void
+    {
+        Sanctum::actingAs(User::factory()->create(), ['transactions:create']);
+
+        $this->postJson('/api/transactions', ['items' => [['product_id' => 99999, 'qty' => 1]]], ['Idempotency-Key' => 'k2'])
+            ->assertUnprocessable()                                                        // 422
+            ->assertJsonValidationErrors('items.0.product_id');
+    }
+
+    public function test_transaction_is_created_once_even_when_repeated(): void
+    {
+        Sanctum::actingAs(User::factory()->create(), ['transactions:create']);
+        $payload = $this->payload();
+        $headers = ['Idempotency-Key' => 'k3'];
+
+        $first = $this->postJson('/api/transactions', $payload, $headers)
+            ->assertCreated()                                                              // 201
+            ->assertJsonPath('data.total', 30000);
+
+        $this->postJson('/api/transactions', $payload, $headers)
+            ->assertCreated()
+            ->assertHeader('Idempotent-Replayed', 'true')
+            ->assertJsonPath('data.id', $first->json('data.id'));
+
+        $this->assertDatabaseCount('transactions', 1);
+    }
+
+    public function test_cashier_cannot_view_another_cashiers_transaction(): void
+    {
+        $owner = User::factory()->create();
+        $transaction = Transaction::create(['user_id' => $owner->id, 'total' => 1000]);
+
+        Sanctum::actingAs(User::factory()->create(), ['transactions:read']);
+        $this->getJson("/api/transactions/{$transaction->id}")->assertForbidden();         // 403
+
+        Sanctum::actingAs($owner, ['transactions:read']);
+        $this->getJson("/api/transactions/{$transaction->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $transaction->id);
+    }
+}
+```
+
+```bash
+php artisan test --filter=ApiTransactionTest
+```
+
+```bash
+git add .
+git commit -m "tambah feature test endpoint transaksi api"
+git push -u origin api-tests
+```
+
+Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pull.
+
+> ✅ **Checkpoint:** `php artisan test --filter=ApiTransactionTest` menampilkan lima test berstatus hijau (`Tests: 5 passed`). Coba rusakkan satu hal, misalnya hapus `->middleware('abilities:transactions:create')` dari `routes/api.php`, lalu jalankan lagi: test `token without ability is forbidden` harus gagal. Kembalikan baris itu setelah selesai.
+
+> ⚠️ **Jika gagal:** (a) error `could not find driver`: ekstensi PHP `pdo_sqlite` belum aktif (test memakai SQLite di memori, lihat `phpunit.xml`); (b) `no such table`: pastikan `use RefreshDatabase;` ada di class test; (c) test `transaction is created once even when repeated` gagal dengan 400: header `Idempotency-Key` tidak terkirim sebagai argumen ketiga `postJson`.
+
+### Langkah 11: AJAX dari halaman web
+
+Token Sanctum dipakai klien di luar browser. Halaman web Simple POS sendiri juga bisa memanggil server di background lewat `fetch`, tanpa reload, memakai sesi cookie yang sama seperti di Pertemuan 7. Bedanya dengan API di Langkah 1-10: route-nya ada di `routes/web.php` (bukan `api.php`), request yang mengubah data perlu token CSRF, dan klien harus meminta JSON lewat header `Accept` supaya error validasi kembali sebagai JSON 422, bukan redirect.
+
+Fitur yang dibuat: halaman `/quick-categories` untuk admin. Form menambah kategori lewat `fetch`, daftar kategori bertambah tanpa reload, dan error validasi muncul di bawah input.
 
 Buat branch baru dari `main` terbaru, misalnya `ajax-quick-category`, lalu buat controller dan view-nya lewat artisan:
 
@@ -1303,7 +1682,7 @@ class QuickCategoryController extends Controller
 }
 ```
 
-Isi `resources/views/quick-categories/index.blade.php` menjadi. Komponen Alpine di dalam `x-data` mengirim `fetch` dengan tiga header (`Accept`, `Content-Type`, `X-CSRF-TOKEN`), lalu membaca `res.status` sebelum membaca isi respons:
+Isi `resources/views/quick-categories/index.blade.php` menjadi. Komponen Alpine di dalam `x-data` mengirim `fetch` dengan tiga header (`Accept`, `Content-Type`, `X-CSRF-TOKEN`), lalu membaca `res.status` sebelum membaca isi response:
 
 ```php
 @extends('layouts.app')
@@ -1387,26 +1766,26 @@ Buka Pull Request ke `main`, merge, lalu semua anggota kembali ke `main` dan pul
 
 > ✅ **Checkpoint:** login sebagai admin, buka `/quick-categories`, lalu buka DevTools (F12) tab **Network**, filter **Fetch/XHR**. Ketik `Minuman Dingin` dan klik **Tambah**. **Yang diharapkan:** muncul satu request `quick-categories` dengan method `POST` dan status **201**; tab **Response** berisi JSON kategori baru; nama itu muncul di daftar tanpa halaman reload (tidak ada request tipe `document` baru).
 
-> ✅ **Checkpoint:** kosongkan kolom isian lalu klik **Tambah**. **Yang diharapkan:** request `POST` berstatus **422**, tab **Response** berisi `{"message": ..., "errors": {"name": [...]}}`, dan pesan galat berwarna merah muncul di bawah kolom isian. Coba juga mengirim `Minuman Dingin` sekali lagi: aturan `unique` menolaknya dengan 422.
+> ✅ **Checkpoint:** kosongkan input lalu klik **Tambah**. **Yang diharapkan:** request `POST` berstatus **422**, tab **Response** berisi `{"message": ..., "errors": {"name": [...]}}`, dan pesan error berwarna merah muncul di bawah input. Coba juga mengirim `Minuman Dingin` sekali lagi: aturan `unique` menolaknya dengan 422.
 
-> ✅ **Checkpoint (eksperimen):** di `resources/views/quick-categories/index.blade.php`, hapus baris `'Accept': 'application/json',` sementara, simpan, muat ulang halaman, lalu kirim form dengan kolom kosong. **Yang diharapkan:** di tab **Network** request `POST` berstatus **302** (redirect ke halaman sebelumnya), dan pesan galat di bawah kolom isian berubah jadi "Gagal terhubung ke server." karena `res.json()` gagal membaca HTML. Kembalikan barisnya setelah selesai.
+> ✅ **Checkpoint (eksperimen):** di `resources/views/quick-categories/index.blade.php`, hapus baris `'Accept': 'application/json',` sementara, simpan, muat ulang halaman, lalu kirim form dengan input kosong. **Yang diharapkan:** di tab **Network** request `POST` berstatus **302** (redirect ke halaman sebelumnya), dan pesan error di bawah input berubah jadi "Gagal terhubung ke server." karena `res.json()` gagal membaca HTML. Kembalikan baris itu setelah selesai.
 
 > ⚠️ **Jika gagal:** (a) status **419 Page Expired**: tag `<meta name="csrf-token">` belum ada di layout, atau baris `'X-CSRF-TOKEN'` salah ketik; (b) status **405 Method Not Allowed**: pastikan route `quick-categories.store` memakai `Route::post`; (c) status **401** padahal sudah login: pastikan kamu login lewat halaman web, bukan memakai token Sanctum, dan route ada di `web.php`; (d) status **403** atau halaman tidak terbuka: akun yang dipakai bukan admin; (e) error `Alpine is not defined` di console: jalankan `npm run dev` (Pertemuan 3).
 
-### Langkah 10: Bersama, uji integrasi dan review kode
+### Langkah 12: Bersama, uji integrasi dan review kode
 
-Semua anggota `git checkout main && git pull`, jalankan `php artisan migrate:fresh --seed`, lalu ulangi setiap checkpoint di atas secara berurutan: login, produk tanpa token (401), produk dengan token, transaksi valid (201), transaksi tidak valid (422), `php artisan api:demo`, pratinjau `docs/openapi.yaml` di Swagger editor, produk dengan `per_page` dan `sort`, rate limit login (429), idempotency key (201 lalu diputar ulang, 400, 422, 409, dan `php artisan api:demo` dengan empat baris), dan halaman `/quick-categories` (201 dan 422 di tab Network). Karena `POST /api/transactions` sekarang wajib membawa header `Idempotency-Key`, tambahkan header itu (isinya bebas, tetapi harus unik) pada perintah `curl` transaksi dari Langkah 4. Setiap checkpoint harus menunjukkan hasil yang sama persis di laptop setiap anggota.
+Semua anggota `git checkout main && git pull`, jalankan `php artisan migrate:fresh --seed`, lalu ulangi setiap checkpoint di atas secara berurutan: login, produk tanpa token (401), produk dengan token, transaksi valid (201), transaksi tidak valid (422), `php artisan api:demo`, pratinjau `docs/openapi.yaml` di Swagger editor, produk dengan `per_page` dan `sort`, rate limit login (429), idempotency key (201 lalu diputar ulang, 400, 422, 409, dan `php artisan api:demo` dengan empat baris), otorisasi (403 untuk kasir dan 200 untuk admin pada transaksi orang lain, token terbatas, logout), `php artisan test`, dan halaman `/quick-categories` (201 dan 422 di tab Network). Karena `POST /api/transactions` sekarang wajib membawa header `Idempotency-Key`, tambahkan header itu (isinya bebas, tetapi harus unik) pada perintah `curl` transaksi dari Langkah 4. Setiap checkpoint harus menunjukkan hasil yang sama persis di laptop setiap anggota.
 
 > ✅ **Checkpoint:** seluruh checkpoint di atas berhasil diulang dan menunjukkan hasil yang sama di laptop setiap anggota kelompok.
 
-### Langkah 11: Tantangan mandiri kelompok dan commit `increment 10`
+### Langkah 13: Tantangan mandiri kelompok dan commit `increment 10`
 
 Bagi tugas berikut di antara anggota, supaya setiap anggota tercatat minimal satu commit bermakna lewat Pull Request mandiri.
 
 - Tambahkan endpoint baru `GET /api/categories`, lengkap dengan `CategoryResource`-nya.
 - Lengkapi dokumentasi OpenAPI untuk endpoint `GET /api/products`, termasuk skema query parameter untuk paginasi.
 - Pindahkan semua route API ke prefix `/api/v1` (misalnya dengan `Route::prefix('v1')`), lalu perbarui `php artisan api:demo` dan `docs/openapi.yaml` supaya tetap cocok.
-- Tulis satu feature test (`postJson` dengan `Sanctum::actingAs`) yang memastikan request ulang dengan key yang sama tidak membuat transaksi kedua.
+- Tambahkan test untuk token yang sudah kedaluwarsa (gunakan `Sanctum::actingAs` dan `Carbon::setTestNow()`), lalu pastikan jawabannya 401.
 - Hapus key lama secara otomatis (misalnya lebih dari 24 jam) memakai trait `Prunable` pada model `IdempotencyKey` dan jadwal `model:prune`.
 - Ubah `php artisan api:demo` agar mencoba login dengan kata sandi yang salah lebih dulu, lalu amati bagaimana kode itu berhenti pada langkah pertama alih-alih melanjutkan dengan token kosong.
 - Uji ketiga endpoint lewat Postman atau Insomnia (bukan `curl`), lalu tuliskan satu paragraf perbandingan pengalamannya dengan `curl` di `docs/openapi.yaml` sebagai komentar YAML.
@@ -1430,8 +1809,10 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 - Link repositori GitHub kelompok.
 - Screenshot terminal yang menampilkan output `php artisan api:demo` secara lengkap.
 - Screenshot panel pratinjau Swagger editor menampilkan `docs/openapi.yaml`.
-- Output `curl` yang menampilkan respons `GET /api/products` berpaginasi (ada `links` dan `meta`) dan satu respons `429` dari login.
-- Output `curl` yang menampilkan request transaksi yang diulang dengan `Idempotency-Key` sama: respons pertama `201`, respons kedua `201` dengan header `Idempotent-Replayed: true`, dan hasil `Transaction::count()` yang hanya bertambah satu.
+- Output `curl` yang menampilkan response `GET /api/products` berpaginasi (ada `links` dan `meta`) dan satu response `429` dari login.
+- Output `curl` yang menampilkan `403` pada transaksi milik orang lain (kasir) dan `200` (admin), serta `403` pada `POST /api/transactions` dengan token yang hanya punya `products:read`.
+- Screenshot terminal `php artisan test --filter=ApiTransactionTest` dengan lima test hijau.
+- Output `curl` yang menampilkan request transaksi yang diulang dengan `Idempotency-Key` sama: response pertama `201`, response kedua `201` dengan header `Idempotent-Replayed: true`, dan hasil `Transaction::count()` yang hanya bertambah satu.
 - Screenshot DevTools tab Network pada `/quick-categories` yang menampilkan request `POST` berstatus 201 dan satu request berstatus 422.
 - Output `git log --pretty="%h %an %s"` yang menunjukkan minimal satu commit per anggota.
 - Tabel ringkas tantangan mandiri: anggota, tantangan yang dikerjakan, dan link Pull Request.
@@ -1440,7 +1821,7 @@ Kumpulkan hal berikut sesuai format yang diminta dosen:
 
 | Komponen | Bobot | Kriteria Lengkap (100%) | Kriteria Minimum |
 |---|---|---|---|
-| Langkah kerja tuntas (kelompok) | 40% | Langkah 1-10 selesai: login, produk, transaksi, klien HTTP, OpenAPI, desain API rapi (pagination, galat, rate limit), idempotency key, dan AJAX kategori cepat berfungsi sesuai checkpoint | Sebagian besar langkah selesai, minimal login dan satu endpoint terproteksi berjalan |
+| Langkah kerja tuntas (kelompok) | 40% | Langkah 1-12 selesai: login, produk, transaksi, klien HTTP, OpenAPI, desain API rapi (pagination, error, rate limit), idempotency key, otorisasi (ability dan Policy), feature test hijau, dan AJAX kategori cepat berfungsi sesuai checkpoint | Sebagian besar langkah selesai, minimal login dan satu endpoint terproteksi berjalan |
 | Kontribusi per anggota (individu) | 25% | Minimal satu commit bermakna dari tiap anggota, sesuai tabel pembagian tugas | Commit ada tapi kecil atau kurang jelas kaitannya |
 | Kerapian repositori dan commit | 10% | Pesan `increment 10` persis, tanpa menyertakan `vendor/`, `node_modules/`, `.env`, PR di-merge rapi (bukan squash) | Commit ada, pesan kurang rapi atau PR di-squash |
 | Checkpoint terverifikasi (kelompok) | 25% | Screenshot `api:demo`, Swagger editor, dan tab Network (201 dan 422) lengkap dan menunjukkan hasil yang benar | Sebagian checkpoint terbukti |

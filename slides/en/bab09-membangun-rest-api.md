@@ -1201,11 +1201,12 @@ Alpine.data('commentForm', (articleId) => ({
 
 In the jobsheet, you apply these concepts to Simple POS:
 
-1. Install Sanctum, the `POST /api/login` endpoint, and tokens
+1. Install Sanctum, the `POST /api/login` endpoint, and tokens with abilities and an expiry time
 2. Product and transaction endpoints with API Resource, 401 and 422
-3. Tidy the design: version prefix, pagination, filters, and a consistent error format
-4. A real HTTP client and OpenAPI documentation
-5. One small AJAX feature on a web page: a form that sends JSON through `fetch`
+3. Tidy the design: pagination, filters, a consistent error format, and rate limiting
+4. An idempotency key on transactions, plus authorization with abilities and a Policy (403)
+5. An HTTP client with retry, OpenAPI documentation, and feature tests
+6. One small AJAX feature on a web page: a form that sends JSON through `fetch`
 
 <div class="ref-link">Full code: <code>github.com/se-polinema/simple-pos-ch09</code></div>
 
