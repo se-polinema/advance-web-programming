@@ -391,8 +391,104 @@ GET  /comments/31                satu komentar (ID sudah unik)
 | `POST` | tidak | **tidak** |
 
 <div class="warn-box">
-<code>POST /transactions</code> yang diulang karena timeout bisa membuat dua transaksi. Solusi: <b>idempotency key</b>, yaitu klien mengirim header <code>Idempotency-Key: &lt;uuid&gt;</code> dan server mengembalikan hasil lama untuk key yang sama. Laravel tidak menyediakannya bawaan: simpan key di tabel dengan unique index.
+<code>POST /transactions</code> yang diulang karena timeout bisa membuat dua transaksi. Solusinya <b>idempotency key</b>: konsep, sisi klien, dan implementasi lengkapnya ada di tiga slide berikut.
 </div>
+
+---
+
+## Idempotency Key: Alur dan Sisi Klien
+
+<div class="flow">
+  <div class="box">Klien buat key</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">POST + header</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Server simpan hasil</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Ulang: hasil sama</div>
+</div>
+
+| Request | Hasil |
+|---|---|
+| Key baru | diproses, hasilnya disimpan |
+| Key sama, isi sama | hasil lama **diputar ulang** (`Idempotent-Replayed: true`), tidak ada data kedua |
+| Key sama, isi beda | **422**: key tidak boleh dipakai untuk request lain |
+| Key sama, request pertama masih jalan | **409**: tunggu lalu coba lagi |
+
+```php
+$key = (string) Str::uuid();     // dibuat SEKALI per aksi pengguna (JavaScript: crypto.randomUUID())
+
+Http::withToken($token)->withHeaders(['Idempotency-Key' => $key])
+    ->post("{$baseUrl}/api/v1/transactions", $payload);     // retry memakai key yang SAMA
+```
+
+---
+
+## Idempotency Key di Laravel (1/2): Tabel dan Route
+
+```php
+// php artisan make:migration create_idempotency_keys_table
+Schema::create('idempotency_keys', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+    $table->string('key', 64);
+    $table->string('request_hash', 64);                              // sidik jari isi request
+    $table->unsignedSmallInteger('response_status')->nullable();     // null = masih diproses
+    $table->longText('response_body')->nullable();
+    $table->timestamps();
+
+    $table->unique(['user_id', 'key']);                              // penjaga dari request yang datang bersamaan
+});
+```
+
+```php
+// php artisan make:model IdempotencyKey  (isi $fillable)  dan  php artisan make:middleware EnsureIdempotency
+// bootstrap/app.php
+$middleware->alias(['idempotent' => \App\Http\Middleware\EnsureIdempotency::class]);
+
+// routes/api.php
+Route::post('/transactions', [TransactionController::class, 'store'])->middleware('idempotent');
+```
+
+- Hapus key lama secara berkala (misalnya lebih dari 24 jam) dengan `Prunable` dan `model:prune` terjadwal
+
+---
+
+## Idempotency Key di Laravel (2/2): Middleware
+
+```php
+// use App\Models\IdempotencyKey; use Illuminate\Database\UniqueConstraintViolationException;
+public function handle(Request $request, Closure $next): Response
+{
+    $key = $request->header('Idempotency-Key');
+    if (! $key) {
+        return response()->json(['message' => 'Header Idempotency-Key wajib diisi.'], 400);
+    }
+
+    $userId = $request->user()->id;
+    $hash = hash('sha256', $request->getContent());
+
+    try {
+        $record = IdempotencyKey::create(['user_id' => $userId, 'key' => $key, 'request_hash' => $hash]);   // reservasi key
+    } catch (UniqueConstraintViolationException) {                                                         // key sudah ada
+        $record = IdempotencyKey::where('user_id', $userId)->where('key', $key)->firstOrFail();
+
+        if ($record->request_hash !== $hash) return response()->json(['message' => 'Key sudah dipakai request lain.'], 422);
+        if ($record->response_status === null) return response()->json(['message' => 'Masih diproses.'], 409);
+
+        return response($record->response_body, $record->response_status)                                  // putar ulang
+            ->header('Content-Type', 'application/json')->header('Idempotent-Replayed', 'true');
+    }
+
+    $response = $next($request);
+
+    $response->isSuccessful()
+        ? $record->update(['response_status' => $response->getStatusCode(), 'response_body' => $response->getContent()])
+        : $record->delete();                          // gagal: bebaskan key supaya klien boleh mencoba lagi
+
+    return $response;
+}
+```
 
 ---
 
@@ -454,7 +550,7 @@ Jangan membuat <code>POST /publishArticle</code>. Cari kata benda atau status ya
 
 - URL = kata benda jamak, method HTTP = kata kerja, nesting maksimal 2 tingkat
 - `apiResource` menghasilkan 5 route CRUD sekaligus
-- `GET`, `PUT`, `DELETE` aman diulang. `POST` tidak, kecuali memakai idempotency key
+- `GET`, `PUT`, `DELETE` aman diulang. `POST` tidak, kecuali memakai idempotency key (UUID dari klien, middleware menyimpan dan memutar ulang hasil)
 - PUT mengganti semua, PATCH mengubah sebagian (validasi pakai `sometimes`)
 - Aksi non-CRUD: ubah status atau buat sub-resource, bukan kata kerja di URL
 
@@ -566,15 +662,20 @@ class ArticleResource extends JsonResource   // php artisan make:resource Articl
 | **Data berubah / sangat besar** | bisa terlewat atau melambat | stabil dan cepat (butuh index) |
 
 ```php
+$request->validate([
+    'sort' => ['sometimes', 'in:title,-title,published_at,-published_at'],   // daftar putih
+    'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],              // batas atas
+]);
+$sort = $request->input('sort', '-published_at');
+
 Article::query()
-    ->when($request->status, fn ($q, $v) => $q->where('status', $v))        // ?status=published
-    ->when($request->q, fn ($q, $v) => $q->where('title', 'like', "%{$v}%"))
-    ->orderBy($sortColumn, $direction)                                       // ?sort=-published_at
-    ->paginate(min($request->integer('per_page', 15), 100));                 // batasi per_page
+    ->when($request->status, fn ($q, $v) => $q->where('status', $v))                 // ?status=published
+    ->orderBy(ltrim($sort, '-'), str_starts_with($sort, '-') ? 'desc' : 'asc')       // ?sort=-published_at
+    ->paginate($request->integer('per_page', 15));        // cursor: ->orderBy('id')->cursorPaginate(15)
 ```
 
 <div class="warn-box">
-Column untuk sort harus dari daftar putih, dan <code>per_page</code> dibatasi. Jangan memasukkan input klien langsung ke <code>orderBy()</code>.
+Input di luar daftar putih atau melebihi batas dijawab <b>422</b>, tidak pernah masuk langsung ke <code>orderBy()</code>. Cursor pagination butuh urutan yang pasti, misalnya <code>orderBy('id')</code>.
 </div>
 
 ---
@@ -602,7 +703,7 @@ Column untuk sort harus dari daftar putih, dan <code>per_page</code> dibatasi. J
 
 ---
 
-## Versioning dan Performa
+## Versioning: API Berubah, Klien Lama Jangan Rusak
 
 | Perubahan | Merusak klien lama? |
 |---|---|
@@ -612,13 +713,40 @@ Column untuk sort harus dari daftar putih, dan <code>per_page</code> dibatasi. J
 | Menambah field wajib di request | **ya** |
 
 ```php
-Route::prefix('v1')->group(function () {          // /api/v1/articles
+Route::prefix('v1')->middleware(AddSunsetHeaders::class)->group(function () {   // /api/v1/...; perubahan merusak = /api/v2
     Route::apiResource('articles', ArticleController::class);
 });
+
+// php artisan make:middleware AddSunsetHeaders: tandai versi yang akan dihentikan
+$response = $next($request);
+$response->headers->set('Deprecation', 'true');
+$response->headers->set('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
+return $response;
 ```
 
-- Perubahan yang merusak = versi baru (`/api/v2`). Versi lama hidup sampai klien pindah, umumkan lewat header `Deprecation` dan `Sunset`
-- Response murah: `with('author')` (hindari N+1), `paginate()`, index pada column filter, `Cache-Control`/`ETag` (304), gzip
+---
+
+## Performa: Response yang Murah
+
+| Teknik | Efek |
+|---|---|
+| `with('author')` | menghindari N+1 saat relasi ikut dikirim |
+| `paginate()` + batas `per_page` | ukuran response terkendali |
+| index pada column filter dan sort | query tidak scan seluruh tabel |
+| gzip di web server | payload lebih kecil |
+| `ETag` | klien mengirim `If-None-Match`, server membalas **304** tanpa body |
+
+```php
+public function show(Request $request, Article $article)
+{
+    $response = response()->json(['data' => new ArticleResource($article)]);
+
+    $response->setEtag(md5($article->updated_at));    // sidik jari versi resource
+    $response->isNotModified($request);               // If-None-Match cocok: otomatis jadi 304 tanpa body
+
+    return $response;
+}
+```
 
 ---
 
@@ -628,7 +756,8 @@ Route::prefix('v1')->group(function () {          // /api/v1/articles
 - Bentuk JSON konsisten: `data`, `meta`, `links`. Error selalu `message` dan `errors`
 - API Resource menyaring field, `whenLoaded()` mencegah N+1
 - `paginate` atau `cursorPaginate` dengan batas `per_page`. Filter dan sort lewat query string dengan daftar putih
-- Prefix versi (`/v1`) untuk perubahan yang merusak. `shouldRenderJsonWhen` membuat error API selalu JSON
+- Prefix versi (`/v1`) dan header `Deprecation`/`Sunset` untuk perubahan yang merusak. `ETag` memberi 304 untuk response yang tidak berubah
+- `shouldRenderJsonWhen` membuat error API selalu JSON
 
 ---
 
@@ -690,6 +819,29 @@ return response()->json(['token' => $user->createToken('klien-mobile')->plainTex
 
 ---
 
+## Sanctum: Persiapan dan Alias Abilities
+
+```bash
+php artisan install:api      # memasang Sanctum, routes/api.php, dan migration tabel token
+php artisan migrate
+```
+
+```php
+// app/Models/User.php
+class User extends Authenticatable { use HasApiTokens, HasFactory, Notifiable; }   // use Laravel\Sanctum\HasApiTokens
+
+// bootstrap/app.php: use Laravel\Sanctum\Http\Middleware\{CheckAbilities, CheckForAnyAbility};
+$middleware->alias([
+    'abilities' => CheckAbilities::class,        // semua ability wajib ada
+    'ability' => CheckForAnyAbility::class,      // salah satu ability cukup
+]);
+```
+
+- Tanpa `HasApiTokens`, `createToken()` tidak ada. Tanpa alias, `abilities:...` dianggap middleware yang tidak dikenal
+- Cek di dalam kode: `$request->user()->tokenCan('articles:write')`
+
+---
+
 ## Melindungi Route dan Token Abilities
 
 ```php
@@ -708,40 +860,29 @@ $user->createToken('editor-app', ['articles:read', 'articles:write']);
 ```
 
 - Tanpa token yang valid: **401** sebelum sampai ke controller. Token tanpa ability cukup: **403**
-- Alias middleware `abilities` dan `ability` didaftarkan di `bootstrap/app.php`
+- Beri ability sekecil mungkin: bot laporan cukup `articles:read`
 
 ---
 
 ## Otorisasi: Token Valid Belum Berarti Boleh
 
-<div class="cols">
-<div>
-
-**Autentikasi**: siapa kamu?
-- Token valid, user ditemukan
-- Gagal: 401
-
-</div>
-<div>
-
-**Otorisasi**: boleh apa?
-- Policy, role, atau ability
-- Gagal: 403
-
-</div>
-</div>
+**Autentikasi** (siapa kamu?) gagal: **401**. **Otorisasi** (boleh apa? policy, role, ability) gagal: **403**.
 
 ```php
-public function update(Request $request, Article $article): ArticleResource
+// php artisan make:policy ArticlePolicy --model=Article   (terdeteksi otomatis dari namanya)
+// app/Policies/ArticlePolicy.php
+public function update(User $user, Article $article): bool
 {
-    $this->authorize('update', $article);     // ArticlePolicy: hanya penulisnya
-    $article->update($request->validated());
-    return new ArticleResource($article);
+    return $user->id === $article->user_id;               // hanya penulisnya
 }
+
+// controller: use Illuminate\Support\Facades\Gate;
+Gate::authorize('update', $article);                      // gagal: 403 otomatis
+$article->update($request->validated());
 ```
 
 - Policy dan role dari Pertemuan 7 dipakai ulang di API
-- Batasi query ke milik user: `$request->user()->articles()`, bukan `Article::find($id)` dari input klien (cegah IDOR)
+- Query milik user (`$request->user()->articles()`), bukan `Article::find($id)` dari input klien (cegah IDOR)
 
 ---
 
@@ -787,7 +928,7 @@ Token Sanctum secara default <b>tidak pernah kedaluwarsa</b>. Terlampaui rate li
 - Cek kepemilikan resource (IDOR)
 - Batasi `per_page` dan column untuk sort
 - Jangan kembalikan model mentah (`password`, `remember_token`)
-- CORS hanya untuk origin yang dikenal
+- CORS hanya untuk origin yang dikenal (`config:publish cors`)
 - Pesan error tidak membocorkan detail internal
 
 </div>
@@ -800,7 +941,7 @@ Token Sanctum secara default <b>tidak pernah kedaluwarsa</b>. Terlampaui rate li
 ## Ringkas Bagian 4
 
 - Web memakai sesi cookie, klien API memakai token Bearer (Sanctum: `createToken()`, `auth:sanctum`)
-- Autentikasi gagal = 401, otorisasi gagal = 403. Abilities membatasi token, policy membatasi aksi
+- Autentikasi gagal = 401, otorisasi gagal = 403. Abilities (alias middleware) membatasi token, `Policy` + `Gate::authorize` membatasi aksi
 - Cek kepemilikan resource lewat query milik user atau policy (cegah IDOR)
 - Atur masa berlaku token, sediakan pencabutan, dan pasang `throttle` (login lebih ketat)
 - HTTPS, `APP_DEBUG=false`, dan jangan kembalikan model mentah
@@ -868,7 +1009,7 @@ public function test_create_article_returns_created(): void
 
 ---
 
-## Klien HTTP: Status, Error, dan Retry
+## Klien HTTP: Periksa Status Sebelum Membaca Isi
 
 ```php
 $login = Http::post("{$baseUrl}/api/login", ['email' => $email, 'password' => $password]);
@@ -886,10 +1027,33 @@ match ($response->status()) {
 };
 ```
 
+<div class="warn-box">
+Klien yang langsung membaca <code>json('token')</code> tanpa memeriksa <code>failed()</code> gagal diam-diam: <code>$token</code> bernilai <code>null</code>, dan errornya baru meledak di tempat yang membingungkan.
+</div>
+
+---
+
+## Klien HTTP: Retry dan Backoff
+
+```php
+$when = fn ($e) => $e instanceof ConnectionException
+    || in_array($e->response->status(), [429, 502, 503, 504]);        // hanya error yang layak diulang
+
+// GET aman diulang: tunggu 1 detik, 2 detik, 3 detik (backoff)
+Http::withToken($token)->acceptJson()
+    ->retry(3, fn (int $attempt) => $attempt * 1000, $when, throw: false)
+    ->get("{$baseUrl}/api/v1/articles");
+
+// POST boleh diulang HANYA dengan idempotency key yang sama
+Http::withToken($token)->withHeaders(['Idempotency-Key' => $key])
+    ->retry(3, fn (int $attempt) => $attempt * 1000, $when, throw: false)
+    ->post("{$baseUrl}/api/v1/transactions", $payload);
+```
+
 | Jenis | Boleh diulang otomatis? |
 |---|---|
 | 4xx (kecuali 429) | tidak, request-nya yang salah |
-| 429, 503 | ya, setelah jeda (`Retry-After`) |
+| 429, 503 | ya, setelah jeda (baca `Retry-After`) |
 | 5xx pada `GET` | ya, dengan backoff. Pada `POST`: hanya dengan idempotency key |
 
 ---
@@ -1000,7 +1164,7 @@ Alpine.data('commentForm', (articleId) => ({
 
 - OpenAPI = kontrak yang bisa dibaca alat. Contract-first: tulis, sepakati, implementasi, uji
 - Uji dengan `getJson`, `postJson`, `Sanctum::actingAs`: minimal 401, 403, 422, dan jalur sukses
-- Klien memeriksa status sebelum membaca isi, dan hanya mengulang error yang boleh diulang
+- Klien memeriksa status sebelum membaca isi, dan hanya mengulang error yang boleh diulang (`retry()` dengan backoff, POST dengan idempotency key)
 - AJAX dari halaman sendiri memakai `web.php` + sesi + CSRF, bukan `api.php` + token
 - Kirim `Accept: application/json` dan `X-CSRF-TOKEN`, periksa `res.status`, dan nonaktifkan tombol saat request berjalan
 

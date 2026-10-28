@@ -391,8 +391,104 @@ GET  /comments/31                one comment (the ID is already unique)
 | `POST` | no | **no** |
 
 <div class="warn-box">
-A <code>POST /transactions</code> repeated after a timeout can create two transactions. The fix is an <b>idempotency key</b>: the client sends the header <code>Idempotency-Key: &lt;uuid&gt;</code> and the server returns the earlier result for the same key. Laravel doesn't provide it out of the box: store the key in a table with a unique index.
+A <code>POST /transactions</code> repeated after a timeout can create two transactions. The fix is an <b>idempotency key</b>: the concept, the client side, and the complete implementation are on the next three slides.
 </div>
+
+---
+
+## Idempotency Key: Flow and the Client Side
+
+<div class="flow">
+  <div class="box">Make a key</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">POST + header</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Store result</div>
+  <div class="arrow">&rarr;</div>
+  <div class="box">Retry: same</div>
+</div>
+
+| Request | Result |
+|---|---|
+| New key | processed, the result is stored |
+| Same key, same body | the old result is **replayed** (`Idempotent-Replayed: true`), no second record |
+| Same key, different body | **422**: a key must not be reused for another request |
+| Same key, first request still running | **409**: wait, then try again |
+
+```php
+$key = (string) Str::uuid();     // made ONCE per user action (JavaScript: crypto.randomUUID())
+
+Http::withToken($token)->withHeaders(['Idempotency-Key' => $key])
+    ->post("{$baseUrl}/api/v1/transactions", $payload);     // retries use the SAME key
+```
+
+---
+
+## Idempotency Key in Laravel (1/2): Table and Route
+
+```php
+// php artisan make:migration create_idempotency_keys_table
+Schema::create('idempotency_keys', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+    $table->string('key', 64);
+    $table->string('request_hash', 64);                              // fingerprint of the request body
+    $table->unsignedSmallInteger('response_status')->nullable();     // null = still processing
+    $table->longText('response_body')->nullable();
+    $table->timestamps();
+
+    $table->unique(['user_id', 'key']);                              // guard against simultaneous requests
+});
+```
+
+```php
+// php artisan make:model IdempotencyKey  (fill in $fillable)  and  php artisan make:middleware EnsureIdempotency
+// bootstrap/app.php
+$middleware->alias(['idempotent' => \App\Http\Middleware\EnsureIdempotency::class]);
+
+// routes/api.php
+Route::post('/transactions', [TransactionController::class, 'store'])->middleware('idempotent');
+```
+
+- Delete old keys periodically (for example after 24 hours) with `Prunable` and a scheduled `model:prune`
+
+---
+
+## Idempotency Key in Laravel (2/2): Middleware
+
+```php
+// use App\Models\IdempotencyKey; use Illuminate\Database\UniqueConstraintViolationException;
+public function handle(Request $request, Closure $next): Response
+{
+    $key = $request->header('Idempotency-Key');
+    if (! $key) {
+        return response()->json(['message' => 'The Idempotency-Key header is required.'], 400);
+    }
+
+    $userId = $request->user()->id;
+    $hash = hash('sha256', $request->getContent());
+
+    try {
+        $record = IdempotencyKey::create(['user_id' => $userId, 'key' => $key, 'request_hash' => $hash]);   // reserve the key
+    } catch (UniqueConstraintViolationException) {                                                         // key already exists
+        $record = IdempotencyKey::where('user_id', $userId)->where('key', $key)->firstOrFail();
+
+        if ($record->request_hash !== $hash) return response()->json(['message' => 'Key already used by another request.'], 422);
+        if ($record->response_status === null) return response()->json(['message' => 'Still processing.'], 409);
+
+        return response($record->response_body, $record->response_status)                                  // replay
+            ->header('Content-Type', 'application/json')->header('Idempotent-Replayed', 'true');
+    }
+
+    $response = $next($request);
+
+    $response->isSuccessful()
+        ? $record->update(['response_status' => $response->getStatusCode(), 'response_body' => $response->getContent()])
+        : $record->delete();                          // failed: free the key so the client may try again
+
+    return $response;
+}
+```
 
 ---
 
@@ -454,7 +550,7 @@ Don't create <code>POST /publishArticle</code>. Look for a noun or a status that
 
 - URL = plural noun, HTTP method = verb, nesting at most 2 levels
 - `apiResource` generates the 5 CRUD routes at once
-- `GET`, `PUT`, `DELETE` are safe to repeat. `POST` is not, unless it uses an idempotency key
+- `GET`, `PUT`, `DELETE` are safe to repeat. `POST` is not, unless it uses an idempotency key (client UUID, middleware stores and replays the result)
 - PUT replaces everything, PATCH changes part of it (validate with `sometimes`)
 - Non-CRUD actions: change a status or create a sub-resource, no verbs in the URL
 
@@ -566,15 +662,20 @@ class ArticleResource extends JsonResource   // php artisan make:resource Articl
 | **Data changing / very large** | can skip rows or slow down | stable and fast (needs an index) |
 
 ```php
+$request->validate([
+    'sort' => ['sometimes', 'in:title,-title,published_at,-published_at'],   // allow list
+    'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],              // upper limit
+]);
+$sort = $request->input('sort', '-published_at');
+
 Article::query()
-    ->when($request->status, fn ($q, $v) => $q->where('status', $v))        // ?status=published
-    ->when($request->q, fn ($q, $v) => $q->where('title', 'like', "%{$v}%"))
-    ->orderBy($sortColumn, $direction)                                       // ?sort=-published_at
-    ->paginate(min($request->integer('per_page', 15), 100));                 // cap per_page
+    ->when($request->status, fn ($q, $v) => $q->where('status', $v))                 // ?status=published
+    ->orderBy(ltrim($sort, '-'), str_starts_with($sort, '-') ? 'desc' : 'asc')       // ?sort=-published_at
+    ->paginate($request->integer('per_page', 15));        // cursor: ->orderBy('id')->cursorPaginate(15)
 ```
 
 <div class="warn-box">
-Sort columns must come from an allow list, and <code>per_page</code> must be capped. Never pass client input straight into <code>orderBy()</code>.
+Input outside the allow list or over the limit gets a <b>422</b> and never reaches <code>orderBy()</code>. Cursor pagination needs a deterministic order, for example <code>orderBy('id')</code>.
 </div>
 
 ---
@@ -602,7 +703,7 @@ Sort columns must come from an allow list, and <code>per_page</code> must be cap
 
 ---
 
-## Versioning and Performance
+## Versioning: The API Changes, Old Clients Must Not Break
 
 | Change | Breaks old clients? |
 |---|---|
@@ -612,13 +713,40 @@ Sort columns must come from an allow list, and <code>per_page</code> must be cap
 | Adding a required request field | **yes** |
 
 ```php
-Route::prefix('v1')->group(function () {          // /api/v1/articles
+Route::prefix('v1')->middleware(AddSunsetHeaders::class)->group(function () {   // /api/v1/...; breaking change = /api/v2
     Route::apiResource('articles', ArticleController::class);
 });
+
+// php artisan make:middleware AddSunsetHeaders: flag a version that will be retired
+$response = $next($request);
+$response->headers->set('Deprecation', 'true');
+$response->headers->set('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT');
+return $response;
 ```
 
-- A breaking change = a new version (`/api/v2`). The old version stays alive until clients move, announce it with the `Deprecation` and `Sunset` headers
-- Cheap responses: `with('author')` (avoid N+1), `paginate()`, indexes on filter columns, `Cache-Control`/`ETag` (304), gzip
+---
+
+## Performance: Cheap Responses
+
+| Technique | Effect |
+|---|---|
+| `with('author')` | avoids N+1 when relations are sent |
+| `paginate()` + `per_page` cap | keeps response size under control |
+| index on filter and sort columns | the query doesn't scan the whole table |
+| gzip on the web server | smaller payload |
+| `ETag` | the client sends `If-None-Match`, the server answers **304** with no body |
+
+```php
+public function show(Request $request, Article $article)
+{
+    $response = response()->json(['data' => new ArticleResource($article)]);
+
+    $response->setEtag(md5($article->updated_at));    // fingerprint of the resource version
+    $response->isNotModified($request);               // If-None-Match matches: automatically becomes 304 with no body
+
+    return $response;
+}
+```
 
 ---
 
@@ -628,7 +756,8 @@ Route::prefix('v1')->group(function () {          // /api/v1/articles
 - A consistent JSON shape: `data`, `meta`, `links`. Errors are always `message` and `errors`
 - API Resource filters fields, `whenLoaded()` prevents N+1
 - `paginate` or `cursorPaginate` with a `per_page` cap. Filter and sort through the query string with an allow list
-- A version prefix (`/v1`) for breaking changes. `shouldRenderJsonWhen` makes API errors always JSON
+- A version prefix (`/v1`) and `Deprecation`/`Sunset` headers for breaking changes. `ETag` gives a 304 for unchanged responses
+- `shouldRenderJsonWhen` makes API errors always JSON
 
 ---
 
@@ -690,6 +819,29 @@ return response()->json(['token' => $user->createToken('mobile-client')->plainTe
 
 ---
 
+## Sanctum: Setup and Ability Aliases
+
+```bash
+php artisan install:api      # installs Sanctum, routes/api.php, and the token table migration
+php artisan migrate
+```
+
+```php
+// app/Models/User.php
+class User extends Authenticatable { use HasApiTokens, HasFactory, Notifiable; }   // use Laravel\Sanctum\HasApiTokens
+
+// bootstrap/app.php: use Laravel\Sanctum\Http\Middleware\{CheckAbilities, CheckForAnyAbility};
+$middleware->alias([
+    'abilities' => CheckAbilities::class,        // all abilities are required
+    'ability' => CheckForAnyAbility::class,      // any one ability is enough
+]);
+```
+
+- Without `HasApiTokens`, `createToken()` doesn't exist. Without the aliases, `abilities:...` is an unknown middleware
+- Check inside code: `$request->user()->tokenCan('articles:write')`
+
+---
+
 ## Protecting Routes and Token Abilities
 
 ```php
@@ -708,40 +860,29 @@ $user->createToken('editor-app', ['articles:read', 'articles:write']);
 ```
 
 - No valid token: **401** before reaching the controller. A token without enough ability: **403**
-- The `abilities` and `ability` middleware aliases are registered in `bootstrap/app.php`
+- Give the smallest ability possible: a report bot only needs `articles:read`
 
 ---
 
 ## Authorization: A Valid Token Doesn't Mean Allowed
 
-<div class="cols">
-<div>
-
-**Authentication**: who are you?
-- The token is valid, the user is found
-- Failure: 401
-
-</div>
-<div>
-
-**Authorization**: allowed to do what?
-- Policy, role, or ability
-- Failure: 403
-
-</div>
-</div>
+**Authentication** (who are you?) failure: **401**. **Authorization** (allowed to do what? policy, role, ability) failure: **403**.
 
 ```php
-public function update(Request $request, Article $article): ArticleResource
+// php artisan make:policy ArticlePolicy --model=Article   (discovered automatically from its name)
+// app/Policies/ArticlePolicy.php
+public function update(User $user, Article $article): bool
 {
-    $this->authorize('update', $article);     // ArticlePolicy: only the author
-    $article->update($request->validated());
-    return new ArticleResource($article);
+    return $user->id === $article->user_id;               // only the author
 }
+
+// controller: use Illuminate\Support\Facades\Gate;
+Gate::authorize('update', $article);                      // failure: automatic 403
+$article->update($request->validated());
 ```
 
 - The policies and roles from Meeting 7 are reused in the API
-- Scope the query to the user's own data: `$request->user()->articles()`, not `Article::find($id)` from client input (prevents IDOR)
+- Scope the query to the user's own data (`$request->user()->articles()`), not `Article::find($id)` from client input (prevents IDOR)
 
 ---
 
@@ -787,7 +928,7 @@ By default Sanctum tokens <b>never expire</b>. Going over the rate limit: <b>429
 - Check resource ownership (IDOR)
 - Cap `per_page` and restrict sort columns
 - Never return raw models (`password`, `remember_token`)
-- CORS only for known origins
+- CORS only for known origins (`config:publish cors`)
 - Error messages that don't leak internals
 
 </div>
@@ -800,7 +941,7 @@ By default Sanctum tokens <b>never expire</b>. Going over the rate limit: <b>429
 ## Part 4 Summary
 
 - The web uses session cookies, API clients use a Bearer token (Sanctum: `createToken()`, `auth:sanctum`)
-- Failed authentication = 401, failed authorization = 403. Abilities limit a token, policies limit an action
+- Failed authentication = 401, failed authorization = 403. Abilities (middleware aliases) limit a token, a `Policy` + `Gate::authorize` limits an action
 - Check resource ownership through a user-scoped query or a policy (prevents IDOR)
 - Set token expiry, provide revocation, and add `throttle` (stricter on login)
 - HTTPS, `APP_DEBUG=false`, and never return raw models
@@ -868,7 +1009,7 @@ public function test_create_article_returns_created(): void
 
 ---
 
-## HTTP Client: Status, Errors, and Retries
+## HTTP Client: Check the Status Before Reading the Body
 
 ```php
 $login = Http::post("{$baseUrl}/api/login", ['email' => $email, 'password' => $password]);
@@ -886,10 +1027,33 @@ match ($response->status()) {
 };
 ```
 
+<div class="warn-box">
+A client that reads <code>json('token')</code> without checking <code>failed()</code> fails silently: <code>$token</code> is <code>null</code>, and the error only blows up somewhere confusing.
+</div>
+
+---
+
+## HTTP Client: Retry and Backoff
+
+```php
+$when = fn ($e) => $e instanceof ConnectionException
+    || in_array($e->response->status(), [429, 502, 503, 504]);        // only errors worth retrying
+
+// GET is safe to repeat: wait 1 second, 2 seconds, 3 seconds (backoff)
+Http::withToken($token)->acceptJson()
+    ->retry(3, fn (int $attempt) => $attempt * 1000, $when, throw: false)
+    ->get("{$baseUrl}/api/v1/articles");
+
+// POST may be retried ONLY with the same idempotency key
+Http::withToken($token)->withHeaders(['Idempotency-Key' => $key])
+    ->retry(3, fn (int $attempt) => $attempt * 1000, $when, throw: false)
+    ->post("{$baseUrl}/api/v1/transactions", $payload);
+```
+
 | Kind | May it be retried automatically? |
 |---|---|
 | 4xx (except 429) | no, the request itself is wrong |
-| 429, 503 | yes, after a pause (`Retry-After`) |
+| 429, 503 | yes, after a pause (read `Retry-After`) |
 | 5xx on `GET` | yes, with backoff. On `POST`: only with an idempotency key |
 
 ---
@@ -1000,7 +1164,7 @@ Alpine.data('commentForm', (articleId) => ({
 
 - OpenAPI = a contract tools can read. Contract-first: write, agree, implement, test
 - Test with `getJson`, `postJson`, `Sanctum::actingAs`: at least 401, 403, 422, and the success path
-- A client checks the status before reading the body, and only retries errors that may be retried
+- A client checks the status before reading the body, and only retries errors that may be retried (`retry()` with backoff, POST with an idempotency key)
 - AJAX from your own page uses `web.php` + session + CSRF, not `api.php` + token
 - Send `Accept: application/json` and `X-CSRF-TOKEN`, check `res.status`, and disable the button while the request runs
 
