@@ -9,13 +9,13 @@ di `outline.md`, dan templat rencana per bab di `chapter-plan-template.md`.
 
 > **Catatan konvensi:** dokumen ini adalah satu-satunya berkas dalam `book/`
 > yang boleh memuat kosakata RPS/CPMK/Sub-CPMK/SKS/kode mata kuliah/minggu
-> ke-. Berkas `.tex` mana pun, `outline.md`, `chapter-plan-template.md`, dan
+> ke-. Berkas `.typ` mana pun, `outline.md`, `chapter-plan-template.md`, dan
 > `docs/chapterNN.md` tidak pernah menyebut istilah tersebut (lihat "Aturan
 > Aman ISBN" di bawah dan di `authoring-guide.md`).
 
 ## Status Saat Ini
 
-**Perancah LaTeX sudah dibangun** (dokumen ini ditulis bersamaan dengan
+**Perancah Typst sudah dibangun** (naskah awalnya ditulis dalam LaTeX dan dikonversi ke Typst; riwayat git menyimpan versi `.tex`) (dokumen ini ditulis bersamaan dengan
 perancah, bukan mendahuluinya, berbeda dari `mobile/` yang menulis rencana
 lebih dulu). RPS sumber: `docs/rps-reference.md` (salinan verbatim dari
 `../../docs/RPS-PWL-aligned.md`, mata kuliah "Pemrograman Web Lanjut", kode
@@ -96,13 +96,13 @@ studi kasus fiktif baru, dengan alasan:
 ## Model Produksi Dwibahasa
 
 Mengadopsi arsitektur `mobile/` secara penuh:
-- `book-id.tex` (edisi Indonesia) dan `book-en.tex` (edisi Inggris), berbagi
-  satu `preamble.tex` dengan flag `\ifIndonesian` / `\ifEnglish`.
-- `chapters/{id,en}/chapterNN-topik.tex`, `frontmatter/{id,en}/`,
+- `book-id.typ` (edisi Indonesia) dan `book-en.typ` (edisi Inggris), berbagi
+  satu `template.typ` dan `i18n.typ` (bahasa dipilih lewat `book.with(lang: ...)`).
+- `chapters/{id,en}/chapterNN-topik.typ`, `frontmatter/{id,en}/`,
   `appendices/{id,en}/`.
-- `Makefile` dengan target penuh `id`/`en`/`both`, `quick-*`, `watch-*`,
-  `chapter` (build satu bab standalone via `scripts/build-chapter.sh`),
-  `checkerrors`, `checkref`, `wordcount`, `view-*`, `check-deps`.
+- `Makefile` dengan target `id`/`en`/`both`/`dist`, `watch-*`, `chapter`
+  dan `appendix` (build satu bab atau lampiran lepas lewat `standalone.typ`),
+  `wordcount`, `view-*`, `check-deps`.
 
 ## Rasional Empat Bagian
 

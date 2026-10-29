@@ -1,7 +1,6 @@
 # ========================================================================
-# Makefile untuk Kompilasi Buku LaTeX - Bilingual Support
-# "Laravel Praktis" / "Practical Laravel" - Menggunakan latexmk untuk
-# automasi kompilasi
+# Makefile untuk Kompilasi Buku (Typst) - Bilingual Support
+# "Laravel Praktis" / "Practical Laravel" - memakai typst compile
 # ========================================================================
 
 # File utama untuk setiap bahasa
@@ -14,9 +13,10 @@ BUILD_DIR = build
 # PDF Viewer
 VIEWER = zathura
 
-# latexmk configuration
-LATEXMK = latexmk
-LATEXMK_FLAGS = -pdf -bibtex -interaction=nonstopmode -file-line-error -outdir=$(BUILD_DIR)
+# Typst configuration: --root . lets every .typ file import "/template.typ";
+# fonts/ holds the bundled Font Awesome icons font.
+TYPST = typst
+TYPST_FLAGS = --root . --font-path fonts
 
 # Chapters list
 CHAPTERS = chapter01-arsitektur-web-modern \
@@ -34,8 +34,8 @@ CHAPTERS = chapter01-arsitektur-web-modern \
 
 # Appendix filenames differ per language (translated slugs), so each list is
 # derived from what actually exists in appendices/<lang>/ rather than hardcoded.
-APPENDICES_ID = $(notdir $(basename $(wildcard appendices/id/*.tex)))
-APPENDICES_EN = $(notdir $(basename $(wildcard appendices/en/*.tex)))
+APPENDICES_ID = $(notdir $(basename $(wildcard appendices/id/*.typ)))
+APPENDICES_EN = $(notdir $(basename $(wildcard appendices/en/*.typ)))
 
 # ========================================================================
 # Target Utama
@@ -43,7 +43,7 @@ APPENDICES_EN = $(notdir $(basename $(wildcard appendices/en/*.tex)))
 
 .PHONY: all id en both dist \
         clean cleanall view view-id view-en watch watch-id watch-en \
-        quick quick-id quick-en checkerrors checkref wordcount help check-deps \
+        wordcount help check-deps \
         chapters chapters-id chapters-en chapter \
         appendices appendices-id appendices-en appendix \
         secure secure-id secure-en
@@ -51,83 +51,57 @@ APPENDICES_EN = $(notdir $(basename $(wildcard appendices/en/*.tex)))
 # Default target - build Indonesian version (backward compatibility)
 all: id
 
-# Build Indonesian version
 id: $(BUILD_DIR)/$(BOOK_ID).pdf
 
-# Build English version
 en: $(BUILD_DIR)/$(BOOK_EN).pdf
 
-# Build both versions
 both: id en
 
 # Build everything: full books, every chapter, every appendix, both languages
 dist: both chapters appendices
 
-SOURCES_ID = $(BOOK_ID).tex preamble.tex references.bib \
-             $(wildcard chapters/id/*.tex) $(wildcard frontmatter/id/*.tex) \
-             $(wildcard appendices/id/*.tex)
-SOURCES_EN = $(BOOK_EN).tex preamble.tex references.bib \
-             $(wildcard chapters/en/*.tex) $(wildcard frontmatter/en/*.tex) \
-             $(wildcard appendices/en/*.tex)
+COMMON = template.typ i18n.typ icons.typ diagrams.typ references.bib \
+         $(wildcard fonts/*)
+
+SOURCES_ID = $(BOOK_ID).typ $(COMMON) \
+             $(wildcard chapters/id/*.typ) $(wildcard frontmatter/id/*.typ) \
+             $(wildcard appendices/id/*.typ)
+SOURCES_EN = $(BOOK_EN).typ $(COMMON) \
+             $(wildcard chapters/en/*.typ) $(wildcard frontmatter/en/*.typ) \
+             $(wildcard appendices/en/*.typ)
 
 # Kompilasi Indonesian PDF
-# A cold build's latexmk invocation can report a nonzero exit from a
-# biber/makeindex rerun race even though it fully converged and wrote a
-# complete PDF within that same invocation. A second latexmk call does NOT
-# fix this: latexmk remembers "a previous invocation failed" and re-reports
-# a nonzero exit even when it does zero work and confirms the file is
-# up-to-date. So instead of retrying, treat "the PDF exists and was
-# (re)written during this invocation" (newer than the pre-run marker) as
-# the real success signal, and only fail the build when that is false.
 $(BUILD_DIR)/$(BOOK_ID).pdf: $(SOURCES_ID)
 	@mkdir -p $(BUILD_DIR)
 	@echo "========================================="
-	@echo "Kompilasi versi Indonesia dengan latexmk"
+	@echo "Kompilasi versi Indonesia dengan typst"
 	@echo "========================================="
-	@touch $(BUILD_DIR)/.book-id-marker
-	@$(LATEXMK) $(LATEXMK_FLAGS) $(BOOK_ID).tex || \
-		{ [ -f $(BUILD_DIR)/$(BOOK_ID).pdf ] && [ $(BUILD_DIR)/$(BOOK_ID).pdf -nt $(BUILD_DIR)/.book-id-marker ] && \
-		  echo "latexmk exited nonzero but wrote a complete PDF this run (known transient biber/makeindex race); continuing."; }
-	@rm -f $(BUILD_DIR)/.book-id-marker
-	@test -f $(BUILD_DIR)/$(BOOK_ID).pdf
-	@echo "========================================="
-	@echo "Kompilasi selesai! File: $(BUILD_DIR)/$(BOOK_ID).pdf"
-	@echo "========================================="
+	$(TYPST) compile $(TYPST_FLAGS) $(BOOK_ID).typ $@
+	@echo "Kompilasi selesai! File: $@"
 
 # Kompilasi English PDF
 $(BUILD_DIR)/$(BOOK_EN).pdf: $(SOURCES_EN)
 	@mkdir -p $(BUILD_DIR)
 	@echo "========================================="
-	@echo "Compiling English version with latexmk"
+	@echo "Compiling English version with typst"
 	@echo "========================================="
-	@touch $(BUILD_DIR)/.book-en-marker
-	@$(LATEXMK) $(LATEXMK_FLAGS) $(BOOK_EN).tex || \
-		{ [ -f $(BUILD_DIR)/$(BOOK_EN).pdf ] && [ $(BUILD_DIR)/$(BOOK_EN).pdf -nt $(BUILD_DIR)/.book-en-marker ] && \
-		  echo "latexmk exited nonzero but wrote a complete PDF this run (known transient biber/makeindex race); continuing."; }
-	@rm -f $(BUILD_DIR)/.book-en-marker
-	@test -f $(BUILD_DIR)/$(BOOK_EN).pdf
-	@echo "========================================="
-	@echo "Compilation complete! File: $(BUILD_DIR)/$(BOOK_EN).pdf"
-	@echo "========================================="
+	$(TYPST) compile $(TYPST_FLAGS) $(BOOK_EN).typ $@
+	@echo "Compilation complete! File: $@"
 
 # Build all chapters individually for both languages
 chapters: chapters-id chapters-en
 
-# Build all Indonesian chapters individually
 chapters-id:
 	@echo "Building all Indonesian chapters..."
 	@for chapter in $(CHAPTERS); do \
-		echo "Building ID chapter: $$chapter"; \
-		./scripts/build-standalone.sh id chapter $$chapter || exit 1; \
+		$(MAKE) --no-print-directory chapter LANG=id CHAPTER=$$chapter || exit 1; \
 	done
 	@echo "All Indonesian chapters built in $(BUILD_DIR)/chapters/id/"
 
-# Build all English chapters individually
 chapters-en:
 	@echo "Building all English chapters..."
 	@for chapter in $(CHAPTERS); do \
-		echo "Building EN chapter: $$chapter"; \
-		./scripts/build-standalone.sh en chapter $$chapter || exit 1; \
+		$(MAKE) --no-print-directory chapter LANG=en CHAPTER=$$chapter || exit 1; \
 	done
 	@echo "All English chapters built in $(BUILD_DIR)/chapters/en/"
 
@@ -137,26 +111,28 @@ chapter:
 		echo "Usage: make chapter LANG=<id|en> CHAPTER=<chapter-name>"; \
 		exit 1; \
 	fi
-	./scripts/build-standalone.sh $(LANG) chapter $(CHAPTER)
+	@if [ ! -f chapters/$(LANG)/$(CHAPTER).typ ]; then \
+		echo "Error: chapters/$(LANG)/$(CHAPTER).typ not found"; exit 1; \
+	fi
+	@mkdir -p $(BUILD_DIR)/chapters/$(LANG)
+	$(TYPST) compile $(TYPST_FLAGS) \
+		--input lang=$(LANG) --input kind=chapter --input name=$(CHAPTER) \
+		standalone.typ $(BUILD_DIR)/chapters/$(LANG)/$(CHAPTER).pdf
 
 # Build all appendices individually for both languages
 appendices: appendices-id appendices-en
 
-# Build all Indonesian appendices individually
 appendices-id:
 	@echo "Building all Indonesian appendices..."
 	@for appendix in $(APPENDICES_ID); do \
-		echo "Building ID appendix: $$appendix"; \
-		./scripts/build-standalone.sh id appendix $$appendix || exit 1; \
+		$(MAKE) --no-print-directory appendix LANG=id APPENDIX=$$appendix || exit 1; \
 	done
 	@echo "All Indonesian appendices built in $(BUILD_DIR)/appendices/id/"
 
-# Build all English appendices individually
 appendices-en:
 	@echo "Building all English appendices..."
 	@for appendix in $(APPENDICES_EN); do \
-		echo "Building EN appendix: $$appendix"; \
-		./scripts/build-standalone.sh en appendix $$appendix || exit 1; \
+		$(MAKE) --no-print-directory appendix LANG=en APPENDIX=$$appendix || exit 1; \
 	done
 	@echo "All English appendices built in $(BUILD_DIR)/appendices/en/"
 
@@ -166,109 +142,56 @@ appendix:
 		echo "Usage: make appendix LANG=<id|en> APPENDIX=<appendix-name>"; \
 		exit 1; \
 	fi
-	./scripts/build-standalone.sh $(LANG) appendix $(APPENDIX)
-
-# Kompilasi cepat (single pass)
-quick: quick-id
-
-quick-id:
-	@mkdir -p $(BUILD_DIR)
-	@echo "Kompilasi cepat versi Indonesia..."
-	$(LATEXMK) -pdf -interaction=nonstopmode -outdir=$(BUILD_DIR) $(BOOK_ID).tex
-
-quick-en:
-	@mkdir -p $(BUILD_DIR)
-	@echo "Quick compile English version..."
-	$(LATEXMK) -pdf -interaction=nonstopmode -outdir=$(BUILD_DIR) $(BOOK_EN).tex
+	@if [ ! -f appendices/$(LANG)/$(APPENDIX).typ ]; then \
+		echo "Error: appendices/$(LANG)/$(APPENDIX).typ not found"; exit 1; \
+	fi
+	@mkdir -p $(BUILD_DIR)/appendices/$(LANG)
+	$(TYPST) compile $(TYPST_FLAGS) \
+		--input lang=$(LANG) --input kind=appendix --input name=$(APPENDIX) \
+		standalone.typ $(BUILD_DIR)/appendices/$(LANG)/$(APPENDIX).pdf
 
 # Watch mode - kompilasi otomatis saat file berubah
 watch: watch-id
 
 watch-id:
 	@mkdir -p $(BUILD_DIR)
-	@echo "========================================="
-	@echo "Mode Watch Indonesia - Kompilasi otomatis aktif"
-	@echo "Tekan Ctrl+C untuk berhenti"
-	@echo "========================================="
-	$(LATEXMK) -pdf -bibtex -pvc -interaction=nonstopmode -outdir=$(BUILD_DIR) $(BOOK_ID).tex
+	@echo "Mode Watch Indonesia - Kompilasi otomatis aktif (Ctrl+C untuk berhenti)"
+	$(TYPST) watch $(TYPST_FLAGS) $(BOOK_ID).typ $(BUILD_DIR)/$(BOOK_ID).pdf
 
 watch-en:
 	@mkdir -p $(BUILD_DIR)
-	@echo "========================================="
-	@echo "Watch Mode English - Auto-compilation active"
-	@echo "Press Ctrl+C to stop"
-	@echo "========================================="
-	$(LATEXMK) -pdf -bibtex -pvc -interaction=nonstopmode -outdir=$(BUILD_DIR) $(BOOK_EN).tex
+	@echo "Watch Mode English - Auto-compilation active (Ctrl+C to stop)"
+	$(TYPST) watch $(TYPST_FLAGS) $(BOOK_EN).typ $(BUILD_DIR)/$(BOOK_EN).pdf
 
-# Bersihkan file temporary (aux/log/dll di build/, PDF tetap disimpan)
-clean:
-	@echo "Membersihkan file temporary..."
-	$(LATEXMK) -c -outdir=$(BUILD_DIR) $(BOOK_ID).tex $(BOOK_EN).tex
-	@echo "File temporary telah dibersihkan."
-
-# Bersihkan semua file termasuk PDF dan seluruh direktori build/
-cleanall:
+# Hapus semua output build
+clean cleanall:
 	@echo "Menghapus semua file output..."
-	$(LATEXMK) -C -outdir=$(BUILD_DIR) $(BOOK_ID).tex $(BOOK_EN).tex
 	rm -rf $(BUILD_DIR)/
-	rm -rf output/
 	@echo "Semua file output telah dihapus."
 
 # Buka PDF dengan viewer
 view: view-id
 
 view-id: $(BUILD_DIR)/$(BOOK_ID).pdf
-	@echo "Membuka PDF Indonesia dengan $(VIEWER)..."
 	@if command -v $(VIEWER) > /dev/null; then \
 		$(VIEWER) $(BUILD_DIR)/$(BOOK_ID).pdf & \
 	else \
 		echo "Error: $(VIEWER) tidak ditemukan!"; \
-		echo "Install dengan: sudo apt install zathura"; \
 		exit 1; \
 	fi
 
 view-en: $(BUILD_DIR)/$(BOOK_EN).pdf
-	@echo "Opening English PDF with $(VIEWER)..."
 	@if command -v $(VIEWER) > /dev/null; then \
 		$(VIEWER) $(BUILD_DIR)/$(BOOK_EN).pdf & \
 	else \
 		echo "Error: $(VIEWER) not found!"; \
-		echo "Install with: sudo apt install zathura"; \
 		exit 1; \
 	fi
 
-# Cek error di log files
-checkerrors:
-	@echo "Memeriksa error di log files..."
-	@for logfile in $(BUILD_DIR)/$(BOOK_ID).log $(BUILD_DIR)/$(BOOK_EN).log; do \
-		if [ -f $$logfile ]; then \
-			echo "=== $$logfile ==="; \
-			grep -i "error\|warning" $$logfile || echo "Tidak ada error atau warning."; \
-		fi; \
-	done
-
-# Validasi referensi
-checkref:
-	@echo "Memeriksa referensi yang tidak terdefinisi..."
-	@for logfile in $(BUILD_DIR)/$(BOOK_ID).log $(BUILD_DIR)/$(BOOK_EN).log; do \
-		if [ -f $$logfile ]; then \
-			echo "=== $$logfile ==="; \
-			grep "undefined" $$logfile || echo "Semua referensi terdefinisi."; \
-		fi; \
-	done
-
-# Word count
-wordcount:
-	@echo "Menghitung jumlah kata..."
-	@if command -v texcount > /dev/null; then \
-		echo "=== Indonesian Version ==="; \
-		texcount -inc -total $(BOOK_ID).tex; \
-		echo ""; \
-		echo "=== English Version ==="; \
-		texcount -inc -total $(BOOK_EN).tex; \
-	else \
-		echo "texcount tidak ditemukan. Install: sudo apt install texlive-extra-utils"; \
-	fi
+# Word count (dari teks PDF hasil build)
+wordcount: both
+	@echo "=== Indonesian Version ===" && pdftotext $(BUILD_DIR)/$(BOOK_ID).pdf - | wc -w
+	@echo "=== English Version ===" && pdftotext $(BUILD_DIR)/$(BOOK_EN).pdf - | wc -w
 
 # ========================================================================
 # PDF Protection (print/copy/edit restrictions via Ghostscript)
@@ -313,56 +236,23 @@ secure-en: $(BUILD_DIR)/$(BOOK_EN).pdf
 
 # Check dependencies
 check-deps:
-	@echo "========================================="
 	@echo "Memeriksa dependensi..."
-	@echo "========================================="
-	@command -v pdflatex >/dev/null 2>&1 || { echo "pdflatex tidak ditemukan"; exit 1; }
-	@echo "pdflatex ditemukan"
-	@command -v biber >/dev/null 2>&1 || { echo "biber tidak ditemukan"; exit 1; }
-	@echo "biber ditemukan"
-	@command -v latexmk >/dev/null 2>&1 || { echo "latexmk tidak ditemukan"; exit 1; }
-	@echo "latexmk ditemukan"
-	@command -v $(VIEWER) >/dev/null 2>&1 || { echo "$(VIEWER) tidak ditemukan (opsional)"; }
-	@command -v $(VIEWER) >/dev/null 2>&1 && echo "$(VIEWER) ditemukan"
-	@echo "========================================="
+	@command -v $(TYPST) >/dev/null 2>&1 || { echo "typst tidak ditemukan (https://typst.app)"; exit 1; }
+	@echo "typst ditemukan: $$($(TYPST) --version)"
+	@$(TYPST) fonts --font-path fonts | grep -qi "Times New Roman" || { echo "font Times New Roman tidak ditemukan"; exit 1; }
+	@echo "font Times New Roman ditemukan"
+	@$(TYPST) fonts --font-path fonts | grep -qi "Font Awesome 6 Free Solid" || { echo "font Font Awesome (fonts/) tidak ditemukan"; exit 1; }
+	@echo "font Font Awesome ditemukan"
+	@echo "Catatan: kompilasi pertama mengunduh paket Typst (cetz, in-dexter) dan butuh internet."
+	@command -v $(VIEWER) >/dev/null 2>&1 || echo "$(VIEWER) tidak ditemukan (opsional)"
 	@echo "Semua dependensi wajib tersedia!"
-	@echo "========================================="
 
-# Help
 help:
-	@echo "========================================="
-	@echo "Makefile untuk Kompilasi Buku LaTeX (Bilingual)"
-	@echo "========================================="
-	@echo ""
-	@echo "Target yang tersedia:"
-	@echo "  make (atau make all)  - Kompilasi versi Indonesia (default)"
-	@echo "  make id               - Kompilasi versi Indonesia"
-	@echo "  make en               - Kompilasi versi English"
-	@echo "  make both             - Kompilasi kedua versi"
-	@echo "  make dist             - Kompilasi buku utuh + semua bab + semua lampiran (ID & EN)"
-	@echo "  make quick-id         - Kompilasi cepat Indonesia"
-	@echo "  make quick-en         - Kompilasi cepat English"
-	@echo "  make watch-id         - Watch mode Indonesia"
-	@echo "  make watch-en         - Watch mode English"
-	@echo ""
-	@echo "  make clean            - Hapus file temporary di build/ (PDF tetap ada)"
-	@echo "  make cleanall         - Hapus seluruh direktori build/ termasuk PDF"
-	@echo "  make view-id          - Buka PDF Indonesia"
-	@echo "  make view-en          - Buka PDF English"
-	@echo "  make checkerrors      - Cek error di log files"
-	@echo "  make checkref         - Cek referensi undefined"
-	@echo "  make wordcount        - Hitung jumlah kata kedua versi"
-	@echo "  make check-deps       - Periksa dependensi"
-	@echo "  make chapters         - Build semua bab (ID & EN) sebagai PDF terpisah"
-	@echo "  make chapter LANG=<id|en> CHAPTER=<name> - Build satu bab"
-	@echo "  make appendices       - Build semua lampiran (ID & EN) sebagai PDF terpisah"
-	@echo "  make appendix LANG=<id|en> APPENDIX=<name> - Build satu lampiran"
-	@echo "  make secure           - Buat versi PDF terproteksi (ID & EN)"
-	@echo "  make help             - Tampilkan bantuan ini"
-	@echo ""
-	@echo "Output files (semua di bawah $(BUILD_DIR)/):"
-	@echo "  $(BUILD_DIR)/$(BOOK_ID).pdf              - Buku utuh, versi Indonesia"
-	@echo "  $(BUILD_DIR)/$(BOOK_EN).pdf              - Buku utuh, versi English"
-	@echo "  $(BUILD_DIR)/chapters/<lang>/*.pdf     - Bab lepas per bahasa"
-	@echo "  $(BUILD_DIR)/appendices/<lang>/*.pdf   - Lampiran lepas per bahasa"
-	@echo ""
+	@echo "make id | en | both        build the full book (build/book-<lang>.pdf)"
+	@echo "make dist                  full books + every chapter + every appendix"
+	@echo "make chapter LANG=id CHAPTER=chapter01-arsitektur-web-modern"
+	@echo "make appendix LANG=en APPENDIX=installation-guide"
+	@echo "make chapters | appendices build all standalone chapters / appendices"
+	@echo "make watch-id | watch-en   rebuild on change"
+	@echo "make secure                protected PDFs (needs .secure-password)"
+	@echo "make clean                 remove build/"

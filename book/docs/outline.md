@@ -120,7 +120,7 @@ sudah ada, bukan increment tersendiri.
 Diadopsi dari konvensi `mobile/docs/authoring-guide.md`. Buku diposisikan
 sebagai buku referensi/teks komersial, bukan materi ajar internal. Kosakata
 kurikulum internal **hanya** boleh muncul di `book-plan.md`
-(lihat catatan konvensi di berkas tersebut); berkas ini dan seluruh `.tex`
+(lihat catatan konvensi di berkas tersebut); berkas ini dan seluruh `.typ`
 tidak pernah memakainya:
 
 | Hindari | Gunakan |
