@@ -1,25 +1,3 @@
-# LaTeX build artifacts
-*.aux
-*.log
-*.out
-*.toc
-*.lof
-*.lot
-*.bbl
-*.bcf
-*.blg
-*.run.xml
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-*.idx
-*.ind
-*.ilg
-*.lol
-*.nav
-*.snm
-*.vrb
-
 # Build output
 build/
 output/
